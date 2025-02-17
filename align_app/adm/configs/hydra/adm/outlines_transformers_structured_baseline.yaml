@@ -1,0 +1,13 @@
+instance:
+  _target_: align_system.algorithms.outlines_adm.OutlinesTransformersADM
+
+  model_name: mistralai/Mistral-7B-Instruct-v0.2
+  baseline: true
+  mode: demo
+  sampler:
+    _target_: outlines.samplers.GreedySampler
+
+demo_kwargs:
+  max_generator_tokens: 8092
+  generator_seed: 2
+  shuffle_choices: False
