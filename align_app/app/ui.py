@@ -1,5 +1,5 @@
 from trame.ui.vuetify3 import SinglePageLayout
-from trame.widgets import vuetify3
+from trame.widgets import vuetify3, html
 
 
 def reload(m=None):
@@ -31,10 +31,30 @@ class AlignLayout(SinglePageLayout):
 
             # Main content
             with layout.content:
-                with vuetify3.VContainer(fluid=True, classes="pa-0 fill-height"):
-                    with vuetify3.VRow(classes="fill-height"):
-                        with vuetify3.VCol(cols=12, classes="pa-0 fill-height"):
-                            vuetify3.VTextarea(
-                                v_model=("prompt",),
-                                label="Prompt",
-                            )
+                with vuetify3.VContainer(fluid=True, classes="fill-height"):
+                    with vuetify3.VCol(
+                        cols=12, classes="d-flex flex-column fill-height"
+                    ):
+                        with html.Div(classes="flex-grow-1"):
+                            with html.Div(
+                                classes="flex-grow-1",
+                                v_for=("chat in output",),
+                                key="output",
+                            ):
+                                html.Div("{{chat}}")
+                        with html.Div(classes="mt-auto"):
+                            with vuetify3.VCard():
+                                with vuetify3.VCardText():
+                                    vuetify3.VTextarea(
+                                        v_model=("prompt",),
+                                        placeholder="Enter prompt",
+                                        variant="underlined",
+                                        auto_grow=True,
+                                        max_rows=10,
+                                        hide_details="auto",
+                                    )
+                                with vuetify3.VCardActions():
+                                    with vuetify3.VBtn(
+                                        click=self.controller.submit_prompt
+                                    ):
+                                        vuetify3.VIcon("mdi-send")
