@@ -33,11 +33,10 @@ class AlignLayout(SinglePageLayout):
             with layout.content:
                 with vuetify3.VContainer(fluid=True, classes="fill-height"):
                     with vuetify3.VCol(
-                        cols=12, classes="d-flex flex-column fill-height"
+                        cols=12, classes="fill-height d-flex flex-column"
                     ):
-                        with html.Div(classes="flex-grow-1"):
+                        with html.Div(classes="flex-grow-1 d-flex flex-column ga-4"):
                             with html.Div(
-                                classes="flex-grow-1",
                                 v_for=("chat in output",),
                                 key="output",
                             ):
