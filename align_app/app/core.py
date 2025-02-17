@@ -24,6 +24,15 @@ class AlignApp:
     @controller.set("reset_state")
     def reset_state(self):
         self.state.prompt = "This is a test prompt and only a test prompt."
+        self.state.output = ["This is a test output and only a test output."]
+
+    @controller.set("submit_prompt")
+    def submit_prompt(self):
+        self.state.output = self.state.output = [
+            *self.state.output,
+            f"Processed: {self.state.prompt}",
+        ]
+        self.state.prompt = "moar text"
 
     def _build_ui(self, *args, **kwargs):
         extra_args = {}
