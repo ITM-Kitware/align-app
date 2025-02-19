@@ -1,7 +1,7 @@
 from trame.app import get_server
 from trame.decorators import TrameApp, controller
 from . import ui
-from ..adm.decider import get_decision
+from ..adm.decider import get_prompt, get_decision
 
 
 @TrameApp()
@@ -22,14 +22,18 @@ class AlignApp:
     def ctrl(self):
         return self.server.controller
 
+    def update_prompt(self):
+        self._prompt = get_prompt()
+        self.state.prompt = repr(self._prompt["system_prompt"])
+
     @controller.set("reset_state")
     def reset_state(self):
-        self.state.prompt = ""
+        self.update_prompt()
         self.state.output = []
 
     @controller.set("submit_prompt")
     def submit_prompt(self):
-        decision = get_decision(self.state.prompt)
+        decision = get_decision(self._prompt)
         self.state.output = self.state.output = [
             *self.state.output,
             decision,
