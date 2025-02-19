@@ -80,7 +80,10 @@ def get_probe_ids(scenarios):
     return probe_ids
 
 
-def load_prompt(decider, alignment_target, scenarios, probe_id):
+def compose_system_prompt(decider, structured_prompt):
+    alignment_target = structured_prompt["alignment_target"]
+    scenarios = structured_prompt["scenarios"]
+    probe_id = structured_prompt["probe_id"]
     for scenario in scenarios:
         state, actions = hydrate_scenario_state(scenario)
         actions_filtered = filter_actions(state, actions)
@@ -114,17 +117,22 @@ def load_prompt(decider, alignment_target, scenarios, probe_id):
         for section in prompt_sections
         if re.findall(r"-[A-za-z\s]*\n", section) == []
     )
-    action_choices = [
-        section
-        for section in prompt_sections
-        if re.findall(r"-[A-za-z\s]*\n", section) != []
-    ]
+    # action_choices = [
+    #     section
+    #     for section in prompt_sections
+    #     if re.findall(r"-[A-za-z\s]*\n", section) != []
+    # ]
 
-    return {"prompt": prompt, "action_choices": action_choices[0]}
+    return prompt
 
 
-def run_model(decider, alignment_target, scenarios, prompt, probe_id):
-    system_prompt = prompt["prompt"]
+def run_model(decider, prompt):
+    structured_prompt = prompt["structured_prompt"]
+    alignment_target = structured_prompt["alignment_target"]
+    scenarios = structured_prompt["scenarios"]
+    probe_id = structured_prompt["probe_id"]
+
+    system_prompt = prompt["system_prompt"]
     # available_actions = prompt["action_choices"]
     for scenario in scenarios:
         state, actions = hydrate_scenario_state(scenario)
@@ -211,17 +219,28 @@ def get_decider():
     return decider
 
 
-def get_decision(prompt):
-    decider = get_decider()
-
+def get_structured_prompt():
     alignment_target = load_alignment_target()
     evaluation_file = list_json_files(oracles)[0]
     scenarios = load_scenarios(evaluation_file)
     first_scenarios = next(iter(scenarios.values()))
     probe_ids = get_probe_ids(first_scenarios)
     probe_id = probe_ids[0]
+    return {
+        "alignment_target": alignment_target,
+        "scenarios": first_scenarios,
+        "probe_id": probe_id,
+    }
 
-    prompt = load_prompt(decider, alignment_target, first_scenarios, probe_id)
 
-    decision = run_model(decider, alignment_target, first_scenarios, prompt, probe_id)
+def get_prompt():
+    structured_prompt = get_structured_prompt()
+    system_prompt = compose_system_prompt(decider, structured_prompt)
+    return {"system_prompt": system_prompt, "structured_prompt": structured_prompt}
+
+
+def get_decision(prompt):
+    decider = get_decider()
+
+    decision = run_model(decider, prompt)
     return decision
