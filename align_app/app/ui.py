@@ -7,6 +7,14 @@ def reload(m=None):
         m.__loader__.exec_module(m)
 
 
+class Decision(html.Div):
+    def __init__(self, decision, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            html.H3(f"{{{{{decision}.unstructured}}}}")
+            html.Pre(f"{{{{{decision}}}}}")
+
+
 class AlignLayout(SinglePageLayout):
     def __init__(
         self,
@@ -17,10 +25,9 @@ class AlignLayout(SinglePageLayout):
         super().__init__(server, **kwargs)
 
         self.state.trame__title = "align-app"
+        self.title.set_text("Align App")
 
-        with SinglePageLayout(self.server) as layout:
-            # Toolbar
-            layout.title.set_text("Align App")
+        with self as layout:
             with layout.toolbar:
                 vuetify3.VSpacer()
                 if reload:
@@ -29,7 +36,6 @@ class AlignLayout(SinglePageLayout):
                 with vuetify3.VBtn(icon=True, click=self.controller.reset_state):
                     vuetify3.VIcon("mdi-undo")
 
-            # Main content
             with layout.content:
                 with vuetify3.VContainer(fluid=True, classes="fill-height"):
                     with vuetify3.VCol(
@@ -37,10 +43,9 @@ class AlignLayout(SinglePageLayout):
                     ):
                         with html.Div(classes="flex-grow-1 d-flex flex-column ga-4"):
                             with html.Div(
-                                v_for=("chat in output",),
-                                key="output",
+                                v_for=("decision in output",),
                             ):
-                                html.Div("{{chat}}")
+                                Decision("decision")
                         with html.Div(classes="mt-auto"):
                             with vuetify3.VCard():
                                 with vuetify3.VCardText():
