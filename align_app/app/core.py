@@ -1,7 +1,7 @@
 from trame.app import get_server
 from trame.decorators import TrameApp, controller
 from . import ui
-from ..adm.decider import get_prompt, get_decision, readable_scenario
+from ..adm.decider import get_prompt, get_decision, readable_scenario, serialize_prompt
 
 
 @TrameApp()
@@ -34,10 +34,10 @@ class AlignApp:
     @controller.set("submit_prompt")
     def submit_prompt(self):
         decision = get_decision(self._prompt)
-        readable_decision = repr(decision)
+        result = {"prompt": serialize_prompt(self._prompt), "decision": decision}
         self.state.output = [
             *self.state.output,
-            readable_decision,
+            result,
         ]
         self.update_prompt()
 
