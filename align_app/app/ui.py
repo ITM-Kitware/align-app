@@ -7,12 +7,64 @@ def reload(m=None):
         m.__loader__.exec_module(m)
 
 
+class UnorderedObject(html.Ul):
+    def __init__(self, obj, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with html.Li(v_for=(f"[key, value] in Object.entries({obj})",)):
+                html.Span("{{key}}: ", style="font-weight: bold")
+                html.Span("{{value}}")
+
+
+class Prompt(html.Div):
+    def __init__(self, prompt, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                with vuetify3.VExpansionPanel():
+                    with vuetify3.VExpansionPanelTitle():
+                        with html.Div(classes="text-h5 text-no-wrap text-truncate"):
+                            html.Span("Scenario ID: ", classes="font-weight-bold")
+                            html.Span(
+                                f"{{{{{prompt}.scenario.scenario_id}}}} - "
+                                f"{{{{{prompt}.scenario.full_state.unstructured}}}}",
+                            )
+                    with vuetify3.VExpansionPanelText():
+                        html.P(
+                            f"{{{{{prompt}.scenario.full_state.unstructured}}}}",
+                            classes=" text-subtitle-1 pb-4",
+                        )
+                        UnorderedObject(f"{prompt}.scenario")
+                with vuetify3.VExpansionPanel():
+                    with vuetify3.VExpansionPanelTitle():
+                        with html.Div(classes="text-h5 text-no-wrap text-truncate"):
+                            html.Span("Alignment Target: ", classes="font-weight-bold")
+                            html.Span(f"{{{{{prompt}.alignment_target.id}}}}")
+                    with vuetify3.VExpansionPanelText():
+                        UnorderedObject(f"{prompt}.alignment_target")
+
+
 class Decision(html.Div):
     def __init__(self, decision, **kwargs):
         super().__init__(**kwargs)
         with self:
-            html.H3(f"{{{{{decision}.unstructured}}}}")
-            html.Pre(f"{{{{{decision}}}}}")
+            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                with vuetify3.VExpansionPanel():
+                    with vuetify3.VExpansionPanelTitle():
+                        with html.Div(classes="text-h5 text-no-wrap text-truncate"):
+                            html.Span("Decision: ", classes="font-weight-bold")
+                            html.Span(f"{{{{{decision}.unstructured}}}}")
+                    with vuetify3.VExpansionPanelText():
+                        UnorderedObject(decision)
+
+
+class Result(vuetify3.VCard):
+    def __init__(self, result, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VCardText():
+                Prompt(f"{result}.prompt", classes="pb-4")
+                Decision(f"{result}.decision")
 
 
 class AlignLayout(SinglePageLayout):
@@ -26,6 +78,7 @@ class AlignLayout(SinglePageLayout):
 
         self.state.trame__title = "align-app"
         self.title.set_text("Align App")
+        self.icon.hide()
 
         with self as layout:
             with layout.toolbar:
@@ -43,9 +96,9 @@ class AlignLayout(SinglePageLayout):
                     ):
                         with html.Div(classes="flex-grow-1 d-flex flex-column ga-4"):
                             with html.Div(
-                                v_for=("decision in output",),
+                                v_for=("result in output",),
                             ):
-                                Decision("decision")
+                                Result("result")
                         with html.Div(classes="mt-auto"):
                             with vuetify3.VCard():
                                 with vuetify3.VCardText():
