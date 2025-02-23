@@ -142,6 +142,13 @@ def get_structured_prompt():
     }
 
 
+def serialize_prompt(prompt):
+    return {
+        "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
+        "scenario": prompt["scenario"],
+    }
+
+
 def get_prompt():
     structured_prompt = get_structured_prompt()
     return structured_prompt
@@ -151,4 +158,4 @@ def get_decision(prompt):
     decider = get_decider()
 
     decision = run_model(decider, prompt)
-    return decision
+    return decision.to_dict()
