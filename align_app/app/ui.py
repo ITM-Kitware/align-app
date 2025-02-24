@@ -24,7 +24,7 @@ class Prompt(html.Div):
                 with vuetify3.VExpansionPanel():
                     with vuetify3.VExpansionPanelTitle():
                         with html.Div(classes="text-h5 text-no-wrap text-truncate"):
-                            html.Span("Scenario ID: ", classes="font-weight-bold")
+                            html.Span("Scenario: ", classes="font-weight-bold")
                             html.Span(
                                 f"{{{{{prompt}.scenario.scenario_id}}}} - "
                                 f"{{{{{prompt}.scenario.full_state.unstructured}}}}",
@@ -74,6 +74,24 @@ class Result(vuetify3.VCard):
                 Decision(f"{result}.decision")
 
 
+class PromptInput(vuetify3.VCard):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VCardText():
+                vuetify3.VTextarea(
+                    v_model=("prompt",),
+                    placeholder="Enter prompt",
+                    variant="underlined",
+                    auto_grow=True,
+                    max_rows=10,
+                    hide_details="auto",
+                )
+            with vuetify3.VCardActions():
+                with vuetify3.VBtn(click=self.server.controller.submit_prompt):
+                    vuetify3.VIcon("mdi-send")
+
+
 class AlignLayout(SinglePageLayout):
     def __init__(
         self,
@@ -87,38 +105,25 @@ class AlignLayout(SinglePageLayout):
         self.title.set_text("Align App")
         self.icon.hide()
 
+        self.content.height = "100vh"
+
         with self as layout:
             with layout.toolbar:
                 vuetify3.VSpacer()
                 if reload:
                     with vuetify3.VBtn(icon=True, click=reload):
                         vuetify3.VIcon("mdi-refresh")
-                with vuetify3.VBtn(icon=True, click=self.controller.reset_state):
+                with vuetify3.VBtn(icon=True, click=self.server.controller.reset_state):
                     vuetify3.VIcon("mdi-undo")
 
             with layout.content:
-                with vuetify3.VContainer(fluid=True, classes="fill-height"):
-                    with vuetify3.VCol(
-                        cols=12, classes="fill-height d-flex flex-column"
-                    ):
-                        with html.Div(classes="flex-grow-1 d-flex flex-column ga-4"):
-                            with html.Div(
-                                v_for=("result in output",),
-                            ):
+                with vuetify3.VContainer(classes="fill-height"):
+                    with vuetify3.VCol(classes="fill-height d-flex flex-column"):
+                        with html.Div(
+                            classes="overflow-y-auto flex-grow-0 flex-shrink-1 mb-4 d-flex flex-column ga-4 pa-1",
+                            style="min-height: 10rem",
+                        ):
+                            # need this div for overflow to work =/
+                            with html.Div(v_for=("result in output",)):
                                 Result("result")
-                        with html.Div(classes="mt-auto"):
-                            with vuetify3.VCard():
-                                with vuetify3.VCardText():
-                                    vuetify3.VTextarea(
-                                        v_model=("prompt",),
-                                        placeholder="Enter prompt",
-                                        variant="underlined",
-                                        auto_grow=True,
-                                        max_rows=10,
-                                        hide_details="auto",
-                                    )
-                                with vuetify3.VCardActions():
-                                    with vuetify3.VBtn(
-                                        click=self.controller.submit_prompt
-                                    ):
-                                        vuetify3.VIcon("mdi-send")
+                        PromptInput(classes="mt-auto flex-shrink-0")
