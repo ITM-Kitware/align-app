@@ -48,13 +48,20 @@ class Decision(html.Div):
     def __init__(self, decision, **kwargs):
         super().__init__(**kwargs)
         with self:
-            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+            with vuetify3.VExpansionPanels(
+                multiple=True,
+                variant="accordion",
+            ):
                 with vuetify3.VExpansionPanel():
                     with vuetify3.VExpansionPanelTitle():
                         with html.Div(classes="text-h5 text-no-wrap text-truncate"):
                             html.Span("Decision: ", classes="font-weight-bold")
-                            html.Span(f"{{{{{decision}.unstructured}}}}")
-                    with vuetify3.VExpansionPanelText():
+                            html.Span(
+                                f"{{{{{decision}.unstructured}}}}",
+                                v_if=(f"{decision}",),
+                            )
+                            vuetify3.VProgressCircular(v_else=True, indeterminate=True)
+                    with vuetify3.VExpansionPanelText(v_if=(f"{decision}",)):
                         UnorderedObject(decision)
 
 
