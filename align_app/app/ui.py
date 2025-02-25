@@ -16,28 +16,39 @@ class UnorderedObject(html.Ul):
                 html.Span("{{value}}")
 
 
+class Scenario(vuetify3.VExpansionPanel):
+    def __init__(self, scenario, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VExpansionPanelTitle():
+                with html.Div(classes="text-h6 text-no-wrap text-truncate"):
+                    html.Span("Scenario: ", classes="font-weight-bold")
+                    html.Span(
+                        f"{{{{{scenario}.scenario_id}}}} - "
+                        f"{{{{{scenario}.full_state.unstructured}}}}",
+                    )
+            with vuetify3.VExpansionPanelText():
+                html.P(
+                    f"{{{{{scenario}.full_state.unstructured}}}}",
+                    classes=" text-subtitle-1 pb-4",
+                )
+                html.H3("Choices")
+                with html.Ul(
+                    v_for=(f"choice in {scenario}.choices"),
+                    classes="ml-4",
+                ):
+                    html.Li("{{choice.unstructured}}")
+
+
 class Prompt(html.Div):
     def __init__(self, prompt, **kwargs):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                Scenario(f"{prompt}.scenario")
                 with vuetify3.VExpansionPanel():
                     with vuetify3.VExpansionPanelTitle():
-                        with html.Div(classes="text-h5 text-no-wrap text-truncate"):
-                            html.Span("Scenario: ", classes="font-weight-bold")
-                            html.Span(
-                                f"{{{{{prompt}.scenario.scenario_id}}}} - "
-                                f"{{{{{prompt}.scenario.full_state.unstructured}}}}",
-                            )
-                    with vuetify3.VExpansionPanelText():
-                        html.P(
-                            f"{{{{{prompt}.scenario.full_state.unstructured}}}}",
-                            classes=" text-subtitle-1 pb-4",
-                        )
-                        UnorderedObject(f"{prompt}.scenario")
-                with vuetify3.VExpansionPanel():
-                    with vuetify3.VExpansionPanelTitle():
-                        with html.Div(classes="text-h5 text-no-wrap text-truncate"):
+                        with html.Div(classes="text-h6 text-no-wrap text-truncate"):
                             html.Span("Alignment Target: ", classes="font-weight-bold")
                             html.Span(f"{{{{{prompt}.alignment_target.id}}}}")
                     with vuetify3.VExpansionPanelText():
@@ -48,13 +59,10 @@ class Decision(html.Div):
     def __init__(self, decision, **kwargs):
         super().__init__(**kwargs)
         with self:
-            with vuetify3.VExpansionPanels(
-                multiple=True,
-                variant="accordion",
-            ):
+            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                 with vuetify3.VExpansionPanel():
                     with vuetify3.VExpansionPanelTitle():
-                        with html.Div(classes="text-h5 text-no-wrap text-truncate"):
+                        with html.Div(classes="text-h6 text-no-wrap text-truncate"):
                             html.Span("Decision: ", classes="font-weight-bold")
                             html.Span(
                                 f"{{{{{decision}.unstructured}}}}",
@@ -62,7 +70,10 @@ class Decision(html.Div):
                             )
                             vuetify3.VProgressCircular(v_else=True, indeterminate=True)
                     with vuetify3.VExpansionPanelText(v_if=(f"{decision}",)):
-                        UnorderedObject(decision)
+                        html.H3("Justification")
+                        html.P(f"{{{{{decision}.justification}}}}")
+                        html.H3("KDMA Association")
+                        UnorderedObject(f"{decision}.kdma_association", classes="ml-4")
 
 
 class Result(vuetify3.VCard):
@@ -79,14 +90,13 @@ class PromptInput(vuetify3.VCard):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VCardText():
-                vuetify3.VTextarea(
-                    v_model=("prompt",),
-                    placeholder="Enter prompt",
-                    variant="underlined",
-                    auto_grow=True,
-                    max_rows=10,
-                    hide_details="auto",
-                )
+                with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                    vuetify3.VSelect(
+                        label="Scenario",
+                        items=("scenarios",),
+                        v_model=("prompt_scenario_id",),
+                    )
+                    Scenario("prompt_scenario")
             with vuetify3.VCardActions():
                 with vuetify3.VBtn(click=self.server.controller.submit_prompt):
                     vuetify3.VIcon("mdi-send")
