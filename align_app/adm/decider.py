@@ -57,14 +57,13 @@ def list_json_files(dir_path):
 def load_scenarios(evaluation_file):
     with open(evaluation_file, "r") as f:
         dataset = json.load(f)
+    next_id = 0
     scenarios = {}
     for record in dataset:
-        scenario_id = record["input"]["scenario_id"]
-
-        if scenario_id not in scenarios:
-            scenarios[scenario_id] = []
-
-        scenarios[scenario_id].append(record["input"])
+        input = record["input"]
+        scenario_id = f"{input['scenario_id']}.{next_id}"
+        next_id += 1
+        scenarios[scenario_id] = input
     return scenarios
 
 
@@ -125,16 +124,16 @@ def get_decider():
     return decider
 
 
-def get_structured_prompt():
+def get_scenarios():
+    evaluation_file = list_json_files(oracles)[1]
+    return load_scenarios(evaluation_file)
+
+
+def get_prompt(scenario_id):
     kdma_attribute = attributes[0]
     alignment_target = load_alignment_target(kdma=kdma_attribute)
 
-    evaluation_file = list_json_files(oracles)[0]
-    scenarios_by_metrics_eval_id = load_scenarios(evaluation_file)
-
-    scenario_set_id = next(iter(scenarios_by_metrics_eval_id.keys()))
-    first_scenario_set = scenarios_by_metrics_eval_id[scenario_set_id]
-    scenario = first_scenario_set[0]
+    scenario = get_scenarios()[scenario_id]
 
     return {
         "alignment_target": alignment_target,
@@ -147,11 +146,6 @@ def serialize_prompt(prompt):
         "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
         "scenario": prompt["scenario"],
     }
-
-
-def get_prompt():
-    structured_prompt = get_structured_prompt()
-    return structured_prompt
 
 
 def get_decision(prompt):
