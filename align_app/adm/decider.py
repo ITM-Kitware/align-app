@@ -1,144 +1,33 @@
-from pathlib import Path
-import json
-import hydra
-from omegaconf import OmegaConf
-from align_system.utils.hydrate_state import hydrate_scenario_state
-from .action_filtering import filter_actions
+"""
+Decider module for Alignment App.
+Provides process management for ADM models.
+"""
 
-current_dir = Path(__file__).parent
-configs = current_dir / "configs"
-adm_configs = configs / "hydra" / "adm"
-alignment_configs = configs / "hydra" / "alignment_target"
-oracles = current_dir / "oracle-json-files"
-kdma_descriptions_map = configs / "prompt_engineering" / "kdma_descriptions.yml"
+import atexit
+from .multiprocess_decider import MultiprocessDecider
 
-LLM_BACKBONES = [
-    "mistralai/Mistral-7B-Instruct-v0.2",
-    "mistralai/Mistral-7B-Instruct-v0.3",
-    "meta-llama/Meta-Llama-3-8B-Instruct",
-]
-
-deciders = ["outlines_transformers_structured", "outlines_comparative_regression"]
+_decider = None
 
 
-def load_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
-    suffix = "aligned" if aligned else "baseline"
-    name = f"{decider}_{suffix}.yaml"
-    config_path = adm_configs / name
-    config = OmegaConf.load(config_path)
-    config["model_name"] = llm_backbone
-    decider = hydra.utils.instantiate(config, recursive=True)
-    return decider
+def _get_process_manager():
+    """Get or create the process manager singleton"""
+    global _decider
+    if _decider is None:
+        _decider = MultiprocessDecider()
+    return _decider
 
 
-attributes = ["moral_deservingness", "maximization", "moral_judgement", "ingroup_bias"]
+async def get_decision(prompt):
+    """Get a decision for a prompt"""
+    process_manager = _get_process_manager()
+    return await process_manager.get_decision(prompt)
 
 
-def load_alignment_target(kdma=attributes[0], kdma_value=0):
-    kdma_split = kdma.split("_")
-    kdma_file = " ".join(kdma_split).capitalize()
-    if kdma_file in ["Moral deservingness", "Maximization"]:
-        binary_alignment = "high" if float(kdma_value) >= 0.5 else "low"
-        filename = f"{kdma}_{binary_alignment}.yaml"
-    elif kdma_file in ["Moral judgement", "Ingroup bias"]:
-        filename = (f"ADEPT-DryRun-{kdma_file}-{kdma_value}.yaml",)
-
-    return OmegaConf.load(alignment_configs / filename)
+# Ensure the subprocess is cleaned up
+def cleanup():
+    """Clean up resources when the module is unloaded"""
+    if _decider is not None:
+        _decider.shutdown()
 
 
-def list_json_files(dir_path):
-    return [str(file) for file in dir_path.iterdir() if file.suffix == ".json"]
-
-
-def load_scenarios(evaluation_file):
-    with open(evaluation_file, "r") as f:
-        dataset = json.load(f)
-    next_id = 0
-    scenarios = {}
-    for record in dataset:
-        input = record["input"]
-        scenario_id = f"{input['scenario_id']}.{next_id}"
-        next_id += 1
-        scenarios[scenario_id] = input
-    return scenarios
-
-
-def get_probe_ids(scenarios):
-    probe_ids = []
-    for scenario in scenarios:
-        state, actions = hydrate_scenario_state(scenario)
-        state_dict = state.to_dict()
-        if state.elapsed_time != 0:
-            probe_id = state_dict["meta_info"]["probe_response"]["probe_id"]
-        else:
-            probe_id = "N/A"
-        probe_ids.append(probe_id)
-    return probe_ids
-
-
-def create_scenario_state(scenario):
-    state, actions = hydrate_scenario_state(scenario)
-    actions = filter_actions(state, actions)
-    return state, actions
-
-
-def run_model(decider, prompt):
-    state, actions = create_scenario_state(prompt["scenario"])
-
-    alignment_target = prompt["alignment_target"]
-
-    action_decision, *_ = decider.instance.top_level_choose_action(
-        scenario_state=state,
-        available_actions=actions,
-        alignment_target=alignment_target,
-        kdma_descriptions_map=kdma_descriptions_map,
-        tokenizer_kwargs={"truncation": False},
-        demo_kwargs={
-            "max_generator_tokens": 8092,
-            "generator_seed": 2,
-            "shuffle_choices": False,
-        },
-    )
-
-    return action_decision
-
-
-decider = load_adm()
-
-
-def get_decider():
-    global decider
-    if decider is None:
-        decider = load_adm()
-    return decider
-
-
-def get_scenarios():
-    evaluation_file = list_json_files(oracles)[1]
-    return load_scenarios(evaluation_file)
-
-
-def get_prompt(scenario_id):
-    kdma_attribute = attributes[0]
-    alignment_target = load_alignment_target(kdma=kdma_attribute)
-
-    scenario = get_scenarios()[scenario_id]
-
-    return {
-        "alignment_target": alignment_target,
-        "scenario": scenario,
-    }
-
-
-def serialize_prompt(prompt):
-    return {
-        "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
-        "scenario": prompt["scenario"],
-    }
-
-
-def get_decision(prompt):
-    decider = get_decider()
-
-    decision = run_model(decider, prompt)
-    return decision.to_dict()
+atexit.register(cleanup)

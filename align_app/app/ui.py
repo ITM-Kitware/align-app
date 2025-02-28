@@ -135,5 +135,5 @@ class AlignLayout(SinglePageLayout):
                         ):
                             # need this div for overflow to work =/
                             with html.Div(v_for=("result in output",)):
-                                Result("result")
+                                Result("result", key="result.id")
                         PromptInput(classes="mt-auto flex-shrink-0")

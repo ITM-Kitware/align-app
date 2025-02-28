@@ -1,7 +1,8 @@
 from trame.app import get_server, asynchronous
 from trame.decorators import TrameApp, controller
 from . import ui
-from ..adm.decider import get_decision, serialize_prompt
+from ..adm.adm_core import serialize_prompt
+from ..adm.decider import get_decision
 from .prompt import PromptController
 
 
@@ -27,10 +28,13 @@ class AlignApp:
     def reset_state(self):
         self._promptController.reset()
         self.state.output = []
+        self._run_counter = 0
 
     async def make_decision(self):
         prompt = self._promptController.get_prompt()
-        run = {"prompt": serialize_prompt(prompt)}
+        self._run_counter += 1
+        run_id = str(self._run_counter)
+        run = {"id": run_id, "prompt": serialize_prompt(prompt)}
         with self.state:
             self.state.output = [
                 *self.state.output,
@@ -38,12 +42,12 @@ class AlignApp:
             ]
         await self.server.network_completion  # let spinner be shown
 
-        decision = get_decision(prompt)
-        run = {"prompt": run["prompt"], "decision": decision}
+        decision = await get_decision(prompt)
+
         with self.state:
             self.state.output = [
-                *self.state.output[:-1],
-                run,
+                {**item, "decision": decision} if item.get("id") == run_id else item
+                for item in self.state.output
             ]
 
     @controller.set("submit_prompt")
