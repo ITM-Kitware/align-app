@@ -6,7 +6,7 @@ from align_system.utils import logging
 log = logging.getLogger(__name__)
 
 
-def filter_actions(current_state, available_actions) -> list:
+def filter_actions(current_state, available_actions):
     # scenario_complete = current_state.scenario_complete
 
     # Tracking these to prevent getting stuck in a loop
