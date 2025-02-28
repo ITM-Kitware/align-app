@@ -3,10 +3,6 @@ import json
 import hydra
 from omegaconf import OmegaConf
 from align_system.utils.hydrate_state import hydrate_scenario_state
-from align_system.prompt_engineering.outlines_prompts import (
-    scenario_state_description_1,
-    action_selection_prompt,
-)
 from .action_filtering import filter_actions
 
 current_dir = Path(__file__).parent
@@ -25,7 +21,7 @@ LLM_BACKBONES = [
 deciders = ["outlines_transformers_structured", "outlines_comparative_regression"]
 
 
-def load_llm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
+def load_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
     suffix = "aligned" if aligned else "baseline"
     name = f"{decider}_{suffix}.yaml"
     config_path = adm_configs / name
@@ -86,13 +82,6 @@ def create_scenario_state(scenario):
     return state, actions
 
 
-def readable_scenario(scenario):
-    state, actions = create_scenario_state(scenario)
-    scenario_description = scenario_state_description_1(state)
-    actions_unstructured = [action.unstructured for action in actions]
-    return action_selection_prompt(scenario_description, actions_unstructured)
-
-
 def run_model(decider, prompt):
     state, actions = create_scenario_state(prompt["scenario"])
 
@@ -114,13 +103,13 @@ def run_model(decider, prompt):
     return action_decision
 
 
-decider = load_llm()
+decider = load_adm()
 
 
 def get_decider():
     global decider
     if decider is None:
-        decider = load_llm()
+        decider = load_adm()
     return decider
 
 
