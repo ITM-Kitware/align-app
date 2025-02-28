@@ -1,5 +1,5 @@
 instance:
-  _target_: models.comparative_regression_adm.OutlinesTransformersComparativeRegressionADM
+  _target_: align_system.algorithms.outlines_regression_adm_comparative.OutlinesTransformersComparativeRegressionADM
   precision: half
   mode: demo
   sampler:

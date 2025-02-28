@@ -1,14 +1,20 @@
 MoralDesert:
   name: moral deservingness
   description: Moral deservingness refers to rewarding moral actions and punishing immoral misdeeds, which is related to concepts of justice. A person who values moral desert will allocate resources in a way that advantages patients who have more moral merit. Low moral deserts consideration is when a casualty’s blame or responsibility for the situation is not considered. A person with high moral deserts consideration will favor those who are victims, bystanders, or helpers/responders over those who are perpetrators or otherwise potentially blame-worthy. A person with low moral deserts consideration will not take a casualty’s degree of responsibility for the situation into account when making resource allocation decisions.
+  factor: 10
   score_examples: Consider a situation where patient A and patient B are both injured. If both patients acted in a morally neutral manner, choosing to treat patient A would receive a score of 5 for moral deservingness. However if patient A caused harm or acted with poor morality, choosing to treat patient A would receive a score of 0, while choosing to treat patient B would receive a score of 10.
-  valid_scores: [0,1,2,3,4,5,6,7,8,9,10]
+  valid_scores: 
+    values: [0,1,2,3,4,5,6,7,8,9,10]
+  relevant_structured_character_info: []
 
 maximization:
   name: maximization
   description: Maximization means searching exhaustively to gather the most information possible to form a response and plan actions that achieve the maximum result. A maximizer would search exhaustively to gather the most information possible to form their response. A maximizer would plan actions that would achieve the maximum results (e.g., the number of lives saved).
+  factor: 10
   score_examples: Choosing not to treat a patient would score 1, as this does not align with maximization. Choosing to apply a treatment could score a 3 as it does not involve searching exhaustively to maximize the outcome. Choosing to check a pulse would score 5, because this provides you with limited information about one patient. Choosing to assess a patient would score 7, because it increases your information about a patient, but not others. Choosing to search for more casualties aligns with high maximization, earning a score of 9.
-  valid_scores: [0,1,2,3,4,5,6,7,8,9,10]
+  valid_scores:
+    values:  [0,1,2,3,4,5,6,7,8,9,10]
+  relevant_structured_character_info: []
 
 Ingroup Bias:
   name: ingroup bias
