@@ -40,11 +40,28 @@ class Scenario(vuetify3.VExpansionPanel):
                     html.Li("{{choice.unstructured}}")
 
 
+class DeciderParams(vuetify3.VExpansionPanel):
+    def __init__(self, params, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VExpansionPanelTitle():
+                with vuetify3.VRow(classes="text-h6 text-no-wrap text-truncate"):
+                    with vuetify3.VCol():
+                        html.Span("LLM Backbone: ", classes="font-weight-bold")
+                        html.Span(f"{{{{{params}.llm_backbone}}}}")
+                    with vuetify3.VCol():
+                        html.Span("Decision Maker: ", classes="font-weight-bold")
+                        html.Span(f"{{{{{params}.decider}}}}")
+            with vuetify3.VExpansionPanelText():
+                UnorderedObject(params)
+
+
 class Prompt(html.Div):
     def __init__(self, prompt, **kwargs):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                DeciderParams(f"{prompt}.decider_params")
                 Scenario(f"{prompt}.scenario")
                 with vuetify3.VExpansionPanel():
                     with vuetify3.VExpansionPanelTitle():
@@ -90,13 +107,37 @@ class PromptInput(vuetify3.VCard):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VCardText():
-                with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                    vuetify3.VSelect(
-                        label="Scenario",
-                        items=("scenarios",),
-                        v_model=("prompt_scenario_id",),
-                    )
-                    Scenario("prompt_scenario")
+                with vuetify3.VRow():
+                    with vuetify3.VCol():
+                        vuetify3.VSelect(
+                            label="LLM Backbone",
+                            items=("llm_backbones",),
+                            v_model=("llm_backbone",),
+                            hide_details="auto",
+                        )
+                    with vuetify3.VCol():
+                        vuetify3.VSelect(
+                            label="Decision Maker",
+                            items=("decision_makers",),
+                            v_model=("decision_maker",),
+                            hide_details="auto",
+                        )
+                with vuetify3.VRow():
+                    with vuetify3.VCol(
+                        cols=4,
+                    ):
+                        vuetify3.VSelect(
+                            label="Scenario",
+                            items=("scenarios",),
+                            v_model=("prompt_scenario_id",),
+                            hide_details="auto",
+                        )
+                    with vuetify3.VCol(cols=8):
+                        with vuetify3.VExpansionPanels(
+                            multiple=True, variant="accordion"
+                        ):
+                            Scenario("prompt_scenario")
+
             with vuetify3.VCardActions():
                 with vuetify3.VBtn(click=self.server.controller.submit_prompt):
                     vuetify3.VIcon("mdi-send")
@@ -135,5 +176,5 @@ class AlignLayout(SinglePageLayout):
                         ):
                             # need this div for overflow to work =/
                             with html.Div(v_for=("result in output",)):
-                                Result("result", key="result.id")
+                                Result("result", key=("result.id",))
                         PromptInput(classes="mt-auto flex-shrink-0")

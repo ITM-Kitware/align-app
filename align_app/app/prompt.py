@@ -1,5 +1,5 @@
 from trame.decorators import TrameApp, change
-from ..adm import adm_core
+from ..adm.adm_core import get_scenarios, get_prompt, LLM_BACKBONES, deciders
 
 
 @TrameApp()
@@ -9,7 +9,7 @@ class PromptController:
         self.reset()
 
     def update_scenarios(self):
-        scenarios = adm_core.get_scenarios()
+        scenarios = get_scenarios()
         items = [
             {"value": id, "title": f"{id} - {s['state']}"}
             for id, s in scenarios.items()
@@ -19,11 +19,19 @@ class PromptController:
 
     def reset(self):
         self.update_scenarios()
+        self.server.state.llm_backbones = LLM_BACKBONES
+        self.server.state.llm_backbone = LLM_BACKBONES[0]
+        self.server.state.decision_makers = deciders
+        self.server.state.decision_maker = deciders[0]
 
     @change("prompt_scenario_id")
     def on_scenario_change(self, prompt_scenario_id, **kwargs):
-        s = adm_core.get_scenarios()[prompt_scenario_id]
+        s = get_scenarios()[prompt_scenario_id]
         self.server.state.prompt_scenario = s
 
     def get_prompt(self):
-        return adm_core.get_prompt(self.server.state.prompt_scenario_id)
+        return get_prompt(
+            self.server.state.prompt_scenario_id,
+            self.server.state.llm_backbone,
+            self.server.state.decision_maker,
+        )

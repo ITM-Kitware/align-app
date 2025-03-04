@@ -1,7 +1,8 @@
 from pathlib import Path
+from typing import TypedDict, List
 import json
 import hydra
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, DictConfig
 from align_system.utils.hydrate_state import hydrate_scenario_state
 from .action_filtering import filter_actions
 
@@ -30,12 +31,38 @@ def get_scenarios():
     return load_scenarios(evaluation_file)
 
 
-def get_prompt(scenario_id):
+class DeciderParams(TypedDict):
+    llm_backbone: str
+    decider: str
+    aligned: bool
+
+
+class Choice(TypedDict):
+    unstructured: str
+
+
+class Scenario(TypedDict):
+    scenario_id: str
+    choices: List[Choice]
+
+
+class Prompt(TypedDict):
+    decider_params: DeciderParams
+    alignment_target: DictConfig
+    scenario: Scenario
+
+
+def get_prompt(scenario_id, llm_backbone=LLM_BACKBONES[0], decider=deciders[0]):
+    decider_params = {
+        "llm_backbone": llm_backbone,
+        "decider": decider,
+        "aligned": True,
+    }
     kdma_attribute = attributes[0]
     alignment_target = load_alignment_target(kdma=kdma_attribute)
     scenario = get_scenarios()[scenario_id]
-
     return {
+        "decider_params": decider_params,
         "alignment_target": alignment_target,
         "scenario": scenario,
     }
@@ -43,8 +70,8 @@ def get_prompt(scenario_id):
 
 def serialize_prompt(prompt):
     return {
+        **prompt,
         "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
-        "scenario": prompt["scenario"],
     }
 
 
