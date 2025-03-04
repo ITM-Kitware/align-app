@@ -1,7 +1,7 @@
 from multiprocessing import Process, Queue
 from typing import TypedDict, Any, Optional, Union, Literal
 from enum import Enum
-from . import adm_core
+from .adm_core import Prompt, load_adm, execute_model
 import asyncio
 
 # Global counter and lock for request IDs
@@ -20,20 +20,9 @@ class RequestType(str, Enum):
     SHUTDOWN = "shutdown"
 
 
-class DeciderParams(TypedDict):
-    llm_backbone: str
-    decider_type: str
-    aligned: bool
-
-
-class RunPayload(TypedDict):
-    prompt: str
-    decider_params: DeciderParams
-
-
 class RunDeciderRequest(TypedDict):
     request_type: Literal[RequestType.RUN]
-    payload: RunPayload
+    prompt: Prompt
     request_id: str
 
 
@@ -56,14 +45,8 @@ class DeciderResponse(TypedDict):
 
 def decider_process_worker(request_queue: Queue, response_queue: Queue):
     """Worker function to run in a separate process."""
-    # Single decider cache instead of dictionary
     current_decider = None
     current_decider_key = None
-
-    # Pre-load the default decider
-    default_decider_key = (adm_core.LLM_BACKBONES[0], adm_core.deciders[0], True)
-    current_decider = adm_core.load_adm()
-    current_decider_key = default_decider_key
 
     shutdown = False
     while not shutdown:
@@ -80,29 +63,29 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
             )
             shutdown = True
         elif request["request_type"] == RequestType.RUN:
-            run_payload: RunPayload = request["payload"]
-            prompt = run_payload["prompt"]
-            decider_params = run_payload["decider_params"]
+            prompt: Prompt = request["prompt"]
+            decider_params = prompt["decider_params"]
 
-            # Convert dictionary to tuple for use as key
             requested_decider_key = (
                 decider_params["llm_backbone"],
-                decider_params["decider_type"],
+                decider_params["decider"],
                 decider_params["aligned"],
             )
 
-            # Only load a new decider if parameters don't match current decider
             if requested_decider_key != current_decider_key:
-                current_decider = adm_core.load_adm(
+                current_decider = load_adm(
                     llm_backbone=decider_params["llm_backbone"],
-                    decider=decider_params["decider_type"],
+                    decider=decider_params["decider"],
                     aligned=decider_params["aligned"],
                 )
                 current_decider_key = requested_decider_key
 
-            action_decision = adm_core.execute_model(current_decider, prompt)
+            scenario_align = {
+                "scenario": prompt["scenario"],
+                "alignment_target": prompt["alignment_target"],
+            }
+            action_decision = execute_model(current_decider, scenario_align)
 
-            # Convert to dictionary for serialization
             decision_dict = action_decision.to_dict()
             response_queue.put(
                 DeciderResponse(
@@ -130,27 +113,13 @@ class MultiprocessDecider:
             )
             self.process.start()
 
-    async def get_decision(
-        self, prompt, decider_params: Union[None, DeciderParams] = None
-    ) -> Decision:
+    async def get_decision(self, prompt: Prompt) -> Decision:
         """Run a decider with the given prompt and optional decider key."""
         self._start_process()
 
-        if decider_params is None:
-            decider_params = {
-                "llm_backbone": adm_core.LLM_BACKBONES[0],
-                "decider_type": adm_core.deciders[0],
-                "aligned": True,
-            }
-
-        payload: RunPayload = {
-            "prompt": prompt,
-            "decider_params": decider_params,
-        }
-
         request: RunDeciderRequest = {
             "request_type": RequestType.RUN,
-            "payload": payload,
+            "prompt": prompt,
             "request_id": get_request_id(),
         }
         self.request_queue.put(request)
@@ -170,7 +139,6 @@ class MultiprocessDecider:
                 "request_id": get_request_id(),
             }
             self.request_queue.put(request)
-            self.response_queue.get()  # Wait for acknowledgment
             self.process.join(timeout=5)
             if self.process.is_alive():
                 self.process.terminate()
