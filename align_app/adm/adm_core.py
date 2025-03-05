@@ -22,11 +22,22 @@ LLM_BACKBONES = [
 ]
 
 deciders = ["outlines_transformers_structured", "outlines_comparative_regression"]
-attributes = ["moral_deservingness", "maximization", "moral_judgement", "ingroup_bias"]
+
+NO_ALIGNMENT = "no alignment"
+attributes = [
+    NO_ALIGNMENT,
+    "moral_deservingness",
+    "maximization",
+    # "moral_judgement",
+    # "ingroup_bias",
+]
+
+
+def list_json_files(dir_path):
+    return [str(file) for file in dir_path.iterdir() if file.suffix == ".json"]
 
 
 def get_scenarios():
-    """Get all available scenarios"""
     evaluation_file = list_json_files(oracles)[1]
     return load_scenarios(evaluation_file)
 
@@ -34,7 +45,6 @@ def get_scenarios():
 class DeciderParams(TypedDict):
     llm_backbone: str
     decider: str
-    aligned: bool
 
 
 class Choice(TypedDict):
@@ -52,14 +62,21 @@ class Prompt(TypedDict):
     scenario: Scenario
 
 
-def get_prompt(scenario_id, llm_backbone=LLM_BACKBONES[0], decider=deciders[0]):
+def get_prompt(
+    scenario_id,
+    llm_backbone=LLM_BACKBONES[0],
+    decider=deciders[0],
+    alignment_attribute=attributes[0],
+    alignment_score=0,
+):
     decider_params = {
         "llm_backbone": llm_backbone,
         "decider": decider,
-        "aligned": True,
     }
-    kdma_attribute = attributes[0]
-    alignment_target = load_alignment_target(kdma=kdma_attribute)
+
+    alignment_target = load_alignment_target(
+        kdma=alignment_attribute, kdma_value=alignment_score
+    )
     scenario = get_scenarios()[scenario_id]
     return {
         "decider_params": decider_params,
@@ -69,14 +86,18 @@ def get_prompt(scenario_id, llm_backbone=LLM_BACKBONES[0], decider=deciders[0]):
 
 
 def serialize_prompt(prompt):
+    alignment_target = (
+        OmegaConf.to_container(prompt["alignment_target"])
+        if prompt["alignment_target"] is not NO_ALIGNMENT
+        else prompt["alignment_target"]
+    )
     return {
         **prompt,
-        "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
+        "alignment_target": alignment_target,
     }
 
 
 def load_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
-    """Load an ADM model with the specified configuration"""
     suffix = "aligned" if aligned else "baseline"
     name = f"{decider}_{suffix}.yaml"
     config_path = adm_configs / name
@@ -87,25 +108,20 @@ def load_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
 
 
 def load_alignment_target(kdma=attributes[0], kdma_value=0):
-    """Load the alignment target configuration"""
+    if kdma == NO_ALIGNMENT:
+        return NO_ALIGNMENT
     kdma_split = kdma.split("_")
     kdma_file = " ".join(kdma_split).capitalize()
     if kdma_file in ["Moral deservingness", "Maximization"]:
         binary_alignment = "high" if float(kdma_value) >= 0.5 else "low"
         filename = f"{kdma}_{binary_alignment}.yaml"
-    elif kdma_file in ["Moral judgement", "Ingroup bias"]:
-        filename = f"ADEPT-DryRun-{kdma_file}-{kdma_value}.yaml"
+    # elif kdma_file in ["Moral judgement", "Ingroup bias"]:
+    #     filename = f"ADEPT-DryRun-{kdma_file}-{kdma_value}.yaml"
 
     return OmegaConf.load(alignment_configs / filename)
 
 
-def list_json_files(dir_path):
-    """List all JSON files in a directory"""
-    return [str(file) for file in dir_path.iterdir() if file.suffix == ".json"]
-
-
 def load_scenarios(evaluation_file):
-    """Load scenarios from an evaluation file"""
     with open(evaluation_file, "r") as f:
         dataset = json.load(f)
     next_id = 0
@@ -144,21 +160,3 @@ def execute_model(model, prompt):
     )
 
     return action_decision
-
-
-def get_default_prompt(scenario_id=None):
-    """Get a default prompt for a scenario"""
-    evaluation_file = list_json_files(oracles)[1]
-    scenarios = load_scenarios(evaluation_file)
-
-    if scenario_id is None:
-        scenario_id = next(iter(scenarios.keys()))
-
-    kdma_attribute = attributes[0]
-    alignment_target = load_alignment_target(kdma=kdma_attribute)
-    scenario = scenarios[scenario_id]
-
-    return {
-        "alignment_target": alignment_target,
-        "scenario": scenario,
-    }

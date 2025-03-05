@@ -67,9 +67,18 @@ class Prompt(html.Div):
                     with vuetify3.VExpansionPanelTitle():
                         with html.Div(classes="text-h6 text-no-wrap text-truncate"):
                             html.Span("Alignment Target: ", classes="font-weight-bold")
-                            html.Span(f"{{{{{prompt}.alignment_target.id}}}}")
+                            html.Span(
+                                f"{{{{{prompt}.alignment_target.id ?? 'No Alignment'}}}}"
+                            )
                     with vuetify3.VExpansionPanelText():
-                        UnorderedObject(f"{prompt}.alignment_target")
+                        UnorderedObject(
+                            f"{prompt}.alignment_target",
+                            v_if=(f"{prompt}.alignment_target !== 'no alignment'",),
+                        )
+                        html.Div(
+                            "No Alignment",
+                            v_else=True,
+                        )
 
 
 class Decision(html.Div):
@@ -121,6 +130,19 @@ class PromptInput(vuetify3.VCard):
                             items=("decision_makers",),
                             v_model=("decision_maker",),
                             hide_details="auto",
+                        )
+                with vuetify3.VRow():
+                    with vuetify3.VCol():
+                        vuetify3.VSelect(
+                            label="Alignment Target",
+                            items=("alignment_attributes",),
+                            v_model=("alignment_attribute",),
+                            hide_details="auto",
+                        )
+                    with vuetify3.VCol():
+                        vuetify3.VSlider(
+                            label="Alignment Score",
+                            v_model=("alignment_score",),
                         )
                 with vuetify3.VRow():
                     with vuetify3.VCol(
