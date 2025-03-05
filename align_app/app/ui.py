@@ -66,18 +66,22 @@ class Prompt(html.Div):
                 with vuetify3.VExpansionPanel():
                     with vuetify3.VExpansionPanelTitle():
                         with html.Div(classes="text-h6 text-no-wrap text-truncate"):
-                            html.Span("Alignment Target: ", classes="font-weight-bold")
+                            html.Span("Alignment Targets: ", classes="font-weight-bold")
                             html.Span(
-                                f"{{{{{prompt}.alignment_target.id ?? 'No Alignment'}}}}"
+                                f"{{{{ {prompt}.alignment_targets.length ? "
+                                f"{prompt}.alignment_targets.map(att => att.id).join(', ') : "
+                                f"'No Alignment' }}}}"
                             )
                     with vuetify3.VExpansionPanelText():
-                        UnorderedObject(
-                            f"{prompt}.alignment_target",
-                            v_if=(f"{prompt}.alignment_target !== 'no alignment'",),
-                        )
+                        with html.Div(
+                            v_for=(f"attribute in {prompt}.alignment_targets",),
+                            classes="mb-4",
+                        ):
+                            html.H3("{{attribute.id}}")
+                            UnorderedObject("attribute", classes="ml-4")
                         html.Div(
                             "No Alignment",
-                            v_else=True,
+                            v_if=(f"{prompt}.alignment_targets.length === 0",),
                         )
 
 
@@ -131,18 +135,47 @@ class PromptInput(vuetify3.VCard):
                             v_model=("decision_maker",),
                             hide_details="auto",
                         )
-                with vuetify3.VRow():
+                with vuetify3.VRow(
+                    v_for=("alignment_attribute in alignment_attributes",),
+                    key=("alignment_attribute.id",),
+                ):
                     with vuetify3.VCol():
                         vuetify3.VSelect(
                             label="Alignment Target",
-                            items=("alignment_attributes",),
-                            v_model=("alignment_attribute",),
+                            items=("possible_alignment_attributes",),
+                            model_value=("alignment_attribute.type",),
+                            update_modelValue=(
+                                self.server.controller.update_type_alignment_attribute,
+                                r"[$event, alignment_attribute.id]",
+                            ),
+                            no_data_text="No available alignment targets",
                             hide_details="auto",
                         )
                     with vuetify3.VCol():
-                        vuetify3.VSlider(
-                            label="Alignment Score",
-                            v_model=("alignment_score",),
+                        with vuetify3.VRow(no_gutters=True):
+                            vuetify3.VSlider(
+                                label="Alignment Score",
+                                model_value=("alignment_attribute.score",),
+                                update_modelValue=(
+                                    self.server.controller.update_score_alignment_attribute,
+                                    r"[$event, alignment_attribute.id]",
+                                ),
+                            )
+                            with vuetify3.VBtn(
+                                classes="ml-2",
+                                icon=True,
+                                click=(
+                                    self.server.controller.delete_alignment_attribute,
+                                    "[alignment_attribute.id]",
+                                ),
+                            ):
+                                vuetify3.VIcon("mdi-delete")
+
+                with vuetify3.VRow(v_if=("possible_alignment_attributes.length > 0",)):
+                    with vuetify3.VCol():
+                        vuetify3.VBtn(
+                            "Add Alignment Attribute",
+                            click=self.server.controller.add_alignment_attribute,
                         )
                 with vuetify3.VRow():
                     with vuetify3.VCol(

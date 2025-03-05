@@ -1,7 +1,7 @@
 from multiprocessing import Process, Queue
 from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
-from .adm_core import Prompt, load_adm, execute_model, NO_ALIGNMENT
+from .adm_core import Prompt, load_adm, execute_model, ScenarioAndAlignment
 import asyncio
 
 # Global counter and lock for request IDs
@@ -65,7 +65,7 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
         elif request["request_type"] == RequestType.RUN:
             prompt: Prompt = request["prompt"]
             decider_params = prompt["decider_params"]
-            aligned = prompt["alignment_target"] != NO_ALIGNMENT
+            aligned = len(prompt["alignment_targets"]) > 0
 
             requested_decider_key = (
                 decider_params["llm_backbone"],
@@ -81,9 +81,9 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
                 )
                 current_decider_key = requested_decider_key
 
-            scenario_align = {
+            scenario_align: ScenarioAndAlignment = {
                 "scenario": prompt["scenario"],
-                "alignment_target": prompt["alignment_target"],
+                "alignment_targets": prompt["alignment_targets"],
             }
             action_decision = execute_model(current_decider, scenario_align)
 
