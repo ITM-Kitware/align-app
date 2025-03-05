@@ -1,5 +1,11 @@
 from trame.decorators import TrameApp, change
-from ..adm.adm_core import get_scenarios, get_prompt, LLM_BACKBONES, deciders
+from ..adm.adm_core import (
+    get_scenarios,
+    get_prompt,
+    LLM_BACKBONES,
+    deciders,
+    attributes,
+)
 
 
 @TrameApp()
@@ -23,6 +29,9 @@ class PromptController:
         self.server.state.llm_backbone = LLM_BACKBONES[0]
         self.server.state.decision_makers = deciders
         self.server.state.decision_maker = deciders[0]
+        self.server.state.alignment_attributes = attributes
+        self.server.state.alignment_attribute = attributes[0]
+        self.server.state.alignment_score = 0
 
     @change("prompt_scenario_id")
     def on_scenario_change(self, prompt_scenario_id, **kwargs):
@@ -34,4 +43,6 @@ class PromptController:
             self.server.state.prompt_scenario_id,
             self.server.state.llm_backbone,
             self.server.state.decision_maker,
+            self.server.state.alignment_attribute,
+            self.server.state.alignment_score,
         )

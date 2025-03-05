@@ -1,7 +1,7 @@
 from multiprocessing import Process, Queue
-from typing import TypedDict, Any, Optional, Union, Literal
+from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
-from .adm_core import Prompt, load_adm, execute_model
+from .adm_core import Prompt, load_adm, execute_model, NO_ALIGNMENT
 import asyncio
 
 # Global counter and lock for request IDs
@@ -50,7 +50,7 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
 
     shutdown = False
     while not shutdown:
-        request: DeciderRequest = request_queue.get()
+        request = cast(DeciderRequest, request_queue.get())
 
         if request["request_type"] == RequestType.SHUTDOWN:
             response_queue.put(
@@ -65,18 +65,19 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
         elif request["request_type"] == RequestType.RUN:
             prompt: Prompt = request["prompt"]
             decider_params = prompt["decider_params"]
+            aligned = prompt["alignment_target"] != NO_ALIGNMENT
 
             requested_decider_key = (
                 decider_params["llm_backbone"],
                 decider_params["decider"],
-                decider_params["aligned"],
+                aligned,
             )
 
             if requested_decider_key != current_decider_key:
                 current_decider = load_adm(
                     llm_backbone=decider_params["llm_backbone"],
                     decider=decider_params["decider"],
-                    aligned=decider_params["aligned"],
+                    aligned=aligned,
                 )
                 current_decider_key = requested_decider_key
 
