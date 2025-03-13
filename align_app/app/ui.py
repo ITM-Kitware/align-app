@@ -56,33 +56,39 @@ class DeciderParams(vuetify3.VExpansionPanel):
                 UnorderedObject(params)
 
 
+class AlignmentTargets(vuetify3.VExpansionPanel):
+    def __init__(self, alignment_targets, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VExpansionPanelTitle():
+                with html.Div(classes="text-h6 text-no-wrap text-truncate"):
+                    html.Span("Alignment Targets: ", classes="font-weight-bold")
+                    html.Span(
+                        f"{{{{ {alignment_targets}.length ? "
+                        f"{alignment_targets}.map(att => att.id).join(', ') : "
+                        f"'No Alignment' }}}}"
+                    )
+            with vuetify3.VExpansionPanelText():
+                with html.Div(
+                    v_for=(f"attribute in {alignment_targets}",),
+                    classes="mb-4",
+                ):
+                    html.H3("{{attribute.id}}")
+                    UnorderedObject("attribute", classes="ml-4")
+                html.Div(
+                    "No Alignment",
+                    v_if=(f"{alignment_targets}.length === 0",),
+                )
+
+
 class Prompt(html.Div):
     def __init__(self, prompt, **kwargs):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                 DeciderParams(f"{prompt}.decider_params")
+                AlignmentTargets(f"{prompt}.alignment_targets")
                 Scenario(f"{prompt}.scenario")
-                with vuetify3.VExpansionPanel():
-                    with vuetify3.VExpansionPanelTitle():
-                        with html.Div(classes="text-h6 text-no-wrap text-truncate"):
-                            html.Span("Alignment Targets: ", classes="font-weight-bold")
-                            html.Span(
-                                f"{{{{ {prompt}.alignment_targets.length ? "
-                                f"{prompt}.alignment_targets.map(att => att.id).join(', ') : "
-                                f"'No Alignment' }}}}"
-                            )
-                    with vuetify3.VExpansionPanelText():
-                        with html.Div(
-                            v_for=(f"attribute in {prompt}.alignment_targets",),
-                            classes="mb-4",
-                        ):
-                            html.H3("{{attribute.id}}")
-                            UnorderedObject("attribute", classes="ml-4")
-                        html.Div(
-                            "No Alignment",
-                            v_if=(f"{prompt}.alignment_targets.length === 0",),
-                        )
 
 
 class Decision(html.Div):

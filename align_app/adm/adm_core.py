@@ -5,6 +5,10 @@ import hydra
 from omegaconf import OmegaConf, DictConfig
 from align_system.utils.hydrate_state import hydrate_scenario_state
 from .action_filtering import filter_actions
+from align_system.utils import logging
+
+root_logger = logging.getLogger()
+root_logger.setLevel("WARNING")
 
 
 class DeciderParams(TypedDict):
