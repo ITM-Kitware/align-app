@@ -1,10 +1,23 @@
 from trame.app import get_server, asynchronous
 from trame.decorators import TrameApp, controller
 from . import ui
-from ..adm.adm_core import serialize_prompt
+from ..adm.adm_core import serialize_prompt, Prompt
 from ..adm.decider import get_decision
 from .prompt import PromptController
-from ..utils.utils import get_id  # Add import for get_id
+from ..utils.utils import get_id, readable
+
+
+def prep_for_state(prompt: Prompt):
+    p = serialize_prompt(prompt)
+    p["alignment_targets"] = [
+        {
+            **a,
+            "id": readable(a["id"]),
+        }
+        for a in p["alignment_targets"]
+    ]
+    p["decider_params"]["decider"] = readable(p["decider_params"]["decider"])
+    return p
 
 
 @TrameApp()
@@ -33,7 +46,7 @@ class AlignApp:
     async def make_decision(self):
         prompt = self._promptController.get_prompt()
         run_id = get_id()
-        run = {"id": run_id, "prompt": serialize_prompt(prompt)}
+        run = {"id": run_id, "prompt": prep_for_state(prompt)}
         with self.state:
             self.state.output = [
                 *self.state.output,
