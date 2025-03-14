@@ -2,19 +2,10 @@ from multiprocessing import Process, Queue
 from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
 from .adm_core import Prompt, load_adm, execute_model, ScenarioAndAlignment
+from ..utils.utils import get_id
 import asyncio
 import gc
 import torch
-
-# Global counter and lock for request IDs
-_request_counter = 0
-
-
-def get_request_id() -> str:
-    """Generate a unique request ID."""
-    global _request_counter
-    _request_counter += 1
-    return f"req_{_request_counter}"
 
 
 class RequestType(str, Enum):
@@ -132,7 +123,7 @@ class MultiprocessDecider:
         request: RunDeciderRequest = {
             "request_type": RequestType.RUN,
             "prompt": prompt,
-            "request_id": get_request_id(),
+            "request_id": get_id(),
         }
         self.request_queue.put(request)
         loop = asyncio.get_event_loop()
@@ -148,7 +139,7 @@ class MultiprocessDecider:
         if self.process and self.process.is_alive():
             request: ShutdownDeciderRequest = {
                 "request_type": RequestType.SHUTDOWN,
-                "request_id": get_request_id(),
+                "request_id": get_id(),
             }
             self.request_queue.put(request)
             self.process.join(timeout=5)

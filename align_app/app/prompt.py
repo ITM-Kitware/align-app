@@ -6,14 +6,13 @@ from ..adm.adm_core import (
     deciders,
     attributes,
 )
+from ..utils.utils import get_id
 
 
 @TrameApp()
 class PromptController:
     def __init__(self, server):
         self.server = server
-
-        self._alignment_id = 0
         self.reset()
 
     def update_scenarios(self):
@@ -48,11 +47,10 @@ class PromptController:
 
     @controller.add("add_alignment_attribute")
     def add_alignment_attribute(self):
-        self._alignment_id += 1
         type = self.server.state.possible_alignment_attributes[0]
         self.server.state.alignment_attributes = [
             *self.server.state.alignment_attributes,
-            {"id": self._alignment_id, "type": type, "score": 0},
+            {"id": get_id(), "type": type, "score": 0},
         ]
 
     @controller.add("update_type_alignment_attribute")
@@ -71,7 +69,6 @@ class PromptController:
         for key, value in patch.items():
             target[key] = value
         self.server.state.alignment_attributes = [*attributes]
-        # We mutate elements so need this to update GUI
         self.server.state.dirty("alignment_attributes")
 
     @controller.add("delete_alignment_attribute")
