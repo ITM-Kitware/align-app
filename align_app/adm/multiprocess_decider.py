@@ -3,6 +3,8 @@ from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
 from .adm_core import Prompt, load_adm, execute_model, ScenarioAndAlignment
 import asyncio
+import gc
+import torch
 
 # Global counter and lock for request IDs
 _request_counter = 0
@@ -48,6 +50,14 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
     current_decider = None
     current_decider_key = None
 
+    def cleanup_decider():
+        nonlocal current_decider
+        if current_decider is None:
+            return
+        del current_decider
+        gc.collect()
+        torch.cuda.empty_cache()
+
     shutdown = False
     while not shutdown:
         request = cast(DeciderRequest, request_queue.get())
@@ -74,12 +84,13 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
             )
 
             if requested_decider_key != current_decider_key:
+                cleanup_decider()
+                current_decider_key = requested_decider_key
                 current_decider = load_adm(
                     llm_backbone=decider_params["llm_backbone"],
                     decider=decider_params["decider"],
                     aligned=aligned,
                 )
-                current_decider_key = requested_decider_key
 
             scenario_align: ScenarioAndAlignment = {
                 "scenario": prompt["scenario"],
