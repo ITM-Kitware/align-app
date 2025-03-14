@@ -81,35 +81,29 @@ class AlignmentTargets(vuetify3.VExpansionPanel):
                 )
 
 
-class Prompt(html.Div):
-    def __init__(self, prompt, **kwargs):
-        super().__init__(**kwargs)
-        with self:
-            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                DeciderParams(f"{prompt}.decider_params")
-                AlignmentTargets(f"{prompt}.alignment_targets")
-                Scenario(f"{prompt}.scenario")
+class Prompt:
+    def __init__(self, prompt):
+        DeciderParams(f"{prompt}.decider_params")
+        AlignmentTargets(f"{prompt}.alignment_targets")
+        Scenario(f"{prompt}.scenario")
 
 
-class Decision(html.Div):
-    def __init__(self, decision, **kwargs):
-        super().__init__(**kwargs)
-        with self:
-            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                with vuetify3.VExpansionPanel():
-                    with vuetify3.VExpansionPanelTitle():
-                        with html.Div(classes="text-h6 text-no-wrap text-truncate"):
-                            html.Span("Decision: ", classes="font-weight-bold")
-                            html.Span(
-                                f"{{{{{decision}.unstructured}}}}",
-                                v_if=(f"{decision}",),
-                            )
-                            vuetify3.VProgressCircular(v_else=True, indeterminate=True)
-                    with vuetify3.VExpansionPanelText(v_if=(f"{decision}",)):
-                        html.H3("Justification")
-                        html.P(f"{{{{{decision}.justification}}}}")
-                        html.H3("KDMA Association")
-                        UnorderedObject(f"{decision}.kdma_association", classes="ml-4")
+class Decision:
+    def __init__(self, decision):
+        with vuetify3.VExpansionPanel():
+            with vuetify3.VExpansionPanelTitle():
+                with html.Div(classes="text-h6 text-no-wrap text-truncate"):
+                    html.Span("Decision: ", classes="font-weight-bold")
+                    html.Span(
+                        f"{{{{{decision}.unstructured}}}}",
+                        v_if=(f"{decision}",),
+                    )
+                    vuetify3.VProgressCircular(v_else=True, indeterminate=True)
+            with vuetify3.VExpansionPanelText(v_if=(f"{decision}",)):
+                html.H3("Justification")
+                html.P(f"{{{{{decision}.justification}}}}")
+                html.H3("KDMA Association")
+                UnorderedObject(f"{decision}.kdma_association", classes="ml-4")
 
 
 class Result(vuetify3.VCard):
@@ -117,8 +111,9 @@ class Result(vuetify3.VCard):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VCardText():
-                Prompt(f"{result}.prompt", classes="pb-4")
-                Decision(f"{result}.decision")
+                with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                    Prompt(f"{result}.prompt")
+                    Decision(f"{result}.decision")
 
 
 class PromptInput(vuetify3.VCard):
