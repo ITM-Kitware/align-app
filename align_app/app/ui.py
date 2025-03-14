@@ -144,9 +144,9 @@ class PromptInput(vuetify3.VCard):
                         vuetify3.VSelect(
                             label="Alignment Target",
                             items=("possible_alignment_attributes",),
-                            model_value=("alignment_attribute.type",),
+                            model_value=("alignment_attribute",),
                             update_modelValue=(
-                                self.server.controller.update_type_alignment_attribute,
+                                self.server.controller.update_value_alignment_attribute,
                                 r"[$event, alignment_attribute.id]",
                             ),
                             no_data_text="No available alignment targets",
@@ -155,7 +155,6 @@ class PromptInput(vuetify3.VCard):
                     with vuetify3.VCol():
                         with vuetify3.VRow(no_gutters=True):
                             vuetify3.VSlider(
-                                label="Alignment Score",
                                 model_value=("alignment_attribute.score",),
                                 update_modelValue=(
                                     self.server.controller.update_score_alignment_attribute,

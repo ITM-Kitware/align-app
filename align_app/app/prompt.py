@@ -6,7 +6,17 @@ from ..adm.adm_core import (
     deciders,
     attributes,
 )
-from ..utils.utils import get_id
+from ..utils.utils import get_id, readable
+
+
+def readable_items(items):
+    return [
+        {
+            "value": item,
+            "title": readable(item),
+        }
+        for item in items
+    ]
 
 
 @TrameApp()
@@ -28,8 +38,8 @@ class PromptController:
         self.update_scenarios()
         self.server.state.llm_backbones = LLM_BACKBONES
         self.server.state.llm_backbone = LLM_BACKBONES[0]
-        self.server.state.decision_makers = deciders
-        self.server.state.decision_maker = deciders[0]
+        self.server.state.decision_makers = readable_items(deciders)
+        self.server.state.decision_maker = self.server.state.decision_makers[0]["value"]
         self.server.state.alignment_attributes = []
 
     @change("prompt_scenario_id")
@@ -38,24 +48,30 @@ class PromptController:
         self.server.state.prompt_scenario = s
 
     def get_prompt(self):
+        attributes = [
+            {"type": a["value"], "score": a["score"]}
+            for a in self.server.state.alignment_attributes
+        ]
         return get_prompt(
             self.server.state.prompt_scenario_id,
             self.server.state.llm_backbone,
             self.server.state.decision_maker,
-            self.server.state.alignment_attributes,
+            attributes,
         )
 
     @controller.add("add_alignment_attribute")
     def add_alignment_attribute(self):
-        type = self.server.state.possible_alignment_attributes[0]
+        item = self.server.state.possible_alignment_attributes[0]
         self.server.state.alignment_attributes = [
             *self.server.state.alignment_attributes,
-            {"id": get_id(), "type": type, "score": 0},
+            {**item, "id": get_id(), "score": 0},
         ]
 
-    @controller.add("update_type_alignment_attribute")
-    def update_type_alignment_attribute(self, type, alignment_attribute_id):
-        self._update_alignment_attribute({"type": type}, alignment_attribute_id)
+    @controller.add("update_value_alignment_attribute")
+    def update_value_alignment_attribute(self, value, alignment_attribute_id):
+        self._update_alignment_attribute(
+            {"value": value, "title": readable(value)}, alignment_attribute_id
+        )
 
     @controller.add("update_score_alignment_attribute")
     def update_score_alignment_attribute(self, score, alignment_attribute_id):
@@ -81,7 +97,6 @@ class PromptController:
 
     @change("alignment_attributes")
     def compute_possible_alignment_attributes(self, **_):
-        used_types = [a["type"] for a in self.server.state.alignment_attributes]
-        self.server.state.possible_alignment_attributes = [
-            a for a in attributes if a not in used_types
-        ]
+        used_values = [a["value"] for a in self.server.state.alignment_attributes]
+        available = [a for a in attributes if a not in used_values]
+        self.server.state.possible_alignment_attributes = readable_items(available)

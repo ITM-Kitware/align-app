@@ -6,6 +6,7 @@ from omegaconf import OmegaConf, DictConfig
 from align_system.utils.hydrate_state import hydrate_scenario_state
 from .action_filtering import filter_actions
 from align_system.utils import logging
+import copy
 
 root_logger = logging.getLogger()
 root_logger.setLevel("WARNING")
@@ -64,8 +65,21 @@ attributes = [
 ]
 
 
-def list_json_files(dir_path):
+def list_json_files(dir_path: Path):
     return [str(file) for file in dir_path.iterdir() if file.suffix == ".json"]
+
+
+def load_scenarios(evaluation_file: str):
+    with open(evaluation_file, "r") as f:
+        dataset = json.load(f)
+    next_id = 0
+    scenarios = {}
+    for record in dataset:
+        input = record["input"]
+        scenario_id = f"{input['scenario_id']}.{next_id}"
+        next_id += 1
+        scenarios[scenario_id] = input
+    return scenarios
 
 
 def get_scenarios():
@@ -74,7 +88,7 @@ def get_scenarios():
 
 
 def get_prompt(
-    scenario_id,
+    scenario_id: str,
     llm_backbone=LLM_BACKBONES[0],
     decider=deciders[0],
     attributes: List[Attribute] = [],
@@ -95,14 +109,15 @@ def get_prompt(
     }
 
 
-def serialize_prompt(prompt):
+def serialize_prompt(prompt: Prompt):
     alignment_targets = [
         OmegaConf.to_container(target) for target in prompt["alignment_targets"]
     ]
-    return {
+    p = {
         **prompt,
         "alignment_targets": alignment_targets,
     }
+    return copy.deepcopy(p)
 
 
 def load_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
@@ -121,23 +136,8 @@ def load_alignment_target(kdma=attributes[0], kdma_value=0):
     if kdma_file in ["Moral deservingness", "Maximization"]:
         binary_alignment = "high" if float(kdma_value) >= 0.5 else "low"
         filename = f"{kdma}_{binary_alignment}.yaml"
-    # elif kdma_file in ["Moral judgement", "Ingroup bias"]:
-    #     filename = f"ADEPT-DryRun-{kdma_file}-{kdma_value}.yaml"
 
     return OmegaConf.load(alignment_configs / filename)
-
-
-def load_scenarios(evaluation_file):
-    with open(evaluation_file, "r") as f:
-        dataset = json.load(f)
-    next_id = 0
-    scenarios = {}
-    for record in dataset:
-        input = record["input"]
-        scenario_id = f"{input['scenario_id']}.{next_id}"
-        next_id += 1
-        scenarios[scenario_id] = input
-    return scenarios
 
 
 def create_scenario_state(scenario):
