@@ -4,6 +4,7 @@ from . import ui
 from ..adm.adm_core import serialize_prompt
 from ..adm.decider import get_decision
 from .prompt import PromptController
+from ..utils.utils import get_id  # Add import for get_id
 
 
 @TrameApp()
@@ -28,12 +29,10 @@ class AlignApp:
     def reset_state(self):
         self._promptController.reset()
         self.state.output = []
-        self._run_counter = 0
 
     async def make_decision(self):
         prompt = self._promptController.get_prompt()
-        self._run_counter += 1
-        run_id = str(self._run_counter)
+        run_id = get_id()
         run = {"id": run_id, "prompt": serialize_prompt(prompt)}
         with self.state:
             self.state.output = [
