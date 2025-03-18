@@ -41,26 +41,32 @@ class AlignApp:
     @controller.set("reset_state")
     def reset_state(self):
         self._promptController.reset()
-        self.state.output = []
+        self.state.runs = {}
+        self.state.runs_to_compare = []
 
     async def make_decision(self):
         prompt = self._promptController.get_prompt()
         run_id = get_id()
         run = {"id": run_id, "prompt": prep_for_state(prompt)}
         with self.state:
-            self.state.output = [
-                *self.state.output,
-                run,
-            ]
+            self.state.runs = {
+                **self.state.runs,
+                run_id: run,
+            }
+            if len(self.state.runs_to_compare) >= 2:
+                self.state.runs_to_compare = self.state.runs_to_compare[1:] + [run_id]
+            else:
+                self.state.runs_to_compare = self.state.runs_to_compare + [run_id]
+
         await self.server.network_completion  # let spinner be shown
 
         decision = await get_decision(prompt)
 
         with self.state:
-            self.state.output = [
-                {**item, "decision": decision} if item.get("id") == run_id else item
-                for item in self.state.output
-            ]
+            self.state.runs = {
+                id: {**item, "decision": decision} if id == run_id else item
+                for id, item in self.state.runs.items()
+            }
 
     @controller.set("submit_prompt")
     def submit_prompt(self):
