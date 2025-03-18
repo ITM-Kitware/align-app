@@ -30,12 +30,12 @@ class Scenario(vuetify3.VExpansionPanel):
             with vuetify3.VExpansionPanelText():
                 html.P(
                     f"{{{{{scenario}.full_state.unstructured}}}}",
-                    classes=" text-subtitle-1 pb-4",
+                    classes="text-subtitle-1 pb-4",
                 )
                 html.H3("Choices")
                 with html.Ul(
                     v_for=(f"choice in {scenario}.choices"),
-                    classes="ml-4",
+                    classes="ml-8",
                 ):
                     html.Li("{{choice.unstructured}}")
 
@@ -74,7 +74,7 @@ class AlignmentTargets(vuetify3.VExpansionPanel):
                     classes="mb-4",
                 ):
                     html.H3("{{attribute.id}}")
-                    UnorderedObject("attribute", classes="ml-4")
+                    UnorderedObject("attribute", classes="ml-8")
                 html.Div(
                     "No Alignment",
                     v_if=(f"{alignment_targets}.length === 0",),
@@ -103,7 +103,7 @@ class Decision:
                 html.H3("Justification")
                 html.P(f"{{{{{decision}.justification}}}}")
                 html.H3("KDMA Association")
-                UnorderedObject(f"{decision}.kdma_association", classes="ml-4")
+                UnorderedObject(f"{decision}.kdma_association", classes="ml-8")
 
 
 class Result(vuetify3.VCard):
@@ -114,6 +114,161 @@ class Result(vuetify3.VCard):
                 with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                     Prompt(f"{result}.prompt")
                     Decision(f"{result}.decision")
+
+
+class ResultsComparison(html.Div):
+    def __init__(self, **kwargs):
+        super().__init__(classes="d-flex flex-wrap ga-4 pa-1", **kwargs)
+        with self:
+            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                # llm backbone
+                with vuetify3.VExpansionPanel():
+                    with vuetify3.VExpansionPanelTitle():
+                        with vuetify3.VRow():
+                            with vuetify3.VCol():
+                                html.Span("LLM Backbone: ", classes="font-weight-bold")
+                            with vuetify3.VCol(
+                                v_for=("id in runs_to_compare",),
+                                key=("id",),
+                            ):
+                                html.Span(
+                                    "{{runs[id].prompt.decider_params.llm_backbone}}",
+                                )
+                # decision maker
+                with vuetify3.VExpansionPanel():
+                    with vuetify3.VExpansionPanelTitle():
+                        with vuetify3.VRow():
+                            with vuetify3.VCol():
+                                html.Span(
+                                    "Decision Maker: ", classes="font-weight-bold"
+                                )
+                            with vuetify3.VCol(
+                                v_for=("id in runs_to_compare",),
+                                key=("id",),
+                            ):
+                                html.Span(
+                                    "{{runs[id].prompt.decider_params.decider}}",
+                                )
+                # alignment targets
+                with vuetify3.VExpansionPanel():
+                    with vuetify3.VExpansionPanelTitle():
+                        with vuetify3.VRow():
+                            with vuetify3.VCol():
+                                html.Span(
+                                    "Alignment Targets: ", classes="font-weight-bold"
+                                )
+                            with vuetify3.VCol(
+                                v_for=("id in runs_to_compare",),
+                                key=("id",),
+                            ):
+                                html.Span(
+                                    "{{ runs[id].prompt.alignment_targets.length ? "
+                                    "runs[id].prompt.alignment_targets.map(att => att.id).join(', ') : "
+                                    "'No Alignment Targets' }}"
+                                )
+                    with vuetify3.VExpansionPanelText():
+                        with vuetify3.VRow():
+                            with vuetify3.VCol():
+                                html.Span()
+                            with vuetify3.VCol(
+                                v_for=("id in runs_to_compare",),
+                                key=("id",),
+                            ):
+                                with html.Div(
+                                    v_for=(
+                                        "attribute in runs[id].prompt.alignment_targets",
+                                    ),
+                                    key=("attribute.id",),
+                                    classes="mb-4",
+                                ):
+                                    html.P("{{attribute.id}}")
+                                    with html.Ul(classes="ml-8"):
+                                        with html.Li(
+                                            v_for=("value in attribute.kdma_values",)
+                                        ):
+                                            html.Span(
+                                                "{{value.kdma}}: ",
+                                            )
+                                            html.Span("{{value.value}}")
+                                html.Div(
+                                    "",
+                                    v_if=(
+                                        "runs[id].prompt.alignment_targets.length === 0",
+                                    ),
+                                )
+                # scenarios
+                with vuetify3.VExpansionPanel():
+                    with vuetify3.VExpansionPanelTitle():
+                        with vuetify3.VRow():
+                            with vuetify3.VCol():
+                                html.Span("Scenarios: ", classes="font-weight-bold")
+                            with vuetify3.VCol(
+                                v_for=("id in runs_to_compare",),
+                                key=("id",),
+                                classes="text-no-wrap text-truncate",
+                            ):
+                                html.Span(
+                                    "{{runs[id].prompt.scenario.scenario_id}} - "
+                                    "{{runs[id].prompt.scenario.full_state.unstructured}}",
+                                )
+                    with vuetify3.VExpansionPanelText():
+                        with vuetify3.VRow():
+                            vuetify3.VCol()
+                            with vuetify3.VCol(
+                                v_for=("id in runs_to_compare",),
+                                key=("id",),
+                            ):
+                                html.P(
+                                    "{{runs[id].prompt.scenario.full_state.unstructured}}",
+                                    classes="text-subtitle-1 pb-4",
+                                )
+                                html.P("Choices")
+                                with html.Ul(
+                                    v_for=(
+                                        "choice in runs[id].prompt.scenario.choices"
+                                    ),
+                                    classes="ml-8",
+                                ):
+                                    html.Li("{{choice.unstructured}}")
+
+                # Decision
+                with vuetify3.VExpansionPanel():
+                    with vuetify3.VExpansionPanelTitle():
+                        with vuetify3.VRow():
+                            with vuetify3.VCol():
+                                html.Span(
+                                    "Decision: ",
+                                    classes="font-weight-bold",
+                                )
+                            with vuetify3.VCol(
+                                v_for=("id in runs_to_compare",),
+                                key=("id",),
+                                classes="text-no-wrap text-truncate",
+                            ):
+                                html.Span(
+                                    "{{runs[id].decision.unstructured}}",
+                                    v_if=("runs[id].decision",),
+                                )
+                                vuetify3.VProgressCircular(
+                                    v_else=True, indeterminate=True, size=20
+                                )
+                    with vuetify3.VExpansionPanelText():
+                        with vuetify3.VRow():
+                            vuetify3.VCol()
+                            with vuetify3.VCol(
+                                v_for=("id in runs_to_compare",),
+                                key=("id",),
+                            ):
+                                with html.Template(
+                                    v_if=("runs[id].decision",),
+                                ):
+                                    html.H3("Justification")
+                                    html.P("{{runs[id].decision.justification}}")
+                                    html.H3("KDMA Association")
+                                    UnorderedObject(
+                                        "runs[id].decision.kdma_association",
+                                        classes="ml-8",
+                                    )
 
 
 class PromptInput(vuetify3.VCard):
@@ -226,10 +381,8 @@ class AlignLayout(SinglePageLayout):
                 with vuetify3.VContainer(classes="fill-height"):
                     with vuetify3.VCol(classes="fill-height d-flex flex-column"):
                         with html.Div(
-                            classes="overflow-y-auto flex-grow-0 flex-shrink-1 mb-4 d-flex flex-column ga-4 pa-1",
+                            classes="overflow-y-auto flex-grow-0 flex-shrink-1 mb-4",
                             style="min-height: 10rem",
                         ):
-                            # need this div for overflow to work =/
-                            with html.Div(v_for=("result in output",)):
-                                Result("result", key=("result.id",))
-                        PromptInput(classes="mt-auto flex-shrink-0")
+                            ResultsComparison()
+                        PromptInput(classes="mt-auto flex-shrink-0", elevation=12)
