@@ -177,8 +177,7 @@ class ScenarioPanel(vuetify3.VExpansionPanel):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VExpansionPanelTitle():
-                with html.Div(classes="text-h6 text-no-wrap text-truncate"):
-                    html.Span("Scenario: ", classes="font-weight-bold")
+                with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
                     html.Span(
                         f"{{{{{scenario}.scenario_id}}}} - "
                         f"{{{{{scenario}.full_state.unstructured}}}}",
@@ -201,26 +200,21 @@ class PromptInput(vuetify3.VCard):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VCardText():
-                with vuetify3.VRow():
-                    with vuetify3.VCol():
-                        vuetify3.VSelect(
-                            label="LLM Backbone",
-                            items=("llm_backbones",),
-                            v_model=("llm_backbone",),
-                            hide_details="auto",
-                        )
-                    with vuetify3.VCol():
-                        vuetify3.VSelect(
-                            label="Decision Maker",
-                            items=("decision_makers",),
-                            v_model=("decision_maker",),
-                            hide_details="auto",
-                        )
-                with vuetify3.VRow(
+                vuetify3.VSelect(
+                    label="LLM Backbone",
+                    items=("llm_backbones",),
+                    v_model=("llm_backbone",),
+                )
+                vuetify3.VSelect(
+                    label="Decision Maker",
+                    items=("decision_makers",),
+                    v_model=("decision_maker",),
+                )
+                with html.Template(
                     v_for=("alignment_attribute in alignment_attributes",),
                     key=("alignment_attribute.id",),
                 ):
-                    with vuetify3.VCol():
+                    with vuetify3.VRow(no_gutters=True):
                         vuetify3.VSelect(
                             label="Alignment Target",
                             items=("possible_alignment_attributes",),
@@ -230,50 +224,38 @@ class PromptInput(vuetify3.VCard):
                                 r"[$event, alignment_attribute.id]",
                             ),
                             no_data_text="No available alignment targets",
-                            hide_details="auto",
                         )
-                    with vuetify3.VCol():
-                        with vuetify3.VRow(no_gutters=True):
-                            vuetify3.VSlider(
-                                model_value=("alignment_attribute.score",),
-                                update_modelValue=(
-                                    self.server.controller.update_score_alignment_attribute,
-                                    r"[$event, alignment_attribute.id]",
-                                ),
-                            )
-                            with vuetify3.VBtn(
-                                classes="ml-2",
-                                icon=True,
-                                click=(
-                                    self.server.controller.delete_alignment_attribute,
-                                    "[alignment_attribute.id]",
-                                ),
-                            ):
-                                vuetify3.VIcon("mdi-delete")
-
-                with vuetify3.VRow(
-                    v_if=(f"alignment_attributes.length < {MAX_ALIGNMENT_ATTRIBUTES}",)
-                ):
-                    with vuetify3.VCol():
-                        vuetify3.VBtn(
-                            "Add Alignment Attribute",
-                            click=self.server.controller.add_alignment_attribute,
-                        )
-                with vuetify3.VRow():
-                    with vuetify3.VCol(
-                        cols=4,
-                    ):
-                        vuetify3.VSelect(
-                            label="Scenario",
-                            items=("scenarios",),
-                            v_model=("prompt_scenario_id",),
-                            hide_details="auto",
-                        )
-                    with vuetify3.VCol(cols=8):
-                        with vuetify3.VExpansionPanels(
-                            multiple=True, variant="accordion"
+                        with vuetify3.VBtn(
+                            classes="ml-2 mt-1",
+                            icon=True,
+                            click=(
+                                self.server.controller.delete_alignment_attribute,
+                                "[alignment_attribute.id]",
+                            ),
                         ):
-                            ScenarioPanel("prompt_scenario")
+                            vuetify3.VIcon("mdi-delete")
+                    vuetify3.VSlider(
+                        model_value=("alignment_attribute.score",),
+                        update_modelValue=(
+                            self.server.controller.update_score_alignment_attribute,
+                            r"[$event, alignment_attribute.id]",
+                        ),
+                    )
+
+                vuetify3.VBtn(
+                    "Add Alignment Attribute",
+                    click=self.server.controller.add_alignment_attribute,
+                    v_if=(f"alignment_attributes.length < {MAX_ALIGNMENT_ATTRIBUTES}",),
+                )
+
+                vuetify3.VSelect(
+                    classes="mt-6",
+                    label="Scenario",
+                    items=("scenarios",),
+                    v_model=("prompt_scenario_id",),
+                )
+                with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                    ScenarioPanel("prompt_scenario")
 
             with vuetify3.VCardActions():
                 with vuetify3.VBtn(click=self.server.controller.submit_prompt):
