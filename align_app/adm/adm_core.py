@@ -82,9 +82,19 @@ def load_scenarios(evaluation_file: str):
     return scenarios
 
 
+def filter_actions_scenario(scenario: Scenario):
+    s, a = hydrate_scenario_state(scenario)
+    actions = filter_actions(s, a)
+    actions = [action.to_dict() for action in actions]
+    filtered_s = {**scenario, "choices": actions}
+    return filtered_s
+
+
 def get_scenarios():
     evaluation_file = list_json_files(oracles)[1]
-    return load_scenarios(evaluation_file)
+    scenarios = load_scenarios(evaluation_file)
+    scenarios = {id: filter_actions_scenario(s) for id, s in scenarios.items()}
+    return scenarios
 
 
 def get_prompt(
