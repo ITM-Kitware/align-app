@@ -14,9 +14,12 @@ class UnorderedObject(html.Ul):
     def __init__(self, obj, **kwargs):
         super().__init__(**kwargs)
         with self:
-            with html.Li(v_for=(f"[key, value] in Object.entries({obj})",)):
+            with html.Li(
+                v_if=f"{obj}", v_for=(f"[key, value] in Object.entries({obj})",)
+            ):
                 html.Span("{{key}}: ")
                 html.Span("{{value}}")
+            html.Div("No Object", v_else=True)
 
 
 class PanelSection(vuetify3.VExpansionPanel):
@@ -40,7 +43,7 @@ class PanelSection(vuetify3.VExpansionPanel):
 
 class RowWithLabel:
     def __init__(self, run_content=noop, label="", title=True):
-        with vuetify3.VRow():
+        with vuetify3.VRow(style="max-width: 100%;"):
             with vuetify3.VCol(cols=2):
                 html.Span(label, classes="font-weight-bold")
             with vuetify3.VCol(
@@ -66,7 +69,7 @@ class DecisionMaker:
             def run_content():
                 html.Span("{{runs[id].prompt.decider_params.decider}}")
 
-            RowWithLabel(run_content=run_content, label="Decision Maker", title=False)
+            RowWithLabel(run_content=run_content, label="Decision Maker")
 
 
 class AlignmentTargets:
@@ -145,10 +148,16 @@ class Decision:
                     html.P("{{runs[id].decision.justification}}")
                     html.H4("KDMA Association", classes="mt-4")
                     UnorderedObject(
-                        "runs[id].decision.kdma_association", classes="ml-8"
+                        "runs[id].decision.kdma_association",
+                        v_if="runs[id].decision.kdma_association",
+                        classes="ml-8",
+                    )
+                    html.Div(
+                        "No KDMA Association",
+                        v_else=True,
                     )
 
-            RowWithLabel(render_run_decision_text, title=False)
+            RowWithLabel(run_content=render_run_decision_text, title=False)
 
 
 class ResultsComparison(html.Div):
@@ -284,8 +293,6 @@ class AlignLayout(SinglePageLayout):
         self.title.set_text("Align App")
         self.icon.hide()
 
-        self.content.height = "100vh"
-
         with self as layout:
             with layout.toolbar:
                 vuetify3.VSpacer()
@@ -296,11 +303,9 @@ class AlignLayout(SinglePageLayout):
                     vuetify3.VIcon("mdi-undo")
 
             with layout.content:
-                with vuetify3.VContainer(classes="fill-height"):
-                    with vuetify3.VCol(classes="fill-height d-flex flex-column"):
-                        with html.Div(
-                            classes="overflow-y-auto flex-grow-0 flex-shrink-1 mb-4",
-                            style="min-height: 10rem",
-                        ):
+                with vuetify3.VContainer(fluid=True, classes="overflow-y-auto"):
+                    with vuetify3.VRow():
+                        with vuetify3.VCol(cols=8):
                             ResultsComparison()
-                        PromptInput(classes="mt-auto flex-shrink-0", elevation=12)
+                        with vuetify3.VCol(cols=4):
+                            PromptInput(classes="")
