@@ -24,3 +24,13 @@ def readable(snake_or_kebab: str):
         str: The human-readable string.
     """
     return snake_or_kebab.replace("_", " ").replace("-", " ").title()
+
+
+def noop():
+    """
+    A no-operation function.
+
+    Returns:
+        None
+    """
+    return
