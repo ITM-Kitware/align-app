@@ -1,6 +1,39 @@
 # CHANGELOG
 
 
+## v0.2.0 (2025-03-21)
+
+### Bug Fixes
+
+- **adm_core**: Filter choices
+  ([`dc8fd76`](https://github.com/ITM-Kitware/align-app/commit/dc8fd7648f108c3b183c7ff9c39878ad10d25c31))
+
+- **adm_core**: Set backbone on instance
+  ([`94953ec`](https://github.com/ITM-Kitware/align-app/commit/94953ecce79966a89ba0b6b8a5f3f4034644ecba))
+
+- **ui**: Keep panel title from overflowing
+  ([`424b56c`](https://github.com/ITM-Kitware/align-app/commit/424b56ccb8d57d1a3e7e0b4a6d97d3a472f9c47e))
+
+### Features
+
+- Add characters to scenario ui
+  ([`66625ed`](https://github.com/ITM-Kitware/align-app/commit/66625ed5e80c1bb7cb1e94d690314618f6a04447))
+
+- **ui**: Better typography and decision maker order
+  ([`026bc59`](https://github.com/ITM-Kitware/align-app/commit/026bc59f6faf52f3de2466fc716cc000fe992944))
+
+- **ui**: Put prompt input in right column
+  ([`f64b4c0`](https://github.com/ITM-Kitware/align-app/commit/f64b4c0db2eec6f00d7f14c7dfcb619ab484236a))
+
+- **ui**: Side by side comparsion layout
+  ([`e9e6d66`](https://github.com/ITM-Kitware/align-app/commit/e9e6d66b29a82e1ef034bde1210b75f00c87f201))
+
+### Refactoring
+
+- **ui**: Break rows into classes
+  ([`11860b0`](https://github.com/ITM-Kitware/align-app/commit/11860b00b607692808fc8505b66b7bed80eae956))
+
+
 ## v0.1.0 (2025-03-15)
 
 ### Bug Fixes
