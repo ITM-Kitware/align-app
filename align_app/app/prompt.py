@@ -6,6 +6,7 @@ from ..adm.adm_core import (
     deciders,
     attributes,
 )
+from .ui import readable_scenario
 from ..utils.utils import get_id, readable
 
 
@@ -45,7 +46,7 @@ class PromptController:
     @change("prompt_scenario_id")
     def on_scenario_change(self, prompt_scenario_id, **kwargs):
         s = get_scenarios()[prompt_scenario_id]
-        self.server.state.prompt_scenario = s
+        self.server.state.prompt_scenario = readable_scenario(s)
 
     def get_prompt(self):
         attributes = [
