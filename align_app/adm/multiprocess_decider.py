@@ -1,7 +1,7 @@
 from multiprocessing import Process, Queue
 from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
-from .adm_core import Prompt, load_adm, execute_model, ScenarioAndAlignment
+from .adm_core import Prompt, create_adm, ScenarioAndAlignment
 from ..utils.utils import get_id
 import asyncio
 import gc
@@ -38,14 +38,14 @@ class DeciderResponse(TypedDict):
 
 def decider_process_worker(request_queue: Queue, response_queue: Queue):
     """Worker function to run in a separate process."""
-    current_decider = None
-    current_decider_key = None
+    decider = None
+    decider_key = None
 
     def cleanup_decider():
-        nonlocal current_decider
-        if current_decider is None:
+        nonlocal decider
+        if decider is None:
             return
-        del current_decider
+        del decider
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -74,20 +74,31 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
                 aligned,
             )
 
-            if requested_decider_key != current_decider_key:
+            if requested_decider_key != decider_key:
                 cleanup_decider()
-                current_decider_key = requested_decider_key
-                current_decider = load_adm(
+                decider_key = requested_decider_key
+                decider = create_adm(
                     llm_backbone=decider_params["llm_backbone"],
                     decider=decider_params["decider"],
                     aligned=aligned,
                 )
 
+            if decider is None:
+                response_queue.put(
+                    DeciderResponse(
+                        request_id=request["request_id"],
+                        result=None,
+                        error="Failed to initialize decider",
+                        success=False,
+                    )
+                )
+                continue
+
             scenario_align: ScenarioAndAlignment = {
                 "scenario": prompt["scenario"],
                 "alignment_targets": prompt["alignment_targets"],
             }
-            action_decision = execute_model(current_decider, scenario_align)
+            action_decision = decider(scenario_align)
 
             decision_dict = action_decision.to_dict()
             response_queue.put(
