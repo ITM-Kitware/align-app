@@ -32,9 +32,7 @@ class PanelSection(vuetify3.VExpansionPanel):
             icon_kwargs = (
                 {"expand_icon": "", "collapse_icon": ""} if not has_text else {}
             )
-            with vuetify3.VExpansionPanelTitle(
-                static=not has_text, **icon_kwargs, classes="text-subtitle-1"
-            ):
+            with vuetify3.VExpansionPanelTitle(static=not has_text, **icon_kwargs):
                 child.Title()
             if has_text:
                 with vuetify3.VExpansionPanelText():
@@ -45,11 +43,15 @@ class RowWithLabel:
     def __init__(self, run_content=noop, label="", title=True):
         with vuetify3.VRow(style="max-width: 100%;"):
             with vuetify3.VCol(cols=2):
-                html.Span(label, classes="font-weight-bold")
+                html.Span(label, classes="text-h6")
             with vuetify3.VCol(
                 v_for=("id in runs_to_compare",),
                 key=("id",),
-                classes="text-no-wrap text-truncate" if title else "",
+                classes=(
+                    "text-subtitle-1 text-no-wrap text-truncate align-self-center"
+                    if title
+                    else ""
+                ),
             ):
                 run_content()
 
@@ -117,9 +119,9 @@ class Scenario:
             def run_content():
                 html.P(
                     "{{runs[id].prompt.scenario.full_state.unstructured}}",
-                    classes="text-subtitle-1 pb-4",
+                    classes="pb-4",
                 )
-                html.H4("Choices")
+                html.Div("Choices", classes="text-h6")
                 with html.Ul(
                     v_for=("choice in runs[id].prompt.scenario.choices",),
                     classes="ml-8",
@@ -144,9 +146,9 @@ class Decision:
         def __init__(self):
             def render_run_decision_text():
                 with html.Template(v_if=("runs[id].decision",)):
-                    html.H4("Justification")
+                    html.Div("Justification", classes="text-h6")
                     html.P("{{runs[id].decision.justification}}")
-                    html.H4("KDMA Association", classes="mt-4")
+                    html.Div("KDMA Association", classes="text-h6 mt-4")
                     UnorderedObject(
                         "runs[id].decision.kdma_association",
                         v_if="runs[id].decision.kdma_association",
@@ -165,8 +167,8 @@ class ResultsComparison(html.Div):
         super().__init__(classes="d-flex flex-wrap ga-4 pa-1", **kwargs)
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                PanelSection(child=LlmBackbone)
                 PanelSection(child=DecisionMaker)
+                PanelSection(child=LlmBackbone)
                 PanelSection(child=AlignmentTargets)
                 PanelSection(child=Scenario)
                 PanelSection(child=Decision)
@@ -187,7 +189,7 @@ class ScenarioPanel(vuetify3.VExpansionPanel):
                     f"{{{{{scenario}.full_state.unstructured}}}}",
                     classes="text-subtitle-1 pb-4",
                 )
-                html.H3("Choices")
+                html.Div("Choices", classes="text-h6")
                 with html.Ul(
                     v_for=(f"choice in {scenario}.choices"),
                     classes="ml-8",
@@ -201,14 +203,14 @@ class PromptInput(vuetify3.VCard):
         with self:
             with vuetify3.VCardText():
                 vuetify3.VSelect(
-                    label="LLM Backbone",
-                    items=("llm_backbones",),
-                    v_model=("llm_backbone",),
-                )
-                vuetify3.VSelect(
                     label="Decision Maker",
                     items=("decision_makers",),
                     v_model=("decision_maker",),
+                )
+                vuetify3.VSelect(
+                    label="LLM Backbone",
+                    items=("llm_backbones",),
+                    v_model=("llm_backbone",),
                 )
                 with html.Template(
                     v_for=("alignment_attribute in alignment_attributes",),
