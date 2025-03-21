@@ -7,6 +7,7 @@ from align_system.utils.hydrate_state import hydrate_scenario_state
 from .action_filtering import filter_actions
 from align_system.utils import logging
 import copy
+from functools import partial
 
 root_logger = logging.getLogger()
 root_logger.setLevel("WARNING")
@@ -55,7 +56,8 @@ LLM_BACKBONES = [
     "meta-llama/Meta-Llama-3-8B-Instruct",
 ]
 
-deciders = ["outlines_transformers_structured", "outlines_comparative_regression"]
+# deciders = ["outlines_transformers_structured", "outlines_comparative_regression"]
+deciders = ["outlines_transformers_structured"]
 
 attributes = [
     "moral_deservingness",
@@ -97,6 +99,16 @@ def get_scenarios():
     return scenarios
 
 
+def load_alignment_target(kdma=attributes[0], kdma_value=0):
+    kdma_split = kdma.split("_")
+    kdma_file = " ".join(kdma_split).capitalize()
+    if kdma_file in ["Moral deservingness", "Maximization"]:
+        binary_alignment = "high" if float(kdma_value) >= 0.5 else "low"
+        filename = f"{kdma}_{binary_alignment}.yaml"
+
+    return OmegaConf.load(alignment_configs / filename)
+
+
 def get_prompt(
     scenario_id: str,
     llm_backbone=LLM_BACKBONES[0],
@@ -130,26 +142,6 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-def load_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
-    suffix = "aligned" if aligned else "baseline"
-    name = f"{decider}_{suffix}.yaml"
-    config_path = adm_configs / name
-    config = OmegaConf.load(config_path)
-    config["model_name"] = llm_backbone
-    decider = hydra.utils.instantiate(config, recursive=True)
-    return decider
-
-
-def load_alignment_target(kdma=attributes[0], kdma_value=0):
-    kdma_split = kdma.split("_")
-    kdma_file = " ".join(kdma_split).capitalize()
-    if kdma_file in ["Moral deservingness", "Maximization"]:
-        binary_alignment = "high" if float(kdma_value) >= 0.5 else "low"
-        filename = f"{kdma}_{binary_alignment}.yaml"
-
-    return OmegaConf.load(alignment_configs / filename)
-
-
 def create_scenario_state(scenario):
     """Create a scenario state from a scenario description"""
     state, actions = hydrate_scenario_state(scenario)
@@ -179,3 +171,18 @@ def execute_model(model, prompt: ScenarioAndAlignment):
     )
 
     return action_decision
+
+
+def instantiate_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
+    suffix = "aligned" if aligned else "baseline"
+    name = f"{decider}_{suffix}.yaml"
+    config_path = adm_configs / name
+    config = OmegaConf.load(config_path)
+    config["instance"]["model_name"] = llm_backbone
+    decider = hydra.utils.instantiate(config, recursive=True)
+    return decider
+
+
+def create_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
+    model = instantiate_adm(llm_backbone, decider, aligned)
+    return partial(execute_model, model)
