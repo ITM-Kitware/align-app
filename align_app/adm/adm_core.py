@@ -80,6 +80,7 @@ def load_scenarios(evaluation_file: str):
         input = record["input"]
         scenario_id = f"{input['scenario_id']}.{next_id}"
         next_id += 1
+        input["scenario_id"] = scenario_id  # ensure id is unique
         scenarios[scenario_id] = input
     return scenarios
 

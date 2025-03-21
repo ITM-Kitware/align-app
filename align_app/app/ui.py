@@ -1,6 +1,7 @@
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
-from ..utils.utils import noop
+from ..adm.adm_core import serialize_prompt, Prompt
+from ..utils.utils import noop, readable, sentence
 
 MAX_ALIGNMENT_ATTRIBUTES = 1
 
@@ -8,6 +9,29 @@ MAX_ALIGNMENT_ATTRIBUTES = 1
 def reload(m=None):
     if m:
         m.__loader__.exec_module(m)
+
+
+def readable_scenario(scenario):
+    characters = scenario["full_state"]["characters"]
+    readable_characters = [{**c, "intent": sentence(c["intent"])} for c in characters]
+    return {
+        **scenario,
+        "full_state": {**scenario["full_state"], "characters": readable_characters},
+    }
+
+
+def prep_for_state(prompt: Prompt):
+    p = serialize_prompt(prompt)
+    p["alignment_targets"] = [
+        {
+            **a,
+            "id": readable(a["id"]),
+        }
+        for a in p["alignment_targets"]
+    ]
+    p["decider_params"]["decider"] = readable(p["decider_params"]["decider"])
+    p["scenario"] = readable_scenario(p["scenario"])
+    return p
 
 
 class UnorderedObject(html.Ul):
@@ -103,6 +127,23 @@ class AlignmentTargets:
             RowWithLabel(run_content=run_content, title=False)
 
 
+class ScenarioLayout:
+    def __init__(self, scenario):
+        html.Div("Situation", classes="text-h6")
+        html.P(f"{{{{{scenario}.full_state.unstructured}}}}")
+        html.Div("Characters", classes="text-h6 pt-4")
+        with html.Div(
+            v_for=(f"character in {scenario}.full_state.characters",), classes="pt-2"
+        ):
+            html.Div("{{character.name}}")
+            with html.Ul(classes="ml-8"):
+                html.Li("{{character.unstructured}}")
+                html.Li("{{character.intent}}")
+        html.Div("Choices", classes="text-h6 pt-4")
+        with html.Ul(v_for=(f"choice in {scenario}.choices",), classes="ml-8"):
+            html.Li("{{choice.unstructured}}")
+
+
 class Scenario:
     class Title:
         def __init__(self):
@@ -117,16 +158,7 @@ class Scenario:
     class Text:
         def __init__(self):
             def run_content():
-                html.P(
-                    "{{runs[id].prompt.scenario.full_state.unstructured}}",
-                    classes="pb-4",
-                )
-                html.Div("Choices", classes="text-h6")
-                with html.Ul(
-                    v_for=("choice in runs[id].prompt.scenario.choices",),
-                    classes="ml-8",
-                ):
-                    html.Li("{{choice.unstructured}}")
+                ScenarioLayout("runs[id].prompt.scenario")
 
             RowWithLabel(run_content=run_content, title=False)
 
@@ -185,16 +217,7 @@ class ScenarioPanel(vuetify3.VExpansionPanel):
                         f"{{{{{scenario}.full_state.unstructured}}}}",
                     )
             with vuetify3.VExpansionPanelText():
-                html.P(
-                    f"{{{{{scenario}.full_state.unstructured}}}}",
-                    classes="text-subtitle-1 pb-4",
-                )
-                html.Div("Choices", classes="text-h6")
-                with html.Ul(
-                    v_for=(f"choice in {scenario}.choices"),
-                    classes="ml-8",
-                ):
-                    html.Li("{{choice.unstructured}}")
+                ScenarioLayout(scenario)
 
 
 class PromptInput(vuetify3.VCard):

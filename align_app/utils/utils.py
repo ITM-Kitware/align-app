@@ -26,6 +26,10 @@ def readable(snake_or_kebab: str):
     return snake_or_kebab.replace("_", " ").replace("-", " ").title()
 
 
+def sentence(text: str):
+    return text[0].upper() + text[1:]
+
+
 def noop():
     """
     A no-operation function.
