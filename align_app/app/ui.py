@@ -154,12 +154,12 @@ class ScenarioLayout:
             v_for=(f"character in {scenario}.full_state.characters",), classes="pt-2"
         ):
             html.Div("{{character.name}}")
-            with html.Ul(classes="ml-8"):
-                html.Li("{{character.unstructured}}")
-                html.Li("{{character.intent}}")
+            with html.Div(classes="ml-8"):
+                html.P("{{character.unstructured}}", classes="my-2")
+                html.P("{{character.intent}}")
         html.Div("Choices", classes="text-h6 pt-4")
-        with html.Ul(v_for=(f"choice in {scenario}.choices",), classes="ml-8"):
-            html.Li("{{choice.unstructured}}")
+        with html.Ol(classes="ml-8"):
+            html.Li("{{choice.unstructured}}", v_for=(f"choice in {scenario}.choices"))
 
 
 class Scenario:

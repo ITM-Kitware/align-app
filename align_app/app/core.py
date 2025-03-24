@@ -48,6 +48,16 @@ class AlignApp:
 
         decision = await get_decision(prompt)
 
+        choice_idx = next(
+            (
+                i
+                for i, choice in enumerate(prompt["scenario"]["choices"])
+                if choice["unstructured"] == decision["unstructured"]
+            ),
+            0,
+        )
+        decision["unstructured"] = f"{choice_idx + 1}. " + decision["unstructured"]
+
         with self.state:
             self.state.runs = {
                 id: {**item, "decision": decision} if id == run_id else item

@@ -25,7 +25,7 @@
 - **ui**: Put prompt input in right column
   ([`f64b4c0`](https://github.com/ITM-Kitware/align-app/commit/f64b4c0db2eec6f00d7f14c7dfcb619ab484236a))
 
-- **ui**: Side by side comparsion layout
+- **ui**: Side by side comparison layout
   ([`e9e6d66`](https://github.com/ITM-Kitware/align-app/commit/e9e6d66b29a82e1ef034bde1210b75f00c87f201))
 
 ### Refactoring
