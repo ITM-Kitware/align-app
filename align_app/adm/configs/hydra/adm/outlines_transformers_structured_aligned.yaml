@@ -7,7 +7,3 @@ instance:
   sampler:
     _target_: outlines.samplers.GreedySampler
 
-demo_kwargs:
-  max_generator_tokens: 8092
-  generator_seed: 2
-  shuffle_choices: False

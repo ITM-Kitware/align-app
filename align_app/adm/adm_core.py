@@ -9,6 +9,8 @@ from align_system.utils import logging
 import copy
 from functools import partial
 
+MAX_GENERATOR_TOKENS = 8092
+
 root_logger = logging.getLogger()
 root_logger.setLevel("WARNING")
 
@@ -100,6 +102,17 @@ def get_scenarios():
     return scenarios
 
 
+def get_scenario(scenario_id: str):
+    return get_scenarios()[scenario_id]
+
+
+def create_scenario_state(scenario):
+    """Create a scenario state from a scenario description"""
+    state, actions = hydrate_scenario_state(scenario)
+    actions = filter_actions(state, actions)
+    return state, actions
+
+
 def load_alignment_target(kdma=attributes[0], kdma_value=0):
     kdma_split = kdma.split("_")
     kdma_file = " ".join(kdma_split).capitalize()
@@ -108,6 +121,12 @@ def load_alignment_target(kdma=attributes[0], kdma_value=0):
         filename = f"{kdma}_{binary_alignment}.yaml"
 
     return OmegaConf.load(alignment_configs / filename)
+
+
+def prepare_alignment_targets(attributes: List[Attribute]) -> List[DictConfig]:
+    return [
+        load_alignment_target(kdma=a["type"], kdma_value=a["score"]) for a in attributes
+    ]
 
 
 def get_prompt(
@@ -120,11 +139,8 @@ def get_prompt(
         "llm_backbone": llm_backbone,
         "decider": decider,
     }
-
-    alignment_targets = [
-        load_alignment_target(kdma=a["type"], kdma_value=a["score"]) for a in attributes
-    ]
-    scenario = get_scenarios()[scenario_id]
+    alignment_targets = prepare_alignment_targets(attributes)
+    scenario = get_scenario(scenario_id)
     return {
         "decider_params": decider_params,
         "alignment_targets": alignment_targets,
@@ -143,45 +159,64 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-def create_scenario_state(scenario):
-    """Create a scenario state from a scenario description"""
-    state, actions = hydrate_scenario_state(scenario)
-    actions = filter_actions(state, actions)
-    return state, actions
+def get_decider_config(decider, aligned):
+    suffix = "aligned" if aligned else "baseline"
+    name = f"{decider}_{suffix}.yaml"
+    config_path = adm_configs / name
+    config = OmegaConf.load(config_path)
+    return config
+
+
+def prepare_context(scenario, alignment_targets):
+    state, actions = create_scenario_state(scenario)
+    alignment_target = alignment_targets[0] if alignment_targets else None
+    return state, actions, alignment_target
+
+
+def get_system_prompt(decider, attributes, scenario_id):
+    alignment_targets = prepare_alignment_targets(attributes)
+    state, actions, alignment_target = prepare_context(
+        get_scenario(scenario_id), alignment_targets
+    )
+    config = get_decider_config(decider, aligned=True)
+    target_class = hydra.utils.get_class(config.instance._target_)
+    dialogs = target_class.get_dialogs(
+        state,
+        actions,
+        alignment_target,
+        num_positive_samples=1,
+        num_negative_samples=0,
+        shuffle_choices=False,
+        baseline=len(attributes) == 0,
+        kdma_descriptions_map=kdma_descriptions_map,
+    )
+    return dialogs["positive_system_prompt"]
+
+
+def instantiate_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
+    config = get_decider_config(decider, aligned)
+    config["instance"]["model_name"] = llm_backbone
+    decider = hydra.utils.instantiate(config, recursive=True)
+    return decider
 
 
 def execute_model(model, prompt: ScenarioAndAlignment):
     """Execute a model with the given prompt"""
-    state, actions = create_scenario_state(prompt["scenario"])
-    # TODO: Handle multiple alignment targets
-    alignment_target = (
-        prompt["alignment_targets"][0] if len(prompt["alignment_targets"]) > 0 else None
+    state, actions, alignment_target = prepare_context(
+        prompt["scenario"], prompt["alignment_targets"]
     )
-
     action_decision, *_ = model.instance.top_level_choose_action(
         scenario_state=state,
         available_actions=actions,
         alignment_target=alignment_target,
         kdma_descriptions_map=kdma_descriptions_map,
-        tokenizer_kwargs={"truncation": False},
-        demo_kwargs={
-            "max_generator_tokens": 8092,
-            "generator_seed": 2,
-            "shuffle_choices": False,
-        },
+        reasoning_max_length=-1,
+        generator_seed=2,
+        shuffle_choices=False,
+        max_generator_tokens=MAX_GENERATOR_TOKENS,
     )
 
     return action_decision
-
-
-def instantiate_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
-    suffix = "aligned" if aligned else "baseline"
-    name = f"{decider}_{suffix}.yaml"
-    config_path = adm_configs / name
-    config = OmegaConf.load(config_path)
-    config["instance"]["model_name"] = llm_backbone
-    decider = hydra.utils.instantiate(config, recursive=True)
-    return decider
 
 
 def create_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):

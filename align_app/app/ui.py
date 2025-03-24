@@ -127,6 +127,24 @@ class AlignmentTargets:
             RowWithLabel(run_content=run_content, title=False)
 
 
+class SystemPrompt:
+    class Title:
+        def __init__(self):
+            def run_content():
+                html.Span(
+                    "{{runs[id].prompt.system_prompt}}",
+                )
+
+            RowWithLabel(run_content=run_content, label="System Prompt")
+
+    class Text:
+        def __init__(self):
+            def run_content():
+                html.Div("{{runs[id].prompt.system_prompt}}")
+
+            RowWithLabel(run_content=run_content, title=False)
+
+
 class ScenarioLayout:
     def __init__(self, scenario):
         html.Div("Situation", classes="text-h6")
@@ -200,8 +218,9 @@ class ResultsComparison(html.Div):
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                 PanelSection(child=DecisionMaker)
-                PanelSection(child=LlmBackbone)
                 PanelSection(child=AlignmentTargets)
+                PanelSection(child=SystemPrompt)
+                PanelSection(child=LlmBackbone)
                 PanelSection(child=Scenario)
                 PanelSection(child=Decision)
 
@@ -230,11 +249,6 @@ class PromptInput(vuetify3.VCard):
                     items=("decision_makers",),
                     v_model=("decision_maker",),
                 )
-                vuetify3.VSelect(
-                    label="LLM Backbone",
-                    items=("llm_backbones",),
-                    v_model=("llm_backbone",),
-                )
                 with html.Template(
                     v_for=("alignment_attribute in alignment_attributes",),
                     key=("alignment_attribute.id",),
@@ -249,6 +263,7 @@ class PromptInput(vuetify3.VCard):
                                 r"[$event, alignment_attribute.id]",
                             ),
                             no_data_text="No available alignment targets",
+                            hide_details="auto",
                         )
                         with vuetify3.VBtn(
                             classes="ml-2 mt-1",
@@ -259,22 +274,49 @@ class PromptInput(vuetify3.VCard):
                             ),
                         ):
                             vuetify3.VIcon("mdi-delete")
-                    vuetify3.VSlider(
-                        model_value=("alignment_attribute.score",),
-                        update_modelValue=(
-                            self.server.controller.update_score_alignment_attribute,
-                            r"[$event, alignment_attribute.id]",
-                        ),
-                    )
+
+                    with vuetify3.VRow(
+                        align="center", justify="center", classes="mb-2"
+                    ):
+                        vuetify3.VSlider(
+                            style="max-width: 300px",
+                            model_value=("alignment_attribute.score",),
+                            update_modelValue=(
+                                self.server.controller.update_score_alignment_attribute,
+                                r"[$event, alignment_attribute.id]",
+                            ),
+                            max=("1",),
+                            ticks=({0: "Low", 1: "High"},),
+                            show_ticks="always",
+                            step="1",
+                            tick_size="4",
+                        )
 
                 vuetify3.VBtn(
                     "Add Alignment Attribute",
                     click=self.server.controller.add_alignment_attribute,
                     v_if=(f"alignment_attributes.length < {MAX_ALIGNMENT_ATTRIBUTES}",),
+                    classes="mb-6",
+                )
+
+                with vuetify3.VExpansionPanels(classes="mb-6"):
+                    with vuetify3.VExpansionPanel():
+                        with vuetify3.VExpansionPanelTitle():
+                            with html.Div(
+                                classes="text-subtitle-1 text-no-wrap text-truncate"
+                            ):
+                                html.Span("System Prompt:")
+                                html.Span("{{system_prompt}}")
+                        with vuetify3.VExpansionPanelText():
+                            html.Div("{{system_prompt}}")
+
+                vuetify3.VSelect(
+                    label="LLM Backbone",
+                    items=("llm_backbones",),
+                    v_model=("llm_backbone",),
                 )
 
                 vuetify3.VSelect(
-                    classes="mt-6",
                     label="Scenario",
                     items=("scenarios",),
                     v_model=("prompt_scenario_id",),
