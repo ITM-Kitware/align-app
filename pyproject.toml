@@ -9,7 +9,7 @@ dependencies = [
     "trame>=3.7.1",
     "trame-vuetify",
     "trame-vtk",
-    "align-system @ git+https://github.com/ITM-Kitware/align-system.git@0.5.6-demo",
+    "align-system @ git+https://github.com/PaulHax/align-system.git@outlines-system-prompt",
     "hydra-core",
     "omegaconf",
 ]

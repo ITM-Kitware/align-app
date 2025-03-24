@@ -5,9 +5,12 @@ from ..adm.adm_core import (
     LLM_BACKBONES,
     deciders,
     attributes,
+    get_system_prompt,
 )
 from .ui import readable_scenario
-from ..utils.utils import get_id, readable
+from ..utils.utils import get_id, readable, debounce
+
+COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME = 0.1
 
 
 def readable_items(items):
@@ -20,10 +23,22 @@ def readable_items(items):
     ]
 
 
+def map_attributes(attributes):
+    """Map UI attribute representation to backend format."""
+    return [{"type": a["value"], "score": a["score"]} for a in attributes]
+
+
 @TrameApp()
 class PromptController:
     def __init__(self, server):
         self.server = server
+        self.server.state.change(
+            "alignment_attributes", "decision_maker", "prompt_scenario_id"
+        )(
+            debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
+                self.compute_system_prompt
+            )
+        )
         self.reset()
 
     def update_scenarios(self):
@@ -42,6 +57,7 @@ class PromptController:
         self.server.state.decision_makers = readable_items(deciders)
         self.server.state.decision_maker = self.server.state.decision_makers[0]["value"]
         self.server.state.alignment_attributes = []
+        self.server.state.system_prompt = ""
 
     @change("prompt_scenario_id")
     def on_scenario_change(self, prompt_scenario_id, **kwargs):
@@ -49,16 +65,17 @@ class PromptController:
         self.server.state.prompt_scenario = readable_scenario(s)
 
     def get_prompt(self):
-        attributes = [
-            {"type": a["value"], "score": a["score"]}
-            for a in self.server.state.alignment_attributes
-        ]
-        return get_prompt(
-            self.server.state.prompt_scenario_id,
-            self.server.state.llm_backbone,
-            self.server.state.decision_maker,
-            attributes,
-        )
+        mapped_attributes = map_attributes(self.server.state.alignment_attributes)
+        prompt = {
+            **get_prompt(
+                self.server.state.prompt_scenario_id,
+                self.server.state.llm_backbone,
+                self.server.state.decision_maker,
+                mapped_attributes,
+            ),
+            "system_prompt": self.server.state.system_prompt,
+        }
+        return prompt
 
     @controller.add("add_alignment_attribute")
     def add_alignment_attribute(self):
@@ -101,3 +118,10 @@ class PromptController:
         used_values = [a["value"] for a in self.server.state.alignment_attributes]
         available = [a for a in attributes if a not in used_values]
         self.server.state.possible_alignment_attributes = readable_items(available)
+
+    def compute_system_prompt(self, **_):
+        decider = self.server.state.decision_maker
+        mapped_attributes = map_attributes(self.server.state.alignment_attributes)
+        scenario_id = self.server.state.prompt_scenario_id
+        sys_prompt = get_system_prompt(decider, mapped_attributes, scenario_id)
+        self.server.state.system_prompt = sys_prompt
