@@ -161,7 +161,11 @@ class ScenarioLayout:
     def __init__(self, scenario):
         html.Div("Situation", classes="text-h6")
         html.P(f"{{{{{scenario}.full_state.unstructured}}}}")
-        html.Div("Characters", classes="text-h6 pt-4")
+        html.Div(
+            "Characters",
+            classes="text-h6 pt-4",
+            v_if=f"{scenario}.full_state.characters && {scenario}.full_state.characters.length",
+        )
         with html.Div(
             v_for=(f"character in {scenario}.full_state.characters",), classes="pt-2"
         ):
@@ -210,16 +214,6 @@ class Decision:
                 with html.Template(v_if=("runs[id].decision",)):
                     html.Div("Justification", classes="text-h6")
                     html.P("{{runs[id].decision.justification}}")
-                    html.Div("KDMA Association", classes="text-h6 mt-4")
-                    UnorderedObject(
-                        "runs[id].decision.kdma_association",
-                        v_if="runs[id].decision.kdma_association",
-                        classes="ml-8",
-                    )
-                    html.Div(
-                        "No KDMA Association",
-                        v_else=True,
-                    )
 
             RowWithLabel(run_content=render_run_decision_text)
 

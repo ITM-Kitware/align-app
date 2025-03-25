@@ -48,7 +48,8 @@ current_dir = Path(__file__).parent
 configs = current_dir / "configs"
 adm_configs = configs / "hydra" / "adm"
 alignment_configs = configs / "hydra" / "alignment_target"
-oracles = current_dir / "oracle-json-files"
+oracles = current_dir / "input_output_files"
+
 kdma_descriptions_map = configs / "prompt_engineering" / "kdma_descriptions.yml"
 
 # Available model configurations
@@ -70,7 +71,8 @@ attributes = [
 
 
 def list_json_files(dir_path: Path):
-    return [str(file) for file in dir_path.iterdir() if file.suffix == ".json"]
+    """Recursively find all JSON files in a directory and its subdirectories."""
+    return [str(path) for path in dir_path.rglob("*.json")]
 
 
 def load_scenarios(evaluation_file: str):
@@ -96,8 +98,11 @@ def filter_actions_scenario(scenario: Scenario):
 
 
 def get_scenarios():
-    evaluation_file = list_json_files(oracles)[1]
-    scenarios = load_scenarios(evaluation_file)
+    scenarios = {
+        id: s
+        for file in list_json_files(oracles)
+        for id, s in load_scenarios(file).items()
+    }
     scenarios = {id: filter_actions_scenario(s) for id, s in scenarios.items()}
     return scenarios
 
