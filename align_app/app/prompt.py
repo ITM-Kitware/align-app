@@ -57,7 +57,6 @@ class PromptController:
         self.server.state.decision_makers = readable_items(deciders)
         self.server.state.decision_maker = self.server.state.decision_makers[0]["value"]
         self.server.state.alignment_attributes = []
-        self.server.state.system_prompt = ""
 
     @change("prompt_scenario_id")
     def on_scenario_change(self, prompt_scenario_id, **kwargs):
