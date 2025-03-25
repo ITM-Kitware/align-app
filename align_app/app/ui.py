@@ -64,13 +64,15 @@ class PanelSection(vuetify3.VExpansionPanel):
 
 
 class RowWithLabel:
-    def __init__(self, run_content=noop, label="", title=True):
+    def __init__(self, run_content=noop, label="", no_runs=None):
+        title = bool(label)
         with vuetify3.VRow(style="max-width: 100%;"):
             with vuetify3.VCol(cols=2):
                 html.Span(label, classes="text-h6")
             with vuetify3.VCol(
                 v_for=("id in runs_to_compare",),
                 key=("id",),
+                v_if=("runs_to_compare.length > 0",),
                 classes=(
                     "text-subtitle-1 text-no-wrap text-truncate align-self-center"
                     if title
@@ -78,6 +80,16 @@ class RowWithLabel:
                 ),
             ):
                 run_content()
+            with vuetify3.VCol(
+                v_else=True,
+                classes=(
+                    "text-subtitle-1 text-no-wrap text-truncate align-self-center"
+                    if title
+                    else ""
+                ),
+            ):
+                if no_runs:
+                    no_runs()
 
 
 class LlmBackbone:
@@ -124,7 +136,7 @@ class AlignmentTargets:
                             html.Span("{{value.value}}")
                 html.Div("", v_if=("runs[id].prompt.alignment_targets.length === 0",))
 
-            RowWithLabel(run_content=run_content, title=False)
+            RowWithLabel(run_content=run_content)
 
 
 class SystemPrompt:
@@ -142,7 +154,7 @@ class SystemPrompt:
             def run_content():
                 html.Div("{{runs[id].prompt.system_prompt}}")
 
-            RowWithLabel(run_content=run_content, title=False)
+            RowWithLabel(run_content=run_content)
 
 
 class ScenarioLayout:
@@ -178,7 +190,7 @@ class Scenario:
             def run_content():
                 ScenarioLayout("runs[id].prompt.scenario")
 
-            RowWithLabel(run_content=run_content, title=False)
+            RowWithLabel(run_content=run_content)
 
 
 class Decision:
@@ -209,7 +221,19 @@ class Decision:
                         v_else=True,
                     )
 
-            RowWithLabel(run_content=render_run_decision_text, title=False)
+            RowWithLabel(run_content=render_run_decision_text)
+
+
+class RunNumber:
+    class Title:
+        def __init__(self):
+            def run_content():
+                html.Span("{{Object.keys(runs).indexOf(id) + 1}}")
+
+            def no_runs():
+                html.Div("No Runs")
+
+            RowWithLabel(run_content=run_content, label="Run Number", no_runs=no_runs)
 
 
 class ResultsComparison(html.Div):
@@ -217,6 +241,7 @@ class ResultsComparison(html.Div):
         super().__init__(classes="d-flex flex-wrap ga-4 pa-1", **kwargs)
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                PanelSection(child=RunNumber)
                 PanelSection(child=DecisionMaker)
                 PanelSection(child=AlignmentTargets)
                 PanelSection(child=SystemPrompt)
