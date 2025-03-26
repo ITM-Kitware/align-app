@@ -1,13 +1,15 @@
 from pathlib import Path
+import copy
 from typing import TypedDict, List
 import json
 import hydra
+from functools import partial
 from omegaconf import OmegaConf, DictConfig
 from align_system.utils.hydrate_state import hydrate_scenario_state
-from .action_filtering import filter_actions
+import align_system
 from align_system.utils import logging
-import copy
-from functools import partial
+from .action_filtering import filter_actions
+from hydra import initialize_config_module, compose
 
 MAX_GENERATOR_TOKENS = 8092
 
@@ -43,30 +45,10 @@ class Prompt(ScenarioAndAlignment):
     decider_params: DeciderParams
 
 
-# Core configuration paths
-current_dir = Path(__file__).parent
-configs = current_dir / "configs"
-adm_configs = configs / "hydra" / "adm"
-alignment_configs = configs / "hydra" / "alignment_target"
-oracles = current_dir / "input_output_files"
-
-kdma_descriptions_map = configs / "prompt_engineering" / "kdma_descriptions.yml"
-
-# Available model configurations
 LLM_BACKBONES = [
     "mistralai/Mistral-7B-Instruct-v0.2",
     "mistralai/Mistral-7B-Instruct-v0.3",
     "meta-llama/Meta-Llama-3-8B-Instruct",
-]
-
-# deciders = ["outlines_transformers_structured", "outlines_comparative_regression"]
-deciders = ["outlines_transformers_structured"]
-
-attributes = [
-    "moral_deservingness",
-    "maximization",
-    # "moral_judgement",
-    # "ingroup_bias",
 ]
 
 
@@ -89,26 +71,76 @@ def load_scenarios(evaluation_file: str):
     return scenarios
 
 
-def filter_actions_scenario(scenario: Scenario):
-    s, a = hydrate_scenario_state(scenario)
-    actions = filter_actions(s, a)
-    actions = [action.to_dict() for action in actions]
-    filtered_s = {**scenario, "choices": actions}
-    return filtered_s
-
-
-def get_scenarios():
-    scenarios = {
-        id: s
-        for file in list_json_files(oracles)
-        for id, s in load_scenarios(file).items()
-    }
-    scenarios = {id: filter_actions_scenario(s) for id, s in scenarios.items()}
+def get_scenarios(files):
+    scenarios = {id: s for file in files for id, s in load_scenarios(file).items()}
     return scenarios
 
 
-def get_scenario(scenario_id: str):
-    return get_scenarios()[scenario_id]
+current_dir = Path(__file__).parent
+configs = current_dir / "configs"
+adm_configs = configs / "hydra" / "adm"
+alignment_configs = configs / "hydra" / "alignment_target"
+
+naacl24_input_dir = current_dir / "input_output_files" / "NAACL24_dataset_split"
+opinionqa_input_dir = current_dir / "input_output_files" / "OpinionQA_dataset_split"
+
+
+def load_scenarios_dir(dir_path: Path):
+    files = list_json_files(dir_path)
+    return get_scenarios(files)
+
+
+align_system_path = Path(align_system.__file__).parent
+align_system_config_dir = align_system_path / "configs"
+adm_demo_configs = align_system_config_dir / "experiment" / "demo"
+
+
+datasets = {
+    "naacl24": {
+        "scenarios": load_scenarios_dir(naacl24_input_dir),
+        "deciders": {
+            "outlines_transformers_structured": {
+                "aligned": "experiment/demo/outlines_structured_adm_aligned_naacl24",
+                "baseline": "experiment/demo/outlines_structured_adm_baseline_naacl24",
+            },
+        },
+    },
+    "opinionqa": {
+        "scenarios": load_scenarios_dir(opinionqa_input_dir),
+        "deciders": {
+            "outlines_transformers_structured": {
+                "aligned": "experiment/demo/outlines_structured_adm_aligned_opinionqa",
+                "baseline": "experiment/demo/outlines_structured_adm_baseline_opinionqa.yaml",
+            },
+        },
+    },
+}
+
+# Create a flat dictionary of all scenarios from all datasets
+scenarios: dict[str, Scenario] = {}
+for dataset_name, dataset_info in datasets.items():
+    dataset_scenarios = dataset_info["scenarios"]
+    # Check for duplicate keys before merging
+    duplicate_keys = set(scenarios.keys()) & set(dataset_scenarios.keys())
+    if duplicate_keys:
+        raise ValueError(
+            f"Found duplicate scenario keys across datasets: {duplicate_keys}"
+        )
+    scenarios.update(dataset_scenarios)
+
+
+kdma_descriptions_map = configs / "prompt_engineering" / "kdma_descriptions.yml"
+
+
+# deciders = ["outlines_transformers_structured", "outlines_comparative_regression"]
+deciders = ["outlines_transformers_structured"]
+
+attributes = [
+    "moral_deservingness",
+    "maximization",
+    # "moral_judgement",
+    # "ingroup_bias",
+]
 
 
 def create_scenario_state(scenario):
@@ -145,7 +177,7 @@ def get_prompt(
         "decider": decider,
     }
     alignment_targets = prepare_alignment_targets(attributes)
-    scenario = get_scenario(scenario_id)
+    scenario = scenarios[scenario_id]
     return {
         "decider_params": decider_params,
         "alignment_targets": alignment_targets,
@@ -164,12 +196,35 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-def get_decider_config(decider, aligned):
-    suffix = "aligned" if aligned else "baseline"
-    name = f"{decider}_{suffix}.yaml"
-    config_path = adm_configs / name
-    config = OmegaConf.load(config_path)
-    return config
+def get_decider_config(scenario_id, decider, baseline):
+    # Find which dataset this scenario belongs to
+    dataset_name = None
+    for name, dataset_info in datasets.items():
+        if scenario_id in dataset_info["scenarios"]:
+            dataset_name = name
+            break
+
+    if dataset_name is None:
+        raise ValueError(f"Scenario ID {scenario_id} not found in any dataset")
+
+    alignment = "baseline" if baseline else "aligned"
+
+    if decider not in datasets[dataset_name]["deciders"]:
+        raise ValueError(f"Decider {decider} not found in dataset {dataset_name}")
+
+    decider_configs = datasets[dataset_name]["deciders"][decider]
+    if alignment not in decider_configs:
+        raise ValueError(
+            f"Alignment setting {alignment} not found for decider {decider} in dataset {dataset_name}"
+        )
+
+    config_name = decider_configs[alignment]
+    with initialize_config_module(
+        config_module="align_system.configs", job_name="decider_config"
+    ):
+        config = compose(config_name=config_name)
+    resolved_config = OmegaConf.create(OmegaConf.to_container(config, resolve=True))
+    return resolved_config
 
 
 def prepare_context(scenario, alignment_targets):
@@ -180,11 +235,11 @@ def prepare_context(scenario, alignment_targets):
 
 def get_system_prompt(decider, attributes, scenario_id):
     alignment_targets = prepare_alignment_targets(attributes)
-    state, actions, alignment_target = prepare_context(
-        get_scenario(scenario_id), alignment_targets
-    )
-    config = get_decider_config(decider, aligned=True)
-    target_class = hydra.utils.get_class(config.instance._target_)
+    scenario = scenarios[scenario_id]
+    state, actions, alignment_target = prepare_context(scenario, alignment_targets)
+    baseline = alignment_target is None
+    config = get_decider_config(scenario_id, decider, baseline=baseline)
+    target_class = hydra.utils.get_class(config.adm.instance._target_)
     dialogs = target_class.get_dialogs(
         state,
         actions,
@@ -192,14 +247,16 @@ def get_system_prompt(decider, attributes, scenario_id):
         num_positive_samples=1,
         num_negative_samples=0,
         shuffle_choices=False,
-        baseline=len(attributes) == 0,
+        baseline=baseline,
         kdma_descriptions_map=kdma_descriptions_map,
     )
     return dialogs["positive_system_prompt"]
 
 
-def instantiate_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
-    config = get_decider_config(decider, aligned)
+def instantiate_adm(
+    llm_backbone=LLM_BACKBONES[0], decider=deciders[0], baseline=True, scenario_id=None
+):
+    config = get_decider_config(scenario_id, decider, baseline)
     config["instance"]["model_name"] = llm_backbone
     decider = hydra.utils.instantiate(config, recursive=True)
     return decider
@@ -224,6 +281,8 @@ def execute_model(model, prompt: ScenarioAndAlignment):
     return action_decision
 
 
-def create_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
-    model = instantiate_adm(llm_backbone, decider, aligned)
+def create_adm(
+    llm_backbone=LLM_BACKBONES[0], decider=deciders[0], baseline=True, scenario_id=None
+):
+    model = instantiate_adm(llm_backbone, decider, baseline, scenario_id)
     return partial(execute_model, model)

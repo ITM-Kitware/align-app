@@ -1,6 +1,6 @@
 from trame.decorators import TrameApp, change, controller
 from ..adm.adm_core import (
-    get_scenarios,
+    scenarios,
     get_prompt,
     LLM_BACKBONES,
     deciders,
@@ -42,7 +42,6 @@ class PromptController:
         self.reset()
 
     def update_scenarios(self):
-        scenarios = get_scenarios()
         items = [
             {"value": id, "title": f"{id} - {s['state']}"}
             for id, s in scenarios.items()
@@ -60,7 +59,7 @@ class PromptController:
 
     @change("prompt_scenario_id")
     def on_scenario_change(self, prompt_scenario_id, **kwargs):
-        s = get_scenarios()[prompt_scenario_id]
+        s = scenarios[prompt_scenario_id]
         self.server.state.prompt_scenario = readable_scenario(s)
 
     def get_prompt(self):
