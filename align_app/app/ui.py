@@ -236,11 +236,11 @@ class ResultsComparison(html.Div):
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                 PanelSection(child=RunNumber)
+                PanelSection(child=Scenario)
                 PanelSection(child=DecisionMaker)
                 PanelSection(child=AlignmentTargets)
                 PanelSection(child=SystemPrompt)
                 PanelSection(child=LlmBackbone)
-                PanelSection(child=Scenario)
                 PanelSection(child=Decision)
 
 
@@ -264,6 +264,15 @@ class PromptInput(vuetify3.VCard):
         with self:
             with vuetify3.VCardText():
                 vuetify3.VSelect(
+                    label="Scenario",
+                    items=("scenarios",),
+                    v_model=("prompt_scenario_id",),
+                )
+                with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+                    ScenarioPanel("prompt_scenario")
+
+                vuetify3.VSelect(
+                    classes="mt-6",
                     label="Decision Maker",
                     items=("decision_makers",),
                     v_model=("decision_maker",),
@@ -334,14 +343,6 @@ class PromptInput(vuetify3.VCard):
                     items=("llm_backbones",),
                     v_model=("llm_backbone",),
                 )
-
-                vuetify3.VSelect(
-                    label="Scenario",
-                    items=("scenarios",),
-                    v_model=("prompt_scenario_id",),
-                )
-                with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                    ScenarioPanel("prompt_scenario")
 
             with vuetify3.VCardActions():
                 with vuetify3.VBtn(click=self.server.controller.submit_prompt):
