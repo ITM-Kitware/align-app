@@ -1,13 +1,14 @@
 from pathlib import Path
+import copy
 from typing import TypedDict, List
 import json
 import hydra
+from functools import partial
 from omegaconf import OmegaConf, DictConfig
 from align_system.utils.hydrate_state import hydrate_scenario_state
-from .action_filtering import filter_actions
+import align_system
 from align_system.utils import logging
-import copy
-from functools import partial
+from .action_filtering import filter_actions
 
 MAX_GENERATOR_TOKENS = 8092
 
@@ -43,30 +44,10 @@ class Prompt(ScenarioAndAlignment):
     decider_params: DeciderParams
 
 
-# Core configuration paths
-current_dir = Path(__file__).parent
-configs = current_dir / "configs"
-adm_configs = configs / "hydra" / "adm"
-alignment_configs = configs / "hydra" / "alignment_target"
-oracles = current_dir / "input_output_files"
-
-kdma_descriptions_map = configs / "prompt_engineering" / "kdma_descriptions.yml"
-
-# Available model configurations
 LLM_BACKBONES = [
     "mistralai/Mistral-7B-Instruct-v0.2",
     "mistralai/Mistral-7B-Instruct-v0.3",
     "meta-llama/Meta-Llama-3-8B-Instruct",
-]
-
-# deciders = ["outlines_transformers_structured", "outlines_comparative_regression"]
-deciders = ["outlines_transformers_structured"]
-
-attributes = [
-    "moral_deservingness",
-    "maximization",
-    # "moral_judgement",
-    # "ingroup_bias",
 ]
 
 
@@ -76,39 +57,151 @@ def list_json_files(dir_path: Path):
 
 
 def load_scenarios(evaluation_file: str):
+    prefix = Path(evaluation_file).parent.name.split("_")[0]
     with open(evaluation_file, "r") as f:
         dataset = json.load(f)
     next_id = 0
     scenarios = {}
     for record in dataset:
         input = record["input"]
-        scenario_id = f"{input['scenario_id']}.{next_id}"
+        scenario_id = f"{prefix}.{input['scenario_id']}.{next_id}"
         next_id += 1
         input["scenario_id"] = scenario_id  # ensure id is unique
         scenarios[scenario_id] = input
     return scenarios
 
 
-def filter_actions_scenario(scenario: Scenario):
-    s, a = hydrate_scenario_state(scenario)
-    actions = filter_actions(s, a)
-    actions = [action.to_dict() for action in actions]
-    filtered_s = {**scenario, "choices": actions}
-    return filtered_s
-
-
-def get_scenarios():
-    scenarios = {
-        id: s
-        for file in list_json_files(oracles)
-        for id, s in load_scenarios(file).items()
-    }
-    scenarios = {id: filter_actions_scenario(s) for id, s in scenarios.items()}
+def get_scenarios(files):
+    scenarios = {id: s for file in files for id, s in load_scenarios(file).items()}
     return scenarios
 
 
-def get_scenario(scenario_id: str):
-    return get_scenarios()[scenario_id]
+current_dir = Path(__file__).parent
+configs = current_dir / "configs"
+adm_configs = configs / "hydra" / "adm"
+alignment_configs = configs / "hydra" / "alignment_target"
+
+naacl24_input_dir = current_dir / "input_output_files" / "NAACL24_dataset_split"
+opinionqa_input_dir = current_dir / "input_output_files" / "OpinionQA_dataset_split"
+
+
+def load_scenarios_dir(dir_path: Path):
+    files = list_json_files(dir_path)
+    return get_scenarios(files)
+
+
+align_system_path = Path(align_system.__file__).parent
+# align_system_config_dir = align_system_path / "configs"
+# adm_demo_configs = align_system_config_dir / "experiment" / "demo"
+
+decider_configs = {
+    "outlines_transformers_structured": (
+        adm_configs / "outlines_transformers_structured.yaml"
+    )
+}
+
+deciders = list(decider_configs.keys())
+
+
+datasets = {
+    "naacl24": {
+        "scenarios": load_scenarios_dir(naacl24_input_dir),
+        "deciders": {
+            "outlines_transformers_structured": {
+                "instance_kwargs": {},
+                "aligned": {
+                    "inference_kwargs": {
+                        "kdma_descriptions_map": str(
+                            align_system_path
+                            / "prompt_engineering"
+                            / "naacl24_kdma_descriptions.yml"
+                        )
+                    },
+                },
+                "baseline": {"inference_kwargs": {}},
+            },
+        },
+        "attributes": [
+            "continuing_care",
+            "fairness",
+            "moral_desert",
+            "protocol_focus",
+            "risk_aversion",
+            "utilitarianism",
+        ],
+        "attribute_descriptions_dir": align_system_path
+        / "configs"
+        / "alignment_target"
+        / "NAACL24_dataset_attributes",
+    },
+    "opinionqa": {
+        "scenarios": load_scenarios_dir(opinionqa_input_dir),
+        "deciders": {
+            "outlines_transformers_structured": {
+                "instance_kwargs": {
+                    "scenario_description_template": {
+                        "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_scenario_description"
+                    },
+                    "action_selection_prompt_template": {
+                        "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_action_selection"
+                    },
+                    "baseline_system_prompt": {
+                        "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_baseline_system_prompt"
+                    },
+                },
+                "aligned": {
+                    "inference_kwargs": {
+                        "kdma_descriptions_map": str(
+                            align_system_path
+                            / "prompt_engineering"
+                            / "opinionqa_kdma_descriptions.yml"
+                        )
+                    }
+                },
+                "baseline": {"inference_kwargs": {}},
+            },
+        },
+        "attributes": [
+            "CREGION_Northeast",
+            "CREGION_South",
+            "EDUCATION_College_graduate_some_postgrad",
+            "EDUCATION_Less_than_high_school",
+            "INCOME_$100,000_or_more",
+            "INCOME_Less_than_$30,000",
+        ],
+        "attribute_descriptions_dir": align_system_path
+        / "configs"
+        / "alignment_target"
+        / "OpinionQA_dataset_attributes",
+    },
+}
+
+# Create a flat dictionary of all scenarios from all datasets
+scenarios: dict[str, Scenario] = {}
+for dataset_name, dataset_info in datasets.items():
+    dataset_scenarios = dataset_info["scenarios"]
+    # Check for duplicate keys before merging
+    duplicate_keys = set(scenarios.keys()) & set(dataset_scenarios.keys())
+    if duplicate_keys:
+        raise ValueError(
+            f"Found duplicate scenario keys across datasets: {duplicate_keys}"
+        )
+    scenarios.update(dataset_scenarios)
+
+
+def get_dataset_name(scenario_id):
+    for name, dataset_info in datasets.items():
+        if scenario_id in dataset_info["scenarios"]:
+            return name
+
+
+def get_attributes(scenario_id):
+    """Get the attributes for a scenario"""
+    dataset_name = get_dataset_name(scenario_id)
+    if dataset_name is None:
+        raise ValueError(f"Scenario ID {scenario_id} not found in any dataset")
+
+    return datasets[dataset_name]["attributes"]
 
 
 def create_scenario_state(scenario):
@@ -118,19 +211,32 @@ def create_scenario_state(scenario):
     return state, actions
 
 
-def load_alignment_target(kdma=attributes[0], kdma_value=0):
-    kdma_split = kdma.split("_")
-    kdma_file = " ".join(kdma_split).capitalize()
-    if kdma_file in ["Moral deservingness", "Maximization"]:
-        binary_alignment = "high" if float(kdma_value) >= 0.5 else "low"
-        filename = f"{kdma}_{binary_alignment}.yaml"
+def load_alignment_target(dataset_name, kdma, kdma_value=0):
+    # kdma_split = kdma.split("_")
+    # kdma_file = " ".join(kdma_split).capitalize()
+    binary_alignment = "high" if float(kdma_value) >= 0.5 else "low"
+    filename = f"{kdma}_{binary_alignment}.yaml"
 
-    return OmegaConf.load(alignment_configs / filename)
+    # Always use dataset-specific attribute descriptions directory
+    if dataset_name not in datasets:
+        raise ValueError(f"Dataset '{dataset_name}' not found in configured datasets")
+
+    if "attribute_descriptions_dir" not in datasets[dataset_name]:
+        raise ValueError(
+            f"Dataset '{dataset_name}' does not have attribute_descriptions_dir configured"
+        )
+
+    attribute_descriptions_dir = datasets[dataset_name]["attribute_descriptions_dir"]
+
+    return OmegaConf.load(attribute_descriptions_dir / filename)
 
 
-def prepare_alignment_targets(attributes: List[Attribute]) -> List[DictConfig]:
+def prepare_alignment_targets(
+    dataset_name, attributes: List[Attribute]
+) -> List[DictConfig]:
     return [
-        load_alignment_target(kdma=a["type"], kdma_value=a["score"]) for a in attributes
+        load_alignment_target(dataset_name, kdma=a["type"], kdma_value=a["score"])
+        for a in attributes
     ]
 
 
@@ -144,8 +250,9 @@ def get_prompt(
         "llm_backbone": llm_backbone,
         "decider": decider,
     }
-    alignment_targets = prepare_alignment_targets(attributes)
-    scenario = get_scenario(scenario_id)
+    dataset_name = get_dataset_name(scenario_id)
+    alignment_targets = prepare_alignment_targets(dataset_name, attributes)
+    scenario = scenarios[scenario_id]
     return {
         "decider_params": decider_params,
         "alignment_targets": alignment_targets,
@@ -164,12 +271,31 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-def get_decider_config(decider, aligned):
-    suffix = "aligned" if aligned else "baseline"
-    name = f"{decider}_{suffix}.yaml"
-    config_path = adm_configs / name
-    config = OmegaConf.load(config_path)
-    return config
+def get_decider_config(scenario_id, decider, baseline):
+    dataset_name = get_dataset_name(scenario_id)
+    alignment = "baseline" if baseline else "aligned"
+
+    dataset_specific_decider_configs = datasets[dataset_name]["deciders"][decider]
+    if alignment not in dataset_specific_decider_configs:
+        raise ValueError(
+            f"Alignment setting {alignment} not found for decider {decider} in dataset {dataset_name}"
+        )
+
+    dataset_specific_decider_config_aligned = dataset_specific_decider_configs[
+        alignment
+    ]
+
+    yaml_path = decider_configs[decider]
+    resolved_config = OmegaConf.load(yaml_path)
+
+    resolved_config = OmegaConf.merge(
+        resolved_config, dataset_specific_decider_config_aligned
+    )
+    instance_kwargs = dataset_specific_decider_configs.get("instance_kwargs", {})
+    resolved_config["instance_kwargs"] = instance_kwargs
+
+    resolved_config["instance"]["baseline"] = baseline
+    return resolved_config
 
 
 def prepare_context(scenario, alignment_targets):
@@ -179,28 +305,38 @@ def prepare_context(scenario, alignment_targets):
 
 
 def get_system_prompt(decider, attributes, scenario_id):
-    alignment_targets = prepare_alignment_targets(attributes)
-    state, actions, alignment_target = prepare_context(
-        get_scenario(scenario_id), alignment_targets
-    )
-    config = get_decider_config(decider, aligned=True)
+    dataset_name = get_dataset_name(scenario_id)
+    alignment_targets = prepare_alignment_targets(dataset_name, attributes)
+    scenario = scenarios[scenario_id]
+    state, actions, alignment_target = prepare_context(scenario, alignment_targets)
+    baseline = alignment_target is None
+    config = get_decider_config(scenario_id, decider, baseline=baseline)
     target_class = hydra.utils.get_class(config.instance._target_)
+
+    instance_kwargs = hydra.utils.instantiate(
+        config.get("instance_kwargs", {}), recursive=True
+    )
+
     dialogs = target_class.get_dialogs(
         state,
         actions,
         alignment_target,
-        num_positive_samples=1,
-        num_negative_samples=0,
-        shuffle_choices=False,
-        baseline=len(attributes) == 0,
-        kdma_descriptions_map=kdma_descriptions_map,
+        baseline=baseline,
+        **config.get("inference_kwargs", {}),
+        **instance_kwargs,
     )
     return dialogs["positive_system_prompt"]
 
 
-def instantiate_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
-    config = get_decider_config(decider, aligned)
+def instantiate_adm(
+    llm_backbone=LLM_BACKBONES[0], decider=deciders[0], baseline=True, scenario_id=None
+):
+    config = get_decider_config(scenario_id, decider, baseline)
     config["instance"]["model_name"] = llm_backbone
+
+    config["instance"] = OmegaConf.merge(
+        config["instance"], config.get("instance_kwargs", {})
+    )
     decider = hydra.utils.instantiate(config, recursive=True)
     return decider
 
@@ -214,16 +350,17 @@ def execute_model(model, prompt: ScenarioAndAlignment):
         scenario_state=state,
         available_actions=actions,
         alignment_target=alignment_target,
-        kdma_descriptions_map=kdma_descriptions_map,
+        **model.get("inference_kwargs", {}),
         reasoning_max_length=-1,
         generator_seed=2,
-        shuffle_choices=False,
         max_generator_tokens=MAX_GENERATOR_TOKENS,
     )
 
     return action_decision
 
 
-def create_adm(llm_backbone=LLM_BACKBONES[0], decider=deciders[0], aligned=True):
-    model = instantiate_adm(llm_backbone, decider, aligned)
+def create_adm(
+    llm_backbone=LLM_BACKBONES[0], decider=deciders[0], baseline=True, scenario_id=None
+):
+    model = instantiate_adm(llm_backbone, decider, baseline, scenario_id)
     return partial(execute_model, model)

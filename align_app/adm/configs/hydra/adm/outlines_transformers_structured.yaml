@@ -1,0 +1,12 @@
+instance:
+  _target_: align_system.algorithms.outlines_adm.OutlinesTransformersADM
+  precision: half
+  sampler:
+    _target_: outlines.samplers.GreedySampler
+  model_name: mistralai/Mistral-7B-Instruct-v0.3
+  # baseline: false
+inference_kwargs:
+  # kdma_descriptions_map: 'align_system/prompt_engineering/naacl24_kdma_descriptions.yml'
+  shuffle_choices: false
+  num_positive_samples: 1
+  num_negative_samples: 0

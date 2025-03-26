@@ -1,10 +1,10 @@
 from trame.decorators import TrameApp, change, controller
 from ..adm.adm_core import (
-    get_scenarios,
+    scenarios,
     get_prompt,
     LLM_BACKBONES,
     deciders,
-    attributes,
+    get_attributes,
     get_system_prompt,
 )
 from .ui import readable_scenario
@@ -42,7 +42,6 @@ class PromptController:
         self.reset()
 
     def update_scenarios(self):
-        scenarios = get_scenarios()
         items = [
             {"value": id, "title": f"{id} - {s['state']}"}
             for id, s in scenarios.items()
@@ -60,7 +59,7 @@ class PromptController:
 
     @change("prompt_scenario_id")
     def on_scenario_change(self, prompt_scenario_id, **kwargs):
-        s = get_scenarios()[prompt_scenario_id]
+        s = scenarios[prompt_scenario_id]
         self.server.state.prompt_scenario = readable_scenario(s)
 
     def get_prompt(self):
@@ -112,10 +111,22 @@ class PromptController:
             if a["id"] != alignment_attribute_id
         ]
 
-    @change("alignment_attributes")
+    @change("prompt_scenario_id")
+    def limit_to_dataset_alignment_attributes(self, **_):
+        scenario_id = self.server.state.prompt_scenario_id
+        valid_attributes = get_attributes(scenario_id)
+        # Remove attributes not in the current dataset
+        self.server.state.alignment_attributes = [
+            attr
+            for attr in self.server.state.alignment_attributes
+            if attr["value"] in valid_attributes
+        ]
+
+    @change("alignment_attributes", "prompt_scenario_id")
     def compute_possible_alignment_attributes(self, **_):
+        attributes = get_attributes(self.server.state.prompt_scenario_id)
         used_values = [a["value"] for a in self.server.state.alignment_attributes]
-        available = [a for a in attributes if a not in used_values]
+        available = [attr for attr in attributes if attr not in used_values]
         self.server.state.possible_alignment_attributes = readable_items(available)
 
     def compute_system_prompt(self, **_):

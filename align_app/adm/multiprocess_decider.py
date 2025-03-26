@@ -66,12 +66,13 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
         elif request["request_type"] == RequestType.RUN:
             prompt: Prompt = request["prompt"]
             decider_params = prompt["decider_params"]
-            aligned = len(prompt["alignment_targets"]) > 0
+            baseline = len(prompt["alignment_targets"]) == 0
 
             requested_decider_key = (
                 decider_params["llm_backbone"],
                 decider_params["decider"],
-                aligned,
+                baseline,
+                prompt["scenario"]["scenario_id"],
             )
 
             if requested_decider_key != decider_key:
@@ -80,7 +81,8 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
                 decider = create_adm(
                     llm_backbone=decider_params["llm_backbone"],
                     decider=decider_params["decider"],
-                    aligned=aligned,
+                    baseline=baseline,
+                    scenario_id=prompt["scenario"]["scenario_id"],
                 )
 
             if decider is None:
