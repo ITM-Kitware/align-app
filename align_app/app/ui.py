@@ -174,7 +174,7 @@ class ScenarioLayout:
                 html.P("{{character.unstructured}}", classes="my-2")
                 html.P("{{character.intent}}")
         html.Div("Choices", classes="text-h6 pt-4")
-        with html.Ol(classes="ml-8"):
+        with html.Ol(classes="ml-8", type="A"):
             html.Li("{{choice.unstructured}}", v_for=(f"choice in {scenario}.choices"))
 
 
