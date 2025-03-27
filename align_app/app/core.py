@@ -56,7 +56,8 @@ class AlignApp:
             ),
             0,
         )
-        decision["unstructured"] = f"{choice_idx + 1}. " + decision["unstructured"]
+        choice_letter = chr(choice_idx + ord("A"))
+        decision["unstructured"] = f"{choice_letter}. " + decision["unstructured"]
 
         with self.state:
             self.state.runs = {
