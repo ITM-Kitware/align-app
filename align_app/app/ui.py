@@ -342,6 +342,7 @@ class PromptInput(vuetify3.VCard):
                     label="LLM Backbone",
                     items=("llm_backbones",),
                     v_model=("llm_backbone",),
+                    hide_details="auto",
                 )
 
             with vuetify3.VCardActions():

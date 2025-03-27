@@ -97,7 +97,8 @@ align_system_path = Path(align_system.__file__).parent
 decider_configs = {
     "outlines_transformers_structured": (
         adm_configs / "outlines_transformers_structured.yaml"
-    )
+    ),
+    "kaleido": (adm_configs / "kaleido.yaml"),
 }
 
 deciders = list(decider_configs.keys())
@@ -115,6 +116,21 @@ datasets = {
                             align_system_path
                             / "prompt_engineering"
                             / "naacl24_kdma_descriptions.yml"
+                        )
+                    },
+                },
+                "baseline": {"inference_kwargs": {}},
+            },
+            "kaleido": {
+                "instance_kwargs": {},
+                "aligned": {
+                    "inference_kwargs": {
+                        "kdma_descriptions_map": str(
+                            align_system_path
+                            / "algorithms"
+                            / "lib"
+                            / "templates"
+                            / "kdma_descriptions_short_naacl24_paper.yml"
                         )
                     },
                 },
@@ -311,7 +327,11 @@ def get_system_prompt(decider, attributes, scenario_id):
     state, actions, alignment_target = prepare_context(scenario, alignment_targets)
     baseline = alignment_target is None
     config = get_decider_config(scenario_id, decider, baseline=baseline)
-    target_class = hydra.utils.get_class(config.instance._target_)
+    if decider == "kaleido":
+        target_class = hydra.utils.get_class(config.instance.outlines_adm._target_)
+        baseline = True
+    else:
+        target_class = hydra.utils.get_class(config.instance._target_)
 
     instance_kwargs = hydra.utils.instantiate(
         config.get("instance_kwargs", {}), recursive=True
@@ -332,7 +352,8 @@ def instantiate_adm(
     llm_backbone=LLM_BACKBONES[0], decider=deciders[0], baseline=True, scenario_id=None
 ):
     config = get_decider_config(scenario_id, decider, baseline)
-    config["instance"]["model_name"] = llm_backbone
+    if decider != "kaleido":
+        config["instance"]["model_name"] = llm_backbone
 
     config["instance"] = OmegaConf.merge(
         config["instance"], config.get("instance_kwargs", {})
