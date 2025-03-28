@@ -48,6 +48,8 @@ LLM_BACKBONES = [
     "mistralai/Mistral-7B-Instruct-v0.2",
     "mistralai/Mistral-7B-Instruct-v0.3",
     "meta-llama/Meta-Llama-3-8B-Instruct",
+    "meta-llama/Llama-3.3-70B-Instruct",
+    "Qwen/Qwen2.5-32B-Instruct",
 ]
 
 
@@ -137,14 +139,14 @@ datasets = {
                 "baseline": {"inference_kwargs": {}},
             },
         },
-        "attributes": [
-            "continuing_care",
-            "fairness",
-            "moral_desert",
-            "protocol_focus",
-            "risk_aversion",
-            "utilitarianism",
-        ],
+        "attributes": {
+            "continuing_care": {"possible_scores": ["Low", "High"]},
+            "fairness": {"possible_scores": ["Low", "High"]},
+            "moral_desert": {"possible_scores": ["Low", "High"]},
+            "protocol_focus": {"possible_scores": ["Low", "High"]},
+            "risk_aversion": {"possible_scores": ["Low", "High"]},
+            "utilitarianism": {"possible_scores": ["Low", "High"]},
+        },
         "attribute_descriptions_dir": align_system_path
         / "configs"
         / "alignment_target"
@@ -177,20 +179,21 @@ datasets = {
                 "baseline": {"inference_kwargs": {}},
             },
         },
-        "attributes": [
-            "CREGION_Northeast",
-            "CREGION_South",
-            "EDUCATION_College_graduate_some_postgrad",
-            "EDUCATION_Less_than_high_school",
-            "INCOME_$100,000_or_more",
-            "INCOME_Less_than_$30,000",
-        ],
+        "attributes": {
+            "CREGION_Northeast": {"possible_scores": ["HIGH"]},
+            "CREGION_South": {"possible_scores": ["HIGH"]},
+            "EDUCATION_College_graduate_some_postgrad": {"possible_scores": ["HIGH"]},
+            "EDUCATION_Less_than_high_school": {"possible_scores": ["HIGH"]},
+            "INCOME_$100,000_or_more": {"possible_scores": ["HIGH"]},
+            "INCOME_Less_than_$30,000": {"possible_scores": ["HIGH"]},
+        },
         "attribute_descriptions_dir": align_system_path
         / "configs"
         / "alignment_target"
         / "OpinionQA_dataset_attributes",
     },
 }
+
 
 # Create a flat dictionary of all scenarios from all datasets
 scenarios: dict[str, Scenario] = {}
@@ -228,22 +231,21 @@ def create_scenario_state(scenario):
 
 
 def load_alignment_target(dataset_name, kdma, kdma_value=0):
-    # kdma_split = kdma.split("_")
-    # kdma_file = " ".join(kdma_split).capitalize()
-    binary_alignment = "high" if float(kdma_value) >= 0.5 else "low"
-    filename = f"{kdma}_{binary_alignment}.yaml"
-
-    # Always use dataset-specific attribute descriptions directory
-    if dataset_name not in datasets:
-        raise ValueError(f"Dataset '{dataset_name}' not found in configured datasets")
-
-    if "attribute_descriptions_dir" not in datasets[dataset_name]:
-        raise ValueError(
-            f"Dataset '{dataset_name}' does not have attribute_descriptions_dir configured"
-        )
-
     attribute_descriptions_dir = datasets[dataset_name]["attribute_descriptions_dir"]
 
+    dataset_attrs = datasets[dataset_name]["attributes"]
+    attr_config = dataset_attrs.get(kdma)
+    if attr_config is None:
+        raise ValueError(f"Attribute {kdma} not found in dataset {dataset_name}")
+    scores = attr_config.get("possible_scores", [])
+    if len(scores) == 1:
+        binary_alignment = scores[0].lower()
+    else:
+        binary_alignment = (
+            scores[1].lower() if float(kdma_value) >= 0.5 else scores[0].lower()
+        )
+
+    filename = f"{kdma}_{binary_alignment}.yaml"
     return OmegaConf.load(attribute_descriptions_dir / filename)
 
 
