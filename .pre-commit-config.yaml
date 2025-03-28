@@ -4,6 +4,7 @@ repos:
     hooks:
       - id: codespell
         exclude: \.json$
+        args: ["--skip=CHANGELOG.md"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.4
