@@ -1,6 +1,35 @@
 # CHANGELOG
 
 
+## v0.3.0 (2025-03-28)
+
+### Features
+
+- Add NAACL24 dataset
+  ([`24028a4`](https://github.com/ITM-Kitware/align-app/commit/24028a4492ce3f8928d47440beead84cdb8d343c))
+
+- Add numbers to choices
+  ([`b2a1e80`](https://github.com/ITM-Kitware/align-app/commit/b2a1e800252bb989e54216b6141e2c5e77cb624a))
+
+- Add opinionQA dataset
+  ([`e3ef69e`](https://github.com/ITM-Kitware/align-app/commit/e3ef69e775a39b1d81612a496730e0ffadbf9609))
+
+- Add system prompt
+  ([`0adbf75`](https://github.com/ITM-Kitware/align-app/commit/0adbf754fecc7f474e5286787cd07f57c4ef199d))
+
+- Label choices with letter not number
+  ([`1a4b5df`](https://github.com/ITM-Kitware/align-app/commit/1a4b5df0c34cdc26c13153ae01b2a1c2a416c647))
+
+- No score slider for opinionqa attributes
+  ([`a865af9`](https://github.com/ITM-Kitware/align-app/commit/a865af94d50813522b247085bcd11c4215757c8c))
+
+- Stub kaleido
+  ([`c6832fc`](https://github.com/ITM-Kitware/align-app/commit/c6832fcdffbb5d1a5d507141755756b0c76cdd6c))
+
+- **ui**: Add Run row
+  ([`1ba26a2`](https://github.com/ITM-Kitware/align-app/commit/1ba26a2c918ba7453cf19f6e06843269d87eb708))
+
+
 ## v0.2.0 (2025-03-21)
 
 ### Bug Fixes
@@ -25,7 +54,7 @@
 - **ui**: Put prompt input in right column
   ([`f64b4c0`](https://github.com/ITM-Kitware/align-app/commit/f64b4c0db2eec6f00d7f14c7dfcb619ab484236a))
 
-- **ui**: Side by side comparison layout
+- **ui**: Side by side comparsion layout
   ([`e9e6d66`](https://github.com/ITM-Kitware/align-app/commit/e9e6d66b29a82e1ef034bde1210b75f00c87f201))
 
 ### Refactoring
