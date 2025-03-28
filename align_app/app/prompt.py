@@ -14,13 +14,17 @@ COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME = 0.1
 
 
 def readable_items(items):
-    return [
-        {
-            "value": item,
-            "title": readable(item),
-        }
-        for item in items
-    ]
+    def _item(item):
+        if isinstance(item, dict):
+            value = item["value"]
+            return {
+                "value": value,
+                "title": readable(value),
+                "possible_scores": item.get("possible_scores", []),
+            }
+        return {"value": item, "title": readable(item)}
+
+    return [_item(item) for item in items]
 
 
 def map_attributes(attributes):
@@ -114,8 +118,8 @@ class PromptController:
     @change("prompt_scenario_id")
     def limit_to_dataset_alignment_attributes(self, **_):
         scenario_id = self.server.state.prompt_scenario_id
-        valid_attributes = get_attributes(scenario_id)
-        # Remove attributes not in the current dataset
+        valid_attributes = get_attributes(scenario_id)  # now returns a dict
+        # Remove alignment attributes not present in the dataset (check key membership)
         self.server.state.alignment_attributes = [
             attr
             for attr in self.server.state.alignment_attributes
@@ -124,10 +128,14 @@ class PromptController:
 
     @change("alignment_attributes", "prompt_scenario_id")
     def compute_possible_alignment_attributes(self, **_):
-        attributes = get_attributes(self.server.state.prompt_scenario_id)
-        used_values = [a["value"] for a in self.server.state.alignment_attributes]
-        available = [attr for attr in attributes if attr not in used_values]
-        self.server.state.possible_alignment_attributes = readable_items(available)
+        attrs = get_attributes(self.server.state.prompt_scenario_id)
+        used = {a["value"] for a in self.server.state.alignment_attributes}
+        possible = [
+            {"value": key, **details}
+            for key, details in attrs.items()
+            if key not in used
+        ]
+        self.server.state.possible_alignment_attributes = readable_items(possible)
 
     def compute_system_prompt(self, **_):
         decider = self.server.state.decision_maker

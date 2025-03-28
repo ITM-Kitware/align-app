@@ -304,7 +304,10 @@ class PromptInput(vuetify3.VCard):
                             vuetify3.VIcon("mdi-delete")
 
                     with vuetify3.VRow(
-                        align="center", justify="center", classes="mb-2"
+                        v_if=("alignment_attribute.possible_scores.length > 1",),
+                        align="center",
+                        justify="center",
+                        classes="mb-2",
                     ):
                         vuetify3.VSlider(
                             style="max-width: 300px",
@@ -313,8 +316,10 @@ class PromptInput(vuetify3.VCard):
                                 self.server.controller.update_score_alignment_attribute,
                                 r"[$event, alignment_attribute.id]",
                             ),
-                            max=("1",),
-                            ticks=({0: "Low", 1: "High"},),
+                            max=("alignment_attribute.possible_scores.length - 1",),
+                            ticks=(
+                                r"Object.fromEntries(alignment_attribute.possible_scores.map((s, i) => [i, s]))",
+                            ),
                             show_ticks="always",
                             step="1",
                             tick_size="4",
@@ -324,10 +329,10 @@ class PromptInput(vuetify3.VCard):
                     "Add Alignment Attribute",
                     click=self.server.controller.add_alignment_attribute,
                     v_if=(f"alignment_attributes.length < {MAX_ALIGNMENT_ATTRIBUTES}",),
-                    classes="mb-6",
+                    classes="mb-2",
                 )
 
-                with vuetify3.VExpansionPanels(classes="mb-6"):
+                with vuetify3.VExpansionPanels(classes="mb-6 mt-4"):
                     with vuetify3.VExpansionPanel():
                         with vuetify3.VExpansionPanelTitle():
                             with html.Div(
