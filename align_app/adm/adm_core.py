@@ -136,7 +136,7 @@ datasets = {
                         )
                     },
                 },
-                "baseline": {"inference_kwargs": {}},
+                # "baseline": {"inference_kwargs": {}},
             },
         },
         "attributes": {
@@ -291,28 +291,31 @@ def serialize_prompt(prompt: Prompt):
 
 def get_decider_config(scenario_id, decider, baseline):
     dataset_name = get_dataset_name(scenario_id)
-    alignment = "baseline" if baseline else "aligned"
-
     dataset_specific_decider_configs = datasets[dataset_name]["deciders"][decider]
+
+    # Use baseline config only if it exists; otherwise, fall back to aligned.
+    if baseline and "baseline" in dataset_specific_decider_configs:
+        alignment = "baseline"
+    else:
+        alignment = "aligned"
+
     if alignment not in dataset_specific_decider_configs:
         raise ValueError(
             f"Alignment setting {alignment} not found for decider {decider} in dataset {dataset_name}"
         )
 
-    dataset_specific_decider_config_aligned = dataset_specific_decider_configs[
-        alignment
-    ]
+    dataset_specific_decider_config = dataset_specific_decider_configs[alignment]
 
     yaml_path = decider_configs[decider]
     resolved_config = OmegaConf.load(yaml_path)
 
-    resolved_config = OmegaConf.merge(
-        resolved_config, dataset_specific_decider_config_aligned
-    )
+    resolved_config = OmegaConf.merge(resolved_config, dataset_specific_decider_config)
     instance_kwargs = dataset_specific_decider_configs.get("instance_kwargs", {})
     resolved_config["instance_kwargs"] = instance_kwargs
 
-    resolved_config["instance"]["baseline"] = baseline
+    # Only set baseline flag if a baseline configuration exists
+    if "baseline" in dataset_specific_decider_configs:
+        resolved_config["instance"]["baseline"] = baseline
     return resolved_config
 
 
@@ -369,7 +372,13 @@ def execute_model(model, prompt: ScenarioAndAlignment):
     state, actions, alignment_target = prepare_context(
         prompt["scenario"], prompt["alignment_targets"]
     )
-    action_decision, *_ = model.instance.top_level_choose_action(
+    # kaleido only has choose_action
+    func = (
+        model.instance.top_level_choose_action
+        if hasattr(model.instance, "top_level_choose_action")
+        else model.instance.choose_action
+    )
+    action_decision, *_ = func(
         scenario_state=state,
         available_actions=actions,
         alignment_target=alignment_target,
