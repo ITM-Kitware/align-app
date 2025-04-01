@@ -105,14 +105,15 @@ decider_configs = {
 
 deciders = list(decider_configs.keys())
 
-
 datasets = {
     "naacl24": {
         "scenarios": load_scenarios_dir(naacl24_input_dir),
         "deciders": {
             "outlines_transformers_structured": {
+                "llm_backbones": LLM_BACKBONES,
                 "instance_kwargs": {},
                 "aligned": {
+                    "max_alignment_attributes": 1,
                     "inference_kwargs": {
                         "kdma_descriptions_map": str(
                             align_system_path
@@ -124,8 +125,14 @@ datasets = {
                 "baseline": {"inference_kwargs": {}},
             },
             "kaleido": {
+                "llm_backbones": [
+                    "allenai/kaleido-small",
+                    "allenai/kaleido-large",
+                    "allenai/kaleido-xl",
+                ],
                 "instance_kwargs": {},
                 "aligned": {
+                    "max_alignment_attributes": 99,
                     "inference_kwargs": {
                         "kdma_descriptions_map": str(
                             align_system_path
@@ -136,7 +143,6 @@ datasets = {
                         )
                     },
                 },
-                # "baseline": {"inference_kwargs": {}},
             },
         },
         "attributes": {
@@ -156,6 +162,7 @@ datasets = {
         "scenarios": load_scenarios_dir(opinionqa_input_dir),
         "deciders": {
             "outlines_transformers_structured": {
+                "llm_backbones": LLM_BACKBONES,
                 "instance_kwargs": {
                     "scenario_description_template": {
                         "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_scenario_description"
@@ -168,13 +175,14 @@ datasets = {
                     },
                 },
                 "aligned": {
+                    "max_alignment_attributes": 1,
                     "inference_kwargs": {
                         "kdma_descriptions_map": str(
                             align_system_path
                             / "prompt_engineering"
                             / "opinionqa_kdma_descriptions.yml"
                         )
-                    }
+                    },
                 },
                 "baseline": {"inference_kwargs": {}},
             },
@@ -289,9 +297,18 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-def get_decider_config(scenario_id, decider, baseline):
+def get_dataset_specific_decider_configs(scenario_id, decider):
     dataset_name = get_dataset_name(scenario_id)
-    dataset_specific_decider_configs = datasets[dataset_name]["deciders"][decider]
+    dataset_specific_decider_configs = datasets[dataset_name]["deciders"].get(decider)
+    return dataset_specific_decider_configs
+
+
+def get_decider_config(scenario_id, decider, baseline):
+    dataset_specific_decider_configs = get_dataset_specific_decider_configs(
+        scenario_id, decider
+    )
+    if dataset_specific_decider_configs is None:
+        return None
 
     # Use baseline config only if it exists; otherwise, fall back to aligned.
     if baseline and "baseline" in dataset_specific_decider_configs:
@@ -332,6 +349,8 @@ def get_system_prompt(decider, attributes, scenario_id):
     state, actions, alignment_target = prepare_context(scenario, alignment_targets)
     baseline = alignment_target is None
     config = get_decider_config(scenario_id, decider, baseline=baseline)
+    if config is None:
+        return ""  # No config found for the given decider and scenario_id
     if decider == "kaleido":
         target_class = hydra.utils.get_class(config.instance.outlines_adm._target_)
         baseline = True

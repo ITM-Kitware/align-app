@@ -276,6 +276,7 @@ class PromptInput(vuetify3.VCard):
                     label="Decision Maker",
                     items=("decision_makers",),
                     v_model=("decision_maker",),
+                    error_messages=("decider_messages",),
                 )
                 with html.Template(
                     v_for=("alignment_attribute in alignment_attributes",),
@@ -328,8 +329,11 @@ class PromptInput(vuetify3.VCard):
                 vuetify3.VBtn(
                     "Add Alignment Attribute",
                     click=self.server.controller.add_alignment_attribute,
-                    v_if=(f"alignment_attributes.length < {MAX_ALIGNMENT_ATTRIBUTES}",),
-                    classes="mb-2",
+                    v_if=(
+                        "alignment_attributes.length < max_alignment_attributes"
+                        " && possible_alignment_attributes.length > 0"
+                    ),
+                    classes="my-2",
                 )
 
                 with vuetify3.VExpansionPanels(classes="mb-6 mt-4"):
@@ -344,6 +348,7 @@ class PromptInput(vuetify3.VCard):
                             html.Div("{{system_prompt}}")
 
                 vuetify3.VSelect(
+                    v_if=("llm_backbones.length > 0",),
                     label="LLM Backbone",
                     items=("llm_backbones",),
                     v_model=("llm_backbone",),
@@ -351,7 +356,10 @@ class PromptInput(vuetify3.VCard):
                 )
 
             with vuetify3.VCardActions():
-                with vuetify3.VBtn(click=self.server.controller.submit_prompt):
+                with vuetify3.VBtn(
+                    click=self.server.controller.submit_prompt,
+                    disabled=("send_button_disabled",),
+                ):
                     vuetify3.VIcon("mdi-send")
 
 
