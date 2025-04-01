@@ -1,19 +1,36 @@
 # align-app
 
-Web app showcasing an AI system designed to make decisions in scenarios where no single right answer exists.
+Web app showcasing the [Align AI Decision Maker library](https://github.com/ITM-Kitware/align-system),
+designed to make decisions in scenarios where no single right answer exists.
 
-- Free software: Apache Software License
+![Align UI Hero](./doc/ui-hero.png)
 
 ## Installing
 
-Install the application
-
 ```console
-pip install -e ".[dev]"
+git clone https://github.com/ITM-Kitware/align-app.git
+cd align-app
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
 Run the application
 
 ```console
+source .venv/bin/activate
 align-app
 ```
+
+Then visit http://localhost:8080
+
+## Development
+
+```console
+pip install -e ".[dev]"
+pre-commit install
+```
+
+### Release
+
+Merge a PR to `main` with semantic commit messages.
