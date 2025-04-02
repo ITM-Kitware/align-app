@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.4.1 (2025-04-02)
+
+### Bug Fixes
+
+- **adm_core**: Remove options from opinionqa scenario
+  ([`8bb2c77`](https://github.com/ITM-Kitware/align-app/commit/8bb2c77f648551f9d7c9e84ee325da7d02255d66))
+
+### Chores
+
+- **pyproject**: Set align-system to tag 0.5.7
+  ([`5ef202a`](https://github.com/ITM-Kitware/align-app/commit/5ef202a308070d7b4120945c82f785015de4411f))
+
+
 ## v0.4.0 (2025-04-02)
 
 ### Bug Fixes
