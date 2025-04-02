@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.4.0 (2025-04-02)
+
+### Bug Fixes
+
+- **adm_core**: Call kaleido correctly
+  ([`bbabffd`](https://github.com/ITM-Kitware/align-app/commit/bbabffd3e12db6ab92f4755baf63c740911f7b24))
+
+### Features
+
+- **prompt**: Validate prompt when kaleido selected
+  ([`bab1e15`](https://github.com/ITM-Kitware/align-app/commit/bab1e154e78dc5584e8c3081d6bf117cdaf3f952))
+
+
 ## v0.3.0 (2025-03-28)
 
 ### Features
