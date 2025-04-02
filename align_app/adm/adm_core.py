@@ -69,6 +69,15 @@ def load_scenarios(evaluation_file: str):
         scenario_id = f"{prefix}.{input['scenario_id']}.{next_id}"
         next_id += 1
         input["scenario_id"] = scenario_id  # ensure id is unique
+
+        # Create a display_state field if full_state.unstructured exists
+        if (
+            "full_state" in input
+            and isinstance(input["full_state"], dict)
+            and "unstructured" in input["full_state"]
+        ):
+            input["display_state"] = input["full_state"]["unstructured"]
+
         scenarios[scenario_id] = input
     return scenarios
 
@@ -90,6 +99,26 @@ opinionqa_input_dir = current_dir / "input_output_files" / "OpinionQA_dataset_sp
 def load_scenarios_dir(dir_path: Path):
     files = list_json_files(dir_path)
     return get_scenarios(files)
+
+
+def truncate_unstructured_text(scenarios):
+    """
+    Takes scenarios dict from load_scenarios_dir and truncates each scenario's
+    display_state string at the first newline character.
+    """
+    # Make a copy to avoid modifying the original
+    scenarios_copy = copy.deepcopy(scenarios)
+
+    # Process each scenario to truncate display_state at first newline
+    for scenario in scenarios_copy.values():
+        if "display_state" in scenario and isinstance(scenario["display_state"], str):
+            first_newline_pos = scenario["display_state"].find("\n")
+            if first_newline_pos != -1:
+                scenario["display_state"] = scenario["display_state"][
+                    :first_newline_pos
+                ]
+
+    return scenarios_copy
 
 
 align_system_path = Path(align_system.__file__).parent
@@ -159,7 +188,9 @@ datasets = {
         / "NAACL24_dataset_attributes",
     },
     "opinionqa": {
-        "scenarios": load_scenarios_dir(opinionqa_input_dir),
+        "scenarios": truncate_unstructured_text(
+            load_scenarios_dir(opinionqa_input_dir)
+        ),
         "deciders": {
             "outlines_transformers_structured": {
                 "llm_backbones": LLM_BACKBONES,
