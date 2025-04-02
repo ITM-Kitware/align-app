@@ -160,7 +160,7 @@ class SystemPrompt:
 class ScenarioLayout:
     def __init__(self, scenario):
         html.Div("Situation", classes="text-h6")
-        html.P(f"{{{{{scenario}.full_state.unstructured}}}}")
+        html.P(f"{{{{{scenario}.display_state}}}}")
         html.Div(
             "Characters",
             classes="text-h6 pt-4",
