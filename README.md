@@ -7,10 +7,13 @@ designed to make human-value attribute aligned decisions in scenarios that consi
 
 ## Installing
 
+Install using Poetry:
+
 ```console
-python3 -m venv .venv
-source .venv/bin/activate
-pip install https://github.com/ITM-Kitware/align-app.git
+git clone https://github.com/ITM-Kitware/align-app.git
+cd align-app
+pip install poetry
+poetry install
 ```
 
 Set an environment variable with your HuggingFace [user access token](https://huggingface.co/docs/transformers.js/en/guides/private).
@@ -20,11 +23,10 @@ Many of the LLM Backbones used in the app require you agree to some terms.
 export HF_TOKEN=<your token obtained from Hugging Face website>
 ```
 
-Run the application
+Run the application:
 
 ```console
-source .venv/bin/activate
-align-app
+poetry run align-app
 ```
 
 Then visit http://localhost:8080
@@ -34,7 +36,8 @@ Then visit http://localhost:8080
 ```console
 git clone https://github.com/ITM-Kitware/align-app.git
 cd align-app
-pip install -e ".[dev]"
+pip install poetry
+poetry install
 pre-commit install
 ```
 
