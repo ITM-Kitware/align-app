@@ -37,7 +37,7 @@ Then visit http://localhost:8080
 git clone https://github.com/ITM-Kitware/align-app.git
 cd align-app
 pip install poetry
-poetry install
+poetry install --with dev
 pre-commit install
 ```
 
