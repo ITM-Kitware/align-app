@@ -1,6 +1,16 @@
 # CHANGELOG
 
 
+## v0.4.2 (2025-04-04)
+
+### Bug Fixes
+
+- Point to working align-system
+  ([`2d54041`](https://github.com/ITM-Kitware/align-app/commit/2d54041278cc63ad4e890b038f90725ffe49abcf))
+
+Switch to using poetry
+
+
 ## v0.4.1 (2025-04-02)
 
 ### Bug Fixes
