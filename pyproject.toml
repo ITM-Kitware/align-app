@@ -1,21 +1,14 @@
-[project]
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
 name = "align-app"
 version = "0.4.1"
 description = "Web app showcasing an AI system designed to make decisions in scenarios where no single right answer exists."
-authors = [
-    {name = "Paul Elliott"},
-]
-dependencies = [
-    "trame>=3.7.1",
-    "trame-vuetify",
-    "trame-vtk",
-    "align-system @ git+https://github.com/ITM-Kitware/align-system.git@0.5.7",
-    "hydra-core",
-    "omegaconf",
-]
-requires-python = ">=3.9"
-readme = "README.rst"
-license = {text = "Apache Software License"}
+authors = ["Paul Elliott"]
+license = "Apache Software License"
+readme = "README.md"
 keywords = ["Python", "Interactive", "Web", "Application", "Framework"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -27,48 +20,53 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-
-[project.optional-dependencies]
-app = [
-    "pywebview",
-]
-jupyter = [
-    "jupyterlab",
-]
-dev = [
-    "pre-commit",
-    "ruff",
-    "pytest",
-    "mypy",
+packages = [{include = "align_app"}]
+include = [
+    "align_app/**/*.js",
+    "align_app/**/*.css",
 ]
 
-[project.scripts]
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "supplemental"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+trame = ">=3.7.1"
+trame-vuetify = "*"
+trame-vtk = "*"
+hydra-core = "*"
+omegaconf = "*"
+align-system = {git = "https://github.com/PaulHax/align-system.git", rev = "poetry-chore"}
+
+[tool.poetry.group.app.dependencies]
+pywebview = "*"
+
+[tool.poetry.group.jupyter.dependencies]
+jupyterlab = "*"
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "*"
+ruff = "*"
+pytest = "*"
+mypy = "*"
+
+[tool.poetry.scripts]
 align-app = "align_app.app:main"
 
-[build-system]
-requires = ['setuptools', 'wheel']
-build-backend = 'setuptools.build_meta'
-
-[tool.setuptools.packages.find]
-where = ["."]
-
-[tool.setuptools.package-data]
-align_app = [
-    "**/*.js",
-    "**/*.css",
-]
 [tool.semantic_release]
 version_variables = [
     "align_app/__init__.py:__version__",
 ]
 version_toml = [
-    "pyproject.toml:project.version",
+    "pyproject.toml:tool.poetry.version",
 ]
 build_command = """
   python -m venv .venv
   source .venv/bin/activate
-  pip install -U pip build
-  python -m build .
+  pip install -U pip poetry
+  poetry build
 """
 
 [semantic_release.publish]
@@ -86,20 +84,16 @@ ignore = []
 fixable = ["ALL"]
 unfixable = []
 
-
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = true
-
-# This only has an effect when the `docstring-code-format` setting is
-# enabled.
 docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
 
-[lint.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "google"
