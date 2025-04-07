@@ -36,7 +36,7 @@ def readable_items(items):
     return [_item(item) for item in items]
 
 
-def map_attributes(attributes):
+def map_ui_to_align_attributes(attributes):
     """Map UI attribute representation to backend format."""
     return [{"type": a["value"], "score": a["score"]} for a in attributes]
 
@@ -86,7 +86,9 @@ class PromptController:
         self.server.state.prompt_scenario = readable_scenario(s)
 
     def get_prompt(self):
-        mapped_attributes = map_attributes(self.server.state.alignment_attributes)
+        mapped_attributes = map_ui_to_align_attributes(
+            self.server.state.alignment_attributes
+        )
         prompt = {
             **get_prompt(
                 self.server.state.prompt_scenario_id,
@@ -223,7 +225,9 @@ class PromptController:
 
     def compute_system_prompt(self, **_):
         decider = self.server.state.decision_maker
-        mapped_attributes = map_attributes(self.server.state.alignment_attributes)
+        mapped_attributes = map_ui_to_align_attributes(
+            self.server.state.alignment_attributes
+        )
         scenario_id = self.server.state.prompt_scenario_id
         sys_prompt = get_system_prompt(decider, mapped_attributes, scenario_id)
         self.server.state.system_prompt = sys_prompt
