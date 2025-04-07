@@ -1,4 +1,4 @@
-from multiprocessing import Process, Queue
+from multiprocessing import Queue, get_context, Manager
 from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
 from .adm_core import Prompt, create_adm
@@ -111,14 +111,17 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
 
 class MultiprocessDecider:
     def __init__(self):
-        self.request_queue = Queue()
-        self.response_queue = Queue()
+        # Use a Manager to create Queues that are compatible with spawn method
+        self.manager = Manager()
+        self.request_queue = self.manager.Queue()
+        self.response_queue = self.manager.Queue()
         self.process = None
         self._start_process()
 
     def _start_process(self):
         if self.process is None or not self.process.is_alive():
-            self.process = Process(
+            ctx = get_context("spawn")
+            self.process = ctx.Process(
                 target=decider_process_worker,
                 args=(self.request_queue, self.response_queue),
                 daemon=True,
@@ -134,6 +137,7 @@ class MultiprocessDecider:
             "prompt": prompt,
             "request_id": get_id(),
         }
+
         self.request_queue.put(request)
         loop = asyncio.get_event_loop()
         response: DeciderResponse = await loop.run_in_executor(

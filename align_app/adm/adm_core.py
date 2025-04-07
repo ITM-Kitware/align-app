@@ -122,8 +122,6 @@ def truncate_unstructured_text(scenarios):
 
 
 align_system_path = Path(align_system.__file__).parent
-# align_system_config_dir = align_system_path / "configs"
-# adm_demo_configs = align_system_config_dir / "experiment" / "demo"
 
 decider_configs = {
     "outlines_transformers_structured": (
@@ -155,9 +153,9 @@ datasets = {
             },
             "kaleido": {
                 "llm_backbones": [
-                    "allenai/kaleido-small",
                     "allenai/kaleido-large",
                     "allenai/kaleido-xl",
+                    "allenai/kaleido-xxl",
                 ],
                 "instance_kwargs": {},
                 "aligned": {
@@ -169,7 +167,11 @@ datasets = {
                             / "lib"
                             / "templates"
                             / "kdma_descriptions_short_naacl24_paper.yml"
-                        )
+                        ),
+                        "action_template": (
+                            'What action do you take? "{{choice}}" instead of {{other_choices}}. '
+                            "In the context of the following scenario: {{scene_state}} "
+                        ),
                     },
                 },
             },
@@ -350,16 +352,10 @@ def get_decider_config(scenario_id, decider, baseline):
     if dataset_specific_decider_configs is None:
         return None
 
-    # Use baseline config only if it exists; otherwise, fall back to aligned.
-    if baseline and "baseline" in dataset_specific_decider_configs:
-        alignment = "baseline"
-    else:
-        alignment = "aligned"
+    alignment = "baseline" if baseline else "aligned"
 
     if alignment not in dataset_specific_decider_configs:
-        raise ValueError(
-            f"Alignment setting {alignment} not found for decider {decider} in dataset {dataset_name}"
-        )
+        return None
 
     dataset_specific_decider_config = dataset_specific_decider_configs[alignment]
 
@@ -398,25 +394,31 @@ def get_system_prompt(decider, attributes, scenario_id):
     if ctx["config"] is None:
         return ""  # No config found for the given decider and scenario_id
     alignment = prepare_alignment(ctx["dataset_name"], attributes, ctx["config"])
-    if decider == "kaleido":
-        target_class = hydra.utils.get_class(
-            ctx["config"].instance.outlines_adm._target_
-        )
-        ctx["baseline"] = True
-    else:
-        target_class = hydra.utils.get_class(ctx["config"].instance._target_)
     instance_kwargs = hydra.utils.instantiate(
         ctx["config"].get("instance_kwargs", {}), recursive=True
     )
-    dialogs = target_class.get_dialogs(
-        ctx["state"],
-        ctx["actions"],
-        alignment,
-        baseline=ctx["baseline"],
-        **ctx["config"].get("inference_kwargs", {}),
-        **instance_kwargs,
-    )
-    return dialogs["positive_system_prompt"]
+    if decider == "kaleido":
+        target_class = hydra.utils.get_class(
+            ctx["config"].instance.kaleido_adm._target_
+        )
+        partial_template = target_class.get_partial_template(
+            ctx["state"],
+            **ctx["config"].get("inference_kwargs", {}),
+            **instance_kwargs,
+        )
+
+        return partial_template
+    else:
+        target_class = hydra.utils.get_class(ctx["config"].instance._target_)
+        dialogs = target_class.get_dialogs(
+            ctx["state"],
+            ctx["actions"],
+            alignment,
+            baseline=ctx["baseline"],
+            **ctx["config"].get("inference_kwargs", {}),
+            **instance_kwargs,
+        )
+        return dialogs["positive_system_prompt"]
 
 
 def execute_model(model, prompt: Prompt):
@@ -448,6 +450,8 @@ def instantiate_adm(
     config = get_decider_config(scenario_id, decider, baseline)
     if decider != "kaleido":
         config["instance"]["model_name"] = llm_backbone
+    else:
+        config["instance"]["kaleido_adm"]["model_name"] = llm_backbone
 
     config["instance"] = OmegaConf.merge(
         config["instance"], config.get("instance_kwargs", {})
