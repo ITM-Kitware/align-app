@@ -1,7 +1,7 @@
 from multiprocessing import Process, Queue
 from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
-from .adm_core import Prompt, create_adm, ScenarioAndAlignment
+from .adm_core import Prompt, create_adm
 from ..utils.utils import get_id
 import asyncio
 import gc
@@ -96,11 +96,7 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
                 )
                 continue
 
-            scenario_align: ScenarioAndAlignment = {
-                "scenario": prompt["scenario"],
-                "alignment_targets": prompt["alignment_targets"],
-            }
-            action_decision = decider(scenario_align)
+            action_decision = decider(prompt)
 
             decision_dict = action_decision.to_dict()
             response_queue.put(

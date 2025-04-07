@@ -161,7 +161,7 @@ datasets = {
                 ],
                 "instance_kwargs": {},
                 "aligned": {
-                    "max_alignment_attributes": 99,
+                    "max_alignment_attributes": 1,
                     "inference_kwargs": {
                         "kdma_descriptions_map": str(
                             align_system_path
@@ -288,7 +288,7 @@ def load_alignment_target(dataset_name, kdma, kdma_value=0):
     return OmegaConf.load(attribute_descriptions_dir / filename)
 
 
-def prepare_alignment_targets(
+def alignment_targets_to_dict_conf(
     dataset_name, attributes: List[Attribute]
 ) -> List[DictConfig]:
     return [
@@ -297,18 +297,27 @@ def prepare_alignment_targets(
     ]
 
 
+def truncate_alignment_targets(targets: List[DictConfig], decider_config):
+    max_attr = decider_config.get("max_alignment_attributes", len(targets))
+    if max_attr == 1:
+        return targets[0] if targets else None
+    return targets[:max_attr]
+
+
+def prepare_alignment(dataset_name, attributes: List[Attribute], decider_config):
+    targets = alignment_targets_to_dict_conf(dataset_name, attributes)
+    return truncate_alignment_targets(targets, decider_config)
+
+
 def get_prompt(
     scenario_id: str,
     llm_backbone=LLM_BACKBONES[0],
     decider=deciders[0],
     attributes: List[Attribute] = [],
-):
-    decider_params = {
-        "llm_backbone": llm_backbone,
-        "decider": decider,
-    }
+) -> Prompt:
+    decider_params = DeciderParams(llm_backbone=llm_backbone, decider=decider)
     dataset_name = get_dataset_name(scenario_id)
-    alignment_targets = prepare_alignment_targets(dataset_name, attributes)
+    alignment_targets = alignment_targets_to_dict_conf(dataset_name, attributes)
     scenario = scenarios[scenario_id]
     return {
         "decider_params": decider_params,
@@ -367,40 +376,70 @@ def get_decider_config(scenario_id, decider, baseline):
     return resolved_config
 
 
-def prepare_context(scenario, alignment_targets):
+def prepare_context(scenario, decider, attributes):
     state, actions = create_scenario_state(scenario)
-    alignment_target = alignment_targets[0] if alignment_targets else None
-    return state, actions, alignment_target
+    scenario_id = scenario["scenario_id"]
+    baseline = len(attributes) == 0
+    config = get_decider_config(scenario_id, decider, baseline)
+    dataset_name = get_dataset_name(scenario_id)
+    return {
+        "state": state,
+        "actions": actions,
+        "scenario_id": scenario_id,
+        "dataset_name": dataset_name,
+        "baseline": baseline,
+        "config": config,
+    }
 
 
 def get_system_prompt(decider, attributes, scenario_id):
-    dataset_name = get_dataset_name(scenario_id)
-    alignment_targets = prepare_alignment_targets(dataset_name, attributes)
     scenario = scenarios[scenario_id]
-    state, actions, alignment_target = prepare_context(scenario, alignment_targets)
-    baseline = alignment_target is None
-    config = get_decider_config(scenario_id, decider, baseline=baseline)
-    if config is None:
+    ctx = prepare_context(scenario, decider, attributes)
+    if ctx["config"] is None:
         return ""  # No config found for the given decider and scenario_id
+    alignment = prepare_alignment(ctx["dataset_name"], attributes, ctx["config"])
     if decider == "kaleido":
-        target_class = hydra.utils.get_class(config.instance.outlines_adm._target_)
-        baseline = True
+        target_class = hydra.utils.get_class(
+            ctx["config"].instance.outlines_adm._target_
+        )
+        ctx["baseline"] = True
     else:
-        target_class = hydra.utils.get_class(config.instance._target_)
-
+        target_class = hydra.utils.get_class(ctx["config"].instance._target_)
     instance_kwargs = hydra.utils.instantiate(
-        config.get("instance_kwargs", {}), recursive=True
+        ctx["config"].get("instance_kwargs", {}), recursive=True
     )
-
     dialogs = target_class.get_dialogs(
-        state,
-        actions,
-        alignment_target,
-        baseline=baseline,
-        **config.get("inference_kwargs", {}),
+        ctx["state"],
+        ctx["actions"],
+        alignment,
+        baseline=ctx["baseline"],
+        **ctx["config"].get("inference_kwargs", {}),
         **instance_kwargs,
     )
     return dialogs["positive_system_prompt"]
+
+
+def execute_model(model, prompt: Prompt):
+    scenario = prompt["scenario"]
+    decider = prompt["decider_params"]["decider"]
+    attributes = prompt["alignment_targets"]
+    ctx = prepare_context(scenario, decider, attributes)
+    alignment = truncate_alignment_targets(attributes, ctx["config"])
+    func = (
+        model.instance.top_level_choose_action
+        if hasattr(model.instance, "top_level_choose_action")
+        else model.instance.choose_action
+    )
+    action_decision, *_ = func(
+        scenario_state=ctx["state"],
+        available_actions=ctx["actions"],
+        alignment_target=alignment,
+        **model.get("inference_kwargs", {}),
+        reasoning_max_length=-1,
+        generator_seed=2,
+        max_generator_tokens=MAX_GENERATOR_TOKENS,
+    )
+    return action_decision
 
 
 def instantiate_adm(
@@ -415,30 +454,6 @@ def instantiate_adm(
     )
     decider = hydra.utils.instantiate(config, recursive=True)
     return decider
-
-
-def execute_model(model, prompt: ScenarioAndAlignment):
-    """Execute a model with the given prompt"""
-    state, actions, alignment_target = prepare_context(
-        prompt["scenario"], prompt["alignment_targets"]
-    )
-    # kaleido only has choose_action
-    func = (
-        model.instance.top_level_choose_action
-        if hasattr(model.instance, "top_level_choose_action")
-        else model.instance.choose_action
-    )
-    action_decision, *_ = func(
-        scenario_state=state,
-        available_actions=actions,
-        alignment_target=alignment_target,
-        **model.get("inference_kwargs", {}),
-        reasoning_max_length=-1,
-        generator_seed=2,
-        max_generator_tokens=MAX_GENERATOR_TOKENS,
-    )
-
-    return action_decision
 
 
 def create_adm(
