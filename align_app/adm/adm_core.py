@@ -129,9 +129,11 @@ deciders = {
             "aligned": {
                 "max_alignment_attributes": 1,
                 "inference_kwargs": {},
+                "instance_kwargs": {"baseline": False},
             },
             "baseline": {
                 "inference_kwargs": {},
+                "instance_kwargs": {"baseline": True},
             },
         },
     },
@@ -411,8 +413,10 @@ def get_decider_config(scenario_id, decider, baseline):
     config = merged_configs["postures"][alignment]
     resolved_config = OmegaConf.create(config)
     instance_kwargs = merged_configs.get("instance_kwargs", {})
-    resolved_config["instance_kwargs"] = instance_kwargs
-    resolved_config["instance"]["baseline"] = baseline
+    resolved_config["instance_kwargs"] = merge_dicts(
+        instance_kwargs,
+        resolved_config.get("instance_kwargs", {}),
+    )
     return resolved_config
 
 
@@ -427,7 +431,6 @@ def prepare_context(scenario, decider, attributes):
         "actions": actions,
         "scenario_id": scenario_id,
         "dataset_name": dataset_name,
-        "baseline": baseline,
         "config": config,
     }
 
@@ -458,7 +461,6 @@ def get_system_prompt(decider, attributes, scenario_id):
             ctx["state"],
             ctx["actions"],
             alignment,
-            baseline=ctx["baseline"],
             **ctx["config"].get("inference_kwargs", {}),
             **instance_kwargs,
         )
