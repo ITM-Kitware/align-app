@@ -1,6 +1,29 @@
 # CHANGELOG
 
 
+## v0.5.0 (2025-04-08)
+
+### Bug Fixes
+
+- **adm_core**: Limit kaleido alignment attributes to 1
+  ([`79fda7d`](https://github.com/ITM-Kitware/align-app/commit/79fda7d077f42d21c7eba4e313985bc9c5738e3a))
+
+### Chores
+
+- **README**: Fix dev poetry install command
+  ([`941d498`](https://github.com/ITM-Kitware/align-app/commit/941d498d029e3f4f587652ce5d56be21673d4602))
+
+### Features
+
+- **adm_core**: Make system prompt for kaleido
+  ([`d0d711b`](https://github.com/ITM-Kitware/align-app/commit/d0d711bd722095e94dd898bd6b5bcce5cbe8fcac))
+
+### Refactoring
+
+- **adm_core**: Pull decider configs from datasets
+  ([`ad2998e`](https://github.com/ITM-Kitware/align-app/commit/ad2998e663f8c46a2b77e326ed6f107fa2e138ba))
+
+
 ## v0.4.2 (2025-04-04)
 
 ### Bug Fixes
