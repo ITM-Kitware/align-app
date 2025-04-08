@@ -2,11 +2,10 @@ from trame.decorators import TrameApp, change, controller
 from ..adm.adm_core import (
     scenarios,
     get_prompt,
-    LLM_BACKBONES,
-    deciders,
+    decider_names,
     get_attributes,
     get_system_prompt,
-    get_dataset_specific_decider_configs,
+    get_dataset_decider_configs,
 )
 from .ui import readable_scenario
 from ..utils.utils import get_id, readable, debounce
@@ -64,12 +63,11 @@ class PromptController:
 
     def reset(self):
         self.update_scenarios()
-        self.server.state.decision_makers = readable_items(deciders)
+        self.server.state.decision_makers = readable_items(decider_names)
         self.server.state.decision_maker = self.server.state.decision_makers[0]["value"]
         self.server.state.alignment_attributes = []
-        self.server.state.decider_messages = []
-        self.server.state.llm_backbones = LLM_BACKBONES
-        self.server.state.llm_backbone = LLM_BACKBONES[0]
+        self.update_decision_maker_params()
+        self.server.state.llm_backbone = self.server.state.llm_backbones[0]
 
     def update_decider_message(self, add, message):
         current = self.server.state.decider_messages or []
@@ -138,13 +136,17 @@ class PromptController:
 
     @change("decision_maker", "prompt_scenario_id")
     def update_max_alignment_attributes(self, **_):
-        decider_configs = get_dataset_specific_decider_configs(
+        decider_configs = get_dataset_decider_configs(
             self.server.state.prompt_scenario_id, self.server.state.decision_maker
         )
-        if decider_configs and "max_alignment_attributes" in decider_configs["aligned"]:
-            self.server.state.max_alignment_attributes = decider_configs["aligned"][
-                "max_alignment_attributes"
-            ]
+        if (
+            decider_configs
+            and "aligned" in decider_configs["postures"]
+            and "max_alignment_attributes" in decider_configs["postures"]["aligned"]
+        ):
+            self.server.state.max_alignment_attributes = decider_configs["postures"][
+                "aligned"
+            ]["max_alignment_attributes"]
         else:
             self.server.state.max_alignment_attributes = 0
 
@@ -157,12 +159,12 @@ class PromptController:
 
     @change("decision_maker", "alignment_attributes", "prompt_scenario_id")
     def ensure_alignment_attribute(self, **_):
-        decider_configs = get_dataset_specific_decider_configs(
+        decider_configs = get_dataset_decider_configs(
             self.server.state.prompt_scenario_id, self.server.state.decision_maker
         )
         if (
             decider_configs
-            and "baseline" not in decider_configs
+            and "baseline" not in decider_configs["postures"]
             and len(self.server.state.alignment_attributes) == 0
         ):
             self.update_decider_message(True, DECISION_ATTRIBUTE_ERROR)
@@ -171,7 +173,7 @@ class PromptController:
 
     @change("decision_maker", "prompt_scenario_id")
     def ensure_decision_maker_exists_for_dataset(self, **_):
-        decider_configs = get_dataset_specific_decider_configs(
+        decider_configs = get_dataset_decider_configs(
             self.server.state.prompt_scenario_id, self.server.state.decision_maker
         )
         if not decider_configs:
@@ -188,7 +190,7 @@ class PromptController:
 
     @change("decision_maker")
     def update_decision_maker_params(self, **_):
-        decider_configs = get_dataset_specific_decider_configs(
+        decider_configs = get_dataset_decider_configs(
             self.server.state.prompt_scenario_id, self.server.state.decision_maker
         )
         if decider_configs and "llm_backbones" in decider_configs:

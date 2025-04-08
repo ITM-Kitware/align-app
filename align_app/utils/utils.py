@@ -1,5 +1,6 @@
 import asyncio
 from functools import wraps
+import copy
 from trame.app import asynchronous
 
 _id_counter = 0
@@ -69,3 +70,24 @@ def debounce(wait, state=None):
         return wrapper
 
     return decorator
+
+
+def merge_dicts(base_dict, override_dict):
+    """
+    Recursively merge two dictionaries, with the override_dict values taking precedence.
+    """
+    result = copy.deepcopy(base_dict)
+
+    for key, override_value in override_dict.items():
+        if key not in result:
+            result[key] = copy.deepcopy(override_value)
+            continue
+
+        base_value = result[key]
+
+        if isinstance(base_value, dict) and isinstance(override_value, dict):
+            result[key] = merge_dicts(base_value, override_value)
+        else:
+            result[key] = copy.deepcopy(override_value)
+
+    return result

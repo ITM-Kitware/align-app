@@ -9,6 +9,7 @@ from align_system.utils.hydrate_state import hydrate_scenario_state
 import align_system
 from align_system.utils import logging
 from .action_filtering import filter_actions
+from ..utils.utils import merge_dicts
 
 MAX_GENERATOR_TOKENS = 8092
 
@@ -42,15 +43,6 @@ class ScenarioAndAlignment(TypedDict):
 
 class Prompt(ScenarioAndAlignment):
     decider_params: DeciderParams
-
-
-LLM_BACKBONES = [
-    "mistralai/Mistral-7B-Instruct-v0.2",
-    "mistralai/Mistral-7B-Instruct-v0.3",
-    "meta-llama/Meta-Llama-3-8B-Instruct",
-    "meta-llama/Llama-3.3-70B-Instruct",
-    "Qwen/Qwen2.5-32B-Instruct",
-]
 
 
 def list_json_files(dir_path: Path):
@@ -87,6 +79,8 @@ def get_scenarios(files):
     return scenarios
 
 
+align_system_path = Path(align_system.__file__).parent
+
 current_dir = Path(__file__).parent
 configs = current_dir / "configs"
 adm_configs = configs / "hydra" / "adm"
@@ -106,7 +100,6 @@ def truncate_unstructured_text(scenarios):
     Takes scenarios dict from load_scenarios_dir and truncates each scenario's
     display_state string at the first newline character.
     """
-    # Make a copy to avoid modifying the original
     scenarios_copy = copy.deepcopy(scenarios)
 
     # Process each scenario to truncate display_state at first newline
@@ -121,57 +114,82 @@ def truncate_unstructured_text(scenarios):
     return scenarios_copy
 
 
-align_system_path = Path(align_system.__file__).parent
-
-decider_configs = {
-    "outlines_transformers_structured": (
-        adm_configs / "outlines_transformers_structured.yaml"
-    ),
-    "kaleido": (adm_configs / "kaleido.yaml"),
+deciders = {
+    "outlines_transformers_structured": {
+        "config_path": adm_configs / "outlines_transformers_structured.yaml",
+        "llm_backbones": [
+            "mistralai/Mistral-7B-Instruct-v0.2",
+            "mistralai/Mistral-7B-Instruct-v0.3",
+            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "meta-llama/Llama-3.3-70B-Instruct",
+            "Qwen/Qwen2.5-32B-Instruct",
+        ],
+        "instance_kwargs": {},
+        "postures": {
+            "aligned": {
+                "max_alignment_attributes": 1,
+                "inference_kwargs": {},
+            },
+            "baseline": {
+                "inference_kwargs": {},
+            },
+        },
+    },
+    "kaleido": {
+        "config_path": adm_configs / "kaleido.yaml",
+        "llm_backbones": [
+            "allenai/kaleido-large",
+            "allenai/kaleido-xl",
+            "allenai/kaleido-xxl",
+        ],
+        "instance_kwargs": {},
+        "postures": {
+            "aligned": {
+                "max_alignment_attributes": 1,
+                "inference_kwargs": {
+                    "action_template": (
+                        'What action do you take? "{{choice}}" instead of {{other_choices}}. '
+                        "In the context of the following scenario: {{scene_state}} "
+                    ),
+                },
+            },
+        },
+    },
 }
 
-deciders = list(decider_configs.keys())
+
+decider_names = list(deciders.keys())
 
 datasets = {
     "naacl24": {
         "scenarios": load_scenarios_dir(naacl24_input_dir),
         "deciders": {
             "outlines_transformers_structured": {
-                "llm_backbones": LLM_BACKBONES,
-                "instance_kwargs": {},
-                "aligned": {
-                    "max_alignment_attributes": 1,
-                    "inference_kwargs": {
-                        "kdma_descriptions_map": str(
-                            align_system_path
-                            / "prompt_engineering"
-                            / "naacl24_kdma_descriptions.yml"
-                        )
+                "postures": {
+                    "aligned": {
+                        "inference_kwargs": {
+                            "kdma_descriptions_map": str(
+                                align_system_path
+                                / "prompt_engineering"
+                                / "naacl24_kdma_descriptions.yml"
+                            )
+                        },
                     },
+                    "baseline": {"inference_kwargs": {}},
                 },
-                "baseline": {"inference_kwargs": {}},
             },
             "kaleido": {
-                "llm_backbones": [
-                    "allenai/kaleido-large",
-                    "allenai/kaleido-xl",
-                    "allenai/kaleido-xxl",
-                ],
-                "instance_kwargs": {},
-                "aligned": {
-                    "max_alignment_attributes": 1,
-                    "inference_kwargs": {
-                        "kdma_descriptions_map": str(
-                            align_system_path
-                            / "algorithms"
-                            / "lib"
-                            / "templates"
-                            / "kdma_descriptions_short_naacl24_paper.yml"
-                        ),
-                        "action_template": (
-                            'What action do you take? "{{choice}}" instead of {{other_choices}}. '
-                            "In the context of the following scenario: {{scene_state}} "
-                        ),
+                "postures": {
+                    "aligned": {
+                        "inference_kwargs": {
+                            "kdma_descriptions_map": str(
+                                align_system_path
+                                / "algorithms"
+                                / "lib"
+                                / "templates"
+                                / "kdma_descriptions_short_naacl24_paper.yml"
+                            ),
+                        },
                     },
                 },
             },
@@ -195,7 +213,6 @@ datasets = {
         ),
         "deciders": {
             "outlines_transformers_structured": {
-                "llm_backbones": LLM_BACKBONES,
                 "instance_kwargs": {
                     "scenario_description_template": {
                         "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_scenario_description"
@@ -207,17 +224,18 @@ datasets = {
                         "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_baseline_system_prompt"
                     },
                 },
-                "aligned": {
-                    "max_alignment_attributes": 1,
-                    "inference_kwargs": {
-                        "kdma_descriptions_map": str(
-                            align_system_path
-                            / "prompt_engineering"
-                            / "opinionqa_kdma_descriptions.yml"
-                        )
+                "postures": {
+                    "aligned": {
+                        "inference_kwargs": {
+                            "kdma_descriptions_map": str(
+                                align_system_path
+                                / "prompt_engineering"
+                                / "opinionqa_kdma_descriptions.yml"
+                            )
+                        },
                     },
+                    "baseline": {"inference_kwargs": {}},
                 },
-                "baseline": {"inference_kwargs": {}},
             },
         },
         "attributes": {
@@ -313,8 +331,8 @@ def prepare_alignment(dataset_name, attributes: List[Attribute], decider_config)
 
 def get_prompt(
     scenario_id: str,
-    llm_backbone=LLM_BACKBONES[0],
-    decider=deciders[0],
+    llm_backbone="",
+    decider=decider_names[0],
     attributes: List[Attribute] = [],
 ) -> Prompt:
     decider_params = DeciderParams(llm_backbone=llm_backbone, decider=decider)
@@ -339,36 +357,62 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-def get_dataset_specific_decider_configs(scenario_id, decider):
+def get_dataset_decider_configs(scenario_id, decider):
     dataset_name = get_dataset_name(scenario_id)
-    dataset_specific_decider_configs = datasets[dataset_name]["deciders"].get(decider)
-    return dataset_specific_decider_configs
+    dataset_specific_config = datasets[dataset_name]["deciders"].get(decider)
+    if dataset_specific_config is None:
+        return None
+
+    yaml_path = deciders[decider]["config_path"]
+    yaml_config = OmegaConf.load(yaml_path)
+    decider_base = OmegaConf.to_container(yaml_config)
+
+    common_config = copy.deepcopy(deciders[decider])
+    # Not needed in the merged config
+    del common_config["config_path"]
+
+    # Merge common and dataset-specific configs using merge_dicts for nested fields
+    common_config_no_postures = {
+        k: v for k, v in common_config.items() if k != "postures"
+    }
+    dataset_config_no_postures = {
+        k: v for k, v in dataset_specific_config.items() if k != "postures"
+    }
+    result = merge_dicts(common_config_no_postures, dataset_config_no_postures)
+
+    merged_postures = {}
+    posture_keys = set()
+    posture_keys.update(common_config["postures"].keys())
+    posture_keys.update(dataset_specific_config["postures"].keys())
+    for posture in posture_keys:
+        posturing_decider = copy.deepcopy(decider_base)
+        if posture in common_config["postures"]:
+            posturing_decider = merge_dicts(
+                posturing_decider, common_config["postures"][posture]
+            )
+        if posture in dataset_specific_config["postures"]:
+            posturing_decider = merge_dicts(
+                posturing_decider, dataset_specific_config["postures"][posture]
+            )
+        merged_postures[posture] = posturing_decider
+    result["postures"] = merged_postures
+    return result
 
 
 def get_decider_config(scenario_id, decider, baseline):
-    dataset_specific_decider_configs = get_dataset_specific_decider_configs(
-        scenario_id, decider
-    )
-    if dataset_specific_decider_configs is None:
+    merged_configs = get_dataset_decider_configs(scenario_id, decider)
+    if merged_configs is None:
         return None
 
     alignment = "baseline" if baseline else "aligned"
-
-    if alignment not in dataset_specific_decider_configs:
+    if alignment not in merged_configs["postures"]:
         return None
 
-    dataset_specific_decider_config = dataset_specific_decider_configs[alignment]
-
-    yaml_path = decider_configs[decider]
-    resolved_config = OmegaConf.load(yaml_path)
-
-    resolved_config = OmegaConf.merge(resolved_config, dataset_specific_decider_config)
-    instance_kwargs = dataset_specific_decider_configs.get("instance_kwargs", {})
+    config = merged_configs["postures"][alignment]
+    resolved_config = OmegaConf.create(config)
+    instance_kwargs = merged_configs.get("instance_kwargs", {})
     resolved_config["instance_kwargs"] = instance_kwargs
-
-    # Only set baseline flag if a baseline configuration exists
-    if "baseline" in dataset_specific_decider_configs:
-        resolved_config["instance"]["baseline"] = baseline
+    resolved_config["instance"]["baseline"] = baseline
     return resolved_config
 
 
@@ -445,7 +489,10 @@ def execute_model(model, prompt: Prompt):
 
 
 def instantiate_adm(
-    llm_backbone=LLM_BACKBONES[0], decider=deciders[0], baseline=True, scenario_id=None
+    llm_backbone="",
+    decider=decider_names[0],
+    baseline=True,
+    scenario_id=None,
 ):
     config = get_decider_config(scenario_id, decider, baseline)
     if decider != "kaleido":
@@ -461,7 +508,10 @@ def instantiate_adm(
 
 
 def create_adm(
-    llm_backbone=LLM_BACKBONES[0], decider=deciders[0], baseline=True, scenario_id=None
+    llm_backbone="",
+    decider=decider_names[0],
+    baseline=True,
+    scenario_id=None,
 ):
     model = instantiate_adm(llm_backbone, decider, baseline, scenario_id)
     return partial(execute_model, model)
