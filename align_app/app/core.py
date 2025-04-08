@@ -30,6 +30,12 @@ class AlignApp:
         self.state.runs = {}
         self.state.runs_to_compare = []
 
+    @controller.set("update_run_to_compare")
+    def update_run_to_compare(self, run_index, run_column_index):
+        runs = list(self.state.runs.keys())
+        self.state.runs_to_compare[run_column_index] = runs[run_index - 1]
+        self.state.dirty("runs_to_compare")
+
     async def make_decision(self):
         prompt = self._promptController.get_prompt()
         run_id = get_id()

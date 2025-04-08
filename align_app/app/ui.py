@@ -219,10 +219,20 @@ class Decision:
 
 
 class RunNumber:
-    class Title:
-        def __init__(self):
+    class Title(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                html.Span("{{Object.keys(runs).indexOf(id) + 1}}")
+                vuetify3.VSelect(
+                    items=("Object.keys(runs).map((_, i) => i + 1)",),
+                    model_value=("Object.keys(runs).indexOf(id) + 1",),
+                    update_modelValue=(
+                        self.server.controller.update_run_to_compare,
+                        r"[$event, runs_to_compare.indexOf(id)]",
+                    ),
+                    hide_details="auto",
+                )
 
             def no_runs():
                 html.Div("No Runs")
