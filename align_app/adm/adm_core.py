@@ -10,6 +10,8 @@ import align_system
 from align_system.utils import logging
 from .action_filtering import filter_actions
 from ..utils.utils import merge_dicts
+import gc
+import torch
 
 MAX_GENERATOR_TOKENS = 8092
 
@@ -490,6 +492,42 @@ def execute_model(model, prompt: Prompt):
     return action_decision
 
 
+def cleanup_hybrid_kaleido_adm(hybrid_adm_obj_config):
+    hybrid_adm_obj = hybrid_adm_obj_config.instance
+    try:
+        kaleido_adm = hybrid_adm_obj.kaleido_adm
+        ks = kaleido_adm.kaleido
+        if hasattr(ks, "model") and ks.model is not None:
+            try:
+                ks.model.cpu()
+                delattr(ks, "model")
+            except Exception as e:
+                print("Error moving KaleidoSys model to CPU:", e)
+
+        if hasattr(ks, "embed_model") and ks.embed_model is not None:
+            try:
+                ks.embed_model.cpu()
+                delattr(ks, "embed_model")
+            except Exception as e:
+                print("Error moving KaleidoSys embed_model to CPU:", e)
+
+        hybrid_adm_obj.kaleido_adm.kaleido = None
+
+        hybrid_adm_obj.kaleido_adm = None
+
+        hybrid_adm_obj.outlines_adm = None
+    except Exception as e:
+        print(f"Exception during cleanup: {e}")
+    finally:
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+def cleanup_generic_adm(_):
+    gc.collect()
+    torch.cuda.empty_cache()
+
+
 def instantiate_adm(
     llm_backbone="",
     decider=decider_names[0],
@@ -505,8 +543,12 @@ def instantiate_adm(
     config["instance"] = OmegaConf.merge(
         config["instance"], config.get("instance_kwargs", {})
     )
-    decider = hydra.utils.instantiate(config, recursive=True)
-    return decider
+    model = hydra.utils.instantiate(config, recursive=True)
+    if decider == "kaleido":
+        cleanup = cleanup_hybrid_kaleido_adm
+    else:
+        cleanup = cleanup_generic_adm
+    return model, cleanup
 
 
 def create_adm(
@@ -515,5 +557,5 @@ def create_adm(
     baseline=True,
     scenario_id=None,
 ):
-    model = instantiate_adm(llm_backbone, decider, baseline, scenario_id)
-    return partial(execute_model, model)
+    model, cleanup = instantiate_adm(llm_backbone, decider, baseline, scenario_id)
+    return partial(execute_model, model), partial(cleanup, model)
