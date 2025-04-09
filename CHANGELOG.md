@@ -1,6 +1,22 @@
 # CHANGELOG
 
 
+## v0.6.0 (2025-04-09)
+
+### Bug Fixes
+
+- **adm_core**: Remove baseline from kaleido config
+  ([`51dcfad`](https://github.com/ITM-Kitware/align-app/commit/51dcfad30c61bf4f1b9ab8fc6d3562b1302a03fe))
+
+- **adm_core**: Try to cleanup kaleido
+  ([`8e20070`](https://github.com/ITM-Kitware/align-app/commit/8e20070b5822663a8d62a28df41ad1318d6b69a3))
+
+### Features
+
+- Add run picking select in columns
+  ([`dd41c84`](https://github.com/ITM-Kitware/align-app/commit/dd41c84db84564dd9e9f4e8eb526a7dc537b5409))
+
+
 ## v0.5.0 (2025-04-08)
 
 ### Bug Fixes
