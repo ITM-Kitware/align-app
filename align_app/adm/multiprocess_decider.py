@@ -39,15 +39,17 @@ class DeciderResponse(TypedDict):
 def decider_process_worker(request_queue: Queue, response_queue: Queue):
     """Worker function to run in a separate process."""
     decider = None
+    decider_cleanup = None
     decider_key = None
 
     def cleanup_decider():
-        nonlocal decider
-        if decider is None:
-            return
-        del decider
-        gc.collect()
-        torch.cuda.empty_cache()
+        nonlocal decider, decider_cleanup
+        if decider_cleanup is not None:
+            decider = None
+            decider_cleanup()
+            decider_cleanup = None
+            gc.collect()
+            torch.cuda.empty_cache()
 
     shutdown = False
     while not shutdown:
@@ -68,17 +70,21 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
             decider_params = prompt["decider_params"]
             baseline = len(prompt["alignment_targets"]) == 0
 
+            dataset_name = prompt["scenario"]["scenario_id"].split(".")[0]
+
             requested_decider_key = (
                 decider_params["llm_backbone"],
                 decider_params["decider"],
                 baseline,
-                prompt["scenario"]["scenario_id"],
+                dataset_name,
             )
+            print(requested_decider_key)
 
             if requested_decider_key != decider_key:
                 cleanup_decider()
                 decider_key = requested_decider_key
-                decider = create_adm(
+                # Use create_adm to get both the decider function and its cleanup function
+                decider, decider_cleanup = create_adm(
                     llm_backbone=decider_params["llm_backbone"],
                     decider=decider_params["decider"],
                     baseline=baseline,
