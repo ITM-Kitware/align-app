@@ -78,7 +78,6 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
                 baseline,
                 dataset_name,
             )
-            print(requested_decider_key)
 
             if requested_decider_key != decider_key:
                 cleanup_decider()
