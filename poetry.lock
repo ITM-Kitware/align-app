@@ -225,8 +225,8 @@ transformers = "==4.46.2"
 [package.source]
 type = "git"
 url = "https://github.com/PaulHax/align-system.git"
-reference = "poetry-chore"
-resolved_reference = "affca5898ff9583408444a3fe12f0eeb95a5e9a4"
+reference = "align-app"
+resolved_reference = "107a33a2d252c9cfd4b309b30cadaba865bf5f73"
 
 [[package]]
 name = "annotated-types"
@@ -7249,4 +7249,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "ff56712982fed650d13bd61adbb894f14ad0343e73fab2c39ca8e4adb9b67296"
+content-hash = "a3676e3640b7e0ce33f771cc057745d6101e5f0742df60dc9a2277dac13c91e6"

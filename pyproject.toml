@@ -38,7 +38,7 @@ trame-vuetify = "*"
 trame-vtk = "*"
 hydra-core = "*"
 omegaconf = "*"
-align-system = {git = "https://github.com/PaulHax/align-system.git", rev = "poetry-chore"}
+align-system = {git = "https://github.com/PaulHax/align-system.git", rev = "align-app"}
 
 [tool.poetry.group.app.dependencies]
 pywebview = "*"
