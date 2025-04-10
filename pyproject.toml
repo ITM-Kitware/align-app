@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "align-app"
-version = "0.6.0"
+version = "0.6.1"
 description = "Web app showcasing an AI system designed to make decisions in scenarios where no single right answer exists."
 authors = ["Paul Elliott"]
 license = "Apache Software License"

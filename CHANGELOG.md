@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.6.1 (2025-04-10)
+
+### Bug Fixes
+
+- **pyproject**: Point to align-system branch with kaleido changes
+  ([`b4c6460`](https://github.com/ITM-Kitware/align-app/commit/b4c646048ed7c11cb6c7b2a21bcdb3b25be9a8f1))
+
+
 ## v0.6.0 (2025-04-09)
 
 ### Bug Fixes
