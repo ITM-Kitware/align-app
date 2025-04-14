@@ -107,16 +107,16 @@ class PromptController:
         ]
 
     @controller.add("update_value_alignment_attribute")
-    def update_value_alignment_attribute(self, value, alignment_attribute_id):
+    def update_value_alignment_attribute(self, alignment_attribute_id, value):
         self._update_alignment_attribute(
-            {"value": value, "title": readable(value)}, alignment_attribute_id
+            alignment_attribute_id, {"value": value, "title": readable(value)}
         )
 
     @controller.add("update_score_alignment_attribute")
-    def update_score_alignment_attribute(self, score, alignment_attribute_id):
-        self._update_alignment_attribute({"score": score}, alignment_attribute_id)
+    def update_score_alignment_attribute(self, alignment_attribute_id, score):
+        self._update_alignment_attribute(alignment_attribute_id, {"score": score})
 
-    def _update_alignment_attribute(self, patch, alignment_attribute_id):
+    def _update_alignment_attribute(self, alignment_attribute_id, patch):
         attributes = self.server.state.alignment_attributes
         target = next(
             (a for a in attributes if a["id"] == alignment_attribute_id), None

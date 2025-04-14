@@ -299,7 +299,7 @@ class PromptInput(vuetify3.VCard):
                             model_value=("alignment_attribute",),
                             update_modelValue=(
                                 self.server.controller.update_value_alignment_attribute,
-                                r"[$event, alignment_attribute.id]",
+                                r"[alignment_attribute.id, $event]",
                             ),
                             no_data_text="No available alignment targets",
                             hide_details="auto",
@@ -325,7 +325,7 @@ class PromptInput(vuetify3.VCard):
                             model_value=("alignment_attribute.score",),
                             update_modelValue=(
                                 self.server.controller.update_score_alignment_attribute,
-                                r"[$event, alignment_attribute.id]",
+                                r"[alignment_attribute.id, $event]",
                             ),
                             max=("alignment_attribute.possible_scores.length - 1",),
                             ticks=(
