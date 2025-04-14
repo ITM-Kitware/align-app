@@ -204,19 +204,24 @@ class PromptController:
         else:
             self.server.state.llm_backbones = []
 
-    @change("prompt_scenario_id")
+    @change("prompt_scenario_id", "decision_maker")
     def limit_to_dataset_alignment_attributes(self, **_):
         scenario_id = self.server.state.prompt_scenario_id
-        valid_attributes = get_attributes(scenario_id)  # now returns a dict
+        decision_maker = self.server.state.decision_maker
+        valid_attributes = get_attributes(scenario_id, decision_maker)
         self.server.state.alignment_attributes = [
             attr
             for attr in self.server.state.alignment_attributes
             if attr["value"] in valid_attributes
+            and attr["possible_scores"]
+            == valid_attributes[attr["value"]]["possible_scores"]
         ]
 
-    @change("alignment_attributes", "prompt_scenario_id")
+    @change("alignment_attributes", "prompt_scenario_id", "decision_maker")
     def compute_possible_alignment_attributes(self, **_):
-        attrs = get_attributes(self.server.state.prompt_scenario_id)
+        attrs = get_attributes(
+            self.server.state.prompt_scenario_id, self.server.state.decision_maker
+        )
         used = {a["value"] for a in self.server.state.alignment_attributes}
         possible = [
             {"value": key, **details}

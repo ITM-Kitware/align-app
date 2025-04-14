@@ -196,6 +196,14 @@ datasets = {
                         },
                     },
                 },
+                "attributes": {
+                    "continuing_care": {"possible_scores": "continuous"},
+                    "fairness": {"possible_scores": "continuous"},
+                    "moral_desert": {"possible_scores": "continuous"},
+                    "protocol_focus": {"possible_scores": "continuous"},
+                    "risk_aversion": {"possible_scores": "continuous"},
+                    "utilitarianism": {"possible_scores": "continuous"},
+                },
             },
         },
         "attributes": {
@@ -275,15 +283,28 @@ def get_dataset_name(scenario_id):
     for name, dataset_info in datasets.items():
         if scenario_id in dataset_info["scenarios"]:
             return name
+    raise ValueError(f"Dataset name for scenario ID {scenario_id} not found.")
 
 
-def get_attributes(scenario_id):
-    """Get the attributes for a scenario"""
-    dataset_name = get_dataset_name(scenario_id)
-    if dataset_name is None:
-        raise ValueError(f"Scenario ID {scenario_id} not found in any dataset")
+def _get_attributes(dataset_name, decider):
+    """Get the attributes for a dataset, checking for decider-specific overrides."""
+    dataset_info = datasets[dataset_name]
 
-    return datasets[dataset_name]["attributes"]
+    decider_attrs = dataset_info.get("deciders", {}).get(decider, {}).get("attributes")
+    if decider_attrs:
+        return decider_attrs
+
+    general_attrs = dataset_info.get("attributes")
+    if general_attrs:
+        return general_attrs
+
+    raise ValueError(
+        f"Attributes not found for dataset {dataset_name} (decider: {decider})"
+    )
+
+
+def get_attributes(scenario_id, decider):
+    return _get_attributes(get_dataset_name(scenario_id), decider)
 
 
 def create_scenario_state(scenario):
@@ -293,30 +314,55 @@ def create_scenario_state(scenario):
     return state, actions
 
 
-def load_alignment_target(dataset_name, kdma, kdma_value=0):
+def load_alignment_target(dataset_name, decider, kdma, kdma_value=0):
     attribute_descriptions_dir = datasets[dataset_name]["attribute_descriptions_dir"]
 
-    dataset_attrs = datasets[dataset_name]["attributes"]
-    attr_config = dataset_attrs.get(kdma)
+    all_dataset_attrs = _get_attributes(dataset_name, decider)
+    attr_config = all_dataset_attrs.get(kdma)
+
     if attr_config is None:
-        raise ValueError(f"Attribute {kdma} not found in dataset {dataset_name}")
-    scores = attr_config.get("possible_scores", [])
-    if len(scores) == 1:
-        binary_alignment = scores[0].lower()
-    else:
-        binary_alignment = (
-            scores[1].lower() if float(kdma_value) >= 0.5 else scores[0].lower()
+        raise ValueError(
+            f"Attribute {kdma} not found in dataset {dataset_name} (decider: {decider})"
         )
 
-    filename = f"{kdma}_{binary_alignment}.yaml"
-    return OmegaConf.load(attribute_descriptions_dir / filename)
+    scores = attr_config.get("possible_scores", [])
+    is_continuous = scores == "continuous"
+
+    if is_continuous:
+        alignment_suffix = "high" if float(kdma_value) >= 0.5 else "low"
+    elif isinstance(scores, list) and len(scores) == 1:
+        alignment_suffix = scores[0].lower()
+    elif isinstance(scores, list) and len(scores) > 1:
+        num_scores = len(scores)
+        # Map 0 to 1 kdma_value to index [0, num_scores - 1]
+        index = round(float(kdma_value) * (num_scores - 1))
+        clamped_index = max(0, min(index, num_scores - 1))
+        alignment_suffix = scores[clamped_index].lower()
+    else:
+        raise ValueError(
+            f"Unsupported score format for {kdma} in {dataset_name}: {scores}"
+        )
+
+    filename = f"{kdma}_{alignment_suffix}.yaml"
+    filepath = attribute_descriptions_dir / filename
+    if not filepath.exists():
+        raise FileNotFoundError(f"Alignment target file not found: {filepath}")
+    alignment = OmegaConf.load(filepath)
+
+    if is_continuous:
+        for i in range(len(alignment.kdma_values)):
+            alignment.kdma_values[i].value = float(kdma_value)
+
+    return alignment
 
 
 def alignment_targets_to_dict_conf(
-    dataset_name, attributes: List[Attribute]
+    dataset_name, attributes: List[Attribute], decider
 ) -> List[DictConfig]:
     return [
-        load_alignment_target(dataset_name, kdma=a["type"], kdma_value=a["score"])
+        load_alignment_target(
+            dataset_name, kdma=a["type"], kdma_value=a["score"], decider=decider
+        )
         for a in attributes
     ]
 
@@ -328,8 +374,10 @@ def truncate_alignment_targets(targets: List[DictConfig], decider_config):
     return targets[:max_attr]
 
 
-def prepare_alignment(dataset_name, attributes: List[Attribute], decider_config):
-    targets = alignment_targets_to_dict_conf(dataset_name, attributes)
+def prepare_alignment(
+    dataset_name, attributes: List[Attribute], decider_config, decider: str
+):
+    targets = alignment_targets_to_dict_conf(dataset_name, attributes, decider=decider)
     return truncate_alignment_targets(targets, decider_config)
 
 
@@ -341,7 +389,9 @@ def get_prompt(
 ) -> Prompt:
     decider_params = DeciderParams(llm_backbone=llm_backbone, decider=decider)
     dataset_name = get_dataset_name(scenario_id)
-    alignment_targets = alignment_targets_to_dict_conf(dataset_name, attributes)
+    alignment_targets = alignment_targets_to_dict_conf(
+        dataset_name, attributes, decider=decider
+    )
     scenario = scenarios[scenario_id]
     return {
         "decider_params": decider_params,
@@ -442,7 +492,10 @@ def get_system_prompt(decider, attributes, scenario_id):
     ctx = prepare_context(scenario, decider, attributes)
     if ctx["config"] is None:
         return ""  # No config found for the given decider and scenario_id
-    alignment = prepare_alignment(ctx["dataset_name"], attributes, ctx["config"])
+    # Pass decider name to prepare_alignment
+    alignment = prepare_alignment(
+        ctx["dataset_name"], attributes, ctx["config"], decider=decider
+    )
     instance_kwargs = hydra.utils.instantiate(
         ctx["config"].get("instance_kwargs", {}), recursive=True
     )
