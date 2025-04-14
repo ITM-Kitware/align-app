@@ -320,7 +320,27 @@ class PromptInput(vuetify3.VCard):
                         justify="center",
                         classes="mb-2",
                     ):
+                        with html.Template(
+                            v_if=(
+                                "alignment_attribute.possible_scores === 'continuous'",
+                            )
+                        ):
+                            html.Span("0")
+                            vuetify3.VSlider(
+                                classes="px-4",
+                                style="max-width: 300px",
+                                model_value=("alignment_attribute.score",),
+                                update_modelValue=(
+                                    self.server.controller.update_score_alignment_attribute,
+                                    r"[alignment_attribute.id, $event]",
+                                ),
+                                max=(1,),
+                                thumb_label=True,
+                                hide_details="auto",
+                            )
+                            html.Span("1")
                         vuetify3.VSlider(
+                            v_else=True,
                             style="max-width: 300px",
                             model_value=("alignment_attribute.score",),
                             update_modelValue=(
@@ -334,6 +354,7 @@ class PromptInput(vuetify3.VCard):
                             show_ticks="always",
                             step="1",
                             tick_size="4",
+                            hide_details="auto",
                         )
 
                 vuetify3.VBtn(
