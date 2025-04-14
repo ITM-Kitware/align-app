@@ -188,7 +188,7 @@ class PromptController:
         else:
             self.server.state.send_button_disabled = False
 
-    @change("decision_maker")
+    @change("prompt_scenario_id", "decision_maker")
     def update_decision_maker_params(self, **_):
         decider_configs = get_dataset_decider_configs(
             self.server.state.prompt_scenario_id, self.server.state.decision_maker

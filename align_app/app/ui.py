@@ -1,6 +1,6 @@
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
-from ..adm.adm_core import serialize_prompt, Prompt
+from ..adm.adm_core import serialize_prompt, Prompt, get_alignment_descriptions_map
 from ..utils.utils import noop, readable, sentence
 
 MAX_ALIGNMENT_ATTRIBUTES = 1
@@ -21,14 +21,42 @@ def readable_scenario(scenario):
 
 
 def prep_for_state(prompt: Prompt):
+    # Load descriptions map first using the original prompt object
+    descriptions_map = get_alignment_descriptions_map(prompt)
+
+    p = serialize_prompt(prompt)  # Now serialize
+
+    def readable_attribute(a):
+        """Process alignment attribute by adding descriptions to kdma_values"""
+        kdma_values = a.get("kdma_values", [])
+        if not isinstance(kdma_values, list):
+            return a
+
+        # Add description to each kdma_value
+        return {
+            **a,
+            "kdma_values": [
+                {
+                    **kdma_value,
+                    "description": descriptions_map.get(kdma_value.get("kdma"), {}).get(
+                        "description",
+                        f"No description for {kdma_value.get('kdma')}",
+                    ),
+                    "kdma": readable(kdma_value.get("kdma")),
+                }
+                for kdma_value in kdma_values
+            ],
+        }
+
     p = serialize_prompt(prompt)
     p["alignment_targets"] = [
         {
-            **a,
+            **readable_attribute(a),
             "id": readable(a["id"]),
         }
         for a in p["alignment_targets"]
     ]
+
     p["decider_params"]["decider"] = readable(p["decider_params"]["decider"])
     p["scenario"] = readable_scenario(p["scenario"])
     return p
@@ -126,14 +154,17 @@ class AlignmentTargets:
         def __init__(self):
             def run_content():
                 with html.Div(
-                    v_for=("attribute in runs[id].prompt.alignment_targets",),
-                    key=("attribute.id",),
+                    v_for=("target in runs[id].prompt.alignment_targets",),
+                    key=("target.id",),
                     classes="mb-4",
                 ):
-                    with html.Ul(classes="ml-8"):
-                        with html.Li(v_for=("value in attribute.kdma_values",)):
-                            html.Span("{{value.kdma}}: ")
-                            html.Span("{{value.value}}")
+                    with html.P(
+                        "{{value.kdma}}", v_for=("value in target.kdma_values",)
+                    ):
+                        with html.Ul(classes="ml-8"):
+                            html.Li("Value: {{value.value}}")
+                            html.Li("{{value.description}}")
+
                 html.Div("", v_if=("runs[id].prompt.alignment_targets.length === 0",))
 
             RowWithLabel(run_content=run_content)

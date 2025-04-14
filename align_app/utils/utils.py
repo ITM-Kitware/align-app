@@ -2,6 +2,7 @@ import asyncio
 from functools import wraps
 import copy
 from trame.app import asynchronous
+import re
 
 _id_counter = 0
 
@@ -18,17 +19,20 @@ def get_id():
     return str(_id_counter)
 
 
-def readable(snake_or_kebab: str):
+def readable(snake_or_kebab_or_camel: str):
     """
-    Converts a snake_case or kebab-case string to a human-readable format.
+    Converts a snake_case, kebab-case, or camelCase string to a human-readable format.
 
     Args:
-        snake_or_kebab (str): The input string in snake_case or kebab-case.
+        snake_or_kebab_or_camel (str): The input string in snake_case, kebab-case, or camelCase.
 
     Returns:
         str: The human-readable string.
     """
-    return snake_or_kebab.replace("_", " ").replace("-", " ").title()
+    # Handle camelCase by inserting spaces before capital letters
+    s = re.sub(r"([a-z])([A-Z])", r"\1 \2", snake_or_kebab_or_camel)
+    # Handle snake_case and kebab-case
+    return s.replace("_", " ").replace("-", " ").title()
 
 
 def sentence(text: str):

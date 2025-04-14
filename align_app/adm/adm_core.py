@@ -2,6 +2,7 @@ from pathlib import Path
 import copy
 from typing import TypedDict, List
 import json
+import yaml
 import hydra
 from functools import partial
 from omegaconf import OmegaConf, DictConfig
@@ -520,6 +521,50 @@ def get_system_prompt(decider, attributes, scenario_id):
             **instance_kwargs,
         )
         return dialogs["positive_system_prompt"]
+
+
+def get_alignment_descriptions_map(prompt: Prompt) -> dict:
+    """Loads the KDMA descriptions map based on the prompt context."""
+    scenario_id = prompt["scenario"]["scenario_id"]
+    decider = prompt["decider_params"]["decider"]
+
+    # Need the original DictConfig prompt for get_decider_config
+    config = get_decider_config(scenario_id, decider, baseline=False)
+    if not config:
+        print(f"Warning: Config not found for {scenario_id}, {decider}")
+        return {}
+
+    # Check nested structure for kdma_descriptions_map
+    kdma_map_path_str = None
+    if (
+        "inference_kwargs" in config
+        and "kdma_descriptions_map" in config["inference_kwargs"]
+    ):
+        kdma_map_path_str = config["inference_kwargs"]["kdma_descriptions_map"]
+    elif (
+        "instance_kwargs" in config
+        and "kdma_descriptions_map" in config["instance_kwargs"]
+    ):
+        kdma_map_path_str = config["instance_kwargs"]["kdma_descriptions_map"]
+
+    if not kdma_map_path_str:
+        print(
+            f"Warning: KDMA descriptions map path not found in config for {scenario_id}, {decider}"
+        )
+        return {}
+
+    kdma_map_path = Path(kdma_map_path_str)
+    if not kdma_map_path.exists():
+        print(f"Warning: KDMA descriptions file not found: {kdma_map_path}")
+        return {}
+
+    try:
+        with open(kdma_map_path, "r") as f:
+            kdma_descriptions = yaml.safe_load(f)
+        return kdma_descriptions or {}
+    except Exception as e:
+        print(f"Error loading KDMA descriptions from {kdma_map_path}: {e}")
+        return {}
 
 
 def execute_model(model, prompt: Prompt):
