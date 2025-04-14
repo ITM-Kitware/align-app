@@ -3,6 +3,12 @@
 Web app showcasing the [Align AI Decision Maker library](https://github.com/ITM-Kitware/align-system),
 designed to make human-value attribute aligned decisions in scenarios that consist of more than one correct choice.
 
+Users select the ADM type, LLM backbone, alignment targets, and scenario. Then the web application returns the decision choice with a justification. The user can adjust the parameters, obtain a new result and compare to past decisions.
+
+- Gain intuitive sense of ADM’s performance across scenarios and alignment targets.
+- Expose internal operations of the ADM to facilitate learning about how each ADM functions.
+- Battle test ALIGN System’s use as a Python library.
+
 ![Align UI Hero](./doc/ui-hero.png)
 
 ## Installing
