@@ -1,6 +1,32 @@
 # CHANGELOG
 
 
+## v0.7.0 (2025-04-15)
+
+### Bug Fixes
+
+- Kaleido gets continuous value kdma
+  ([`daea766`](https://github.com/ITM-Kitware/align-app/commit/daea766a897e756e0d0baa34b33dd7bd966dd776))
+
+### Documentation
+
+- **readme**: Add interaction flow and benefits
+  ([`c3d07ab`](https://github.com/ITM-Kitware/align-app/commit/c3d07abf249556374d949adf8ef755435c77c5da))
+
+### Features
+
+- Show alignment attribute description
+  ([`05463d8`](https://github.com/ITM-Kitware/align-app/commit/05463d893e1fb14dd22efac29bacb3d14aae7712))
+
+- **prompt**: Show alignment target descriptions in prompt
+  ([`74aff16`](https://github.com/ITM-Kitware/align-app/commit/74aff16ee325771621e9141ca6f289838a283815))
+
+### Refactoring
+
+- **prompt**: Put attribute id arg first
+  ([`2130bd9`](https://github.com/ITM-Kitware/align-app/commit/2130bd93a5379fbb553f17c7c86d4acd7949b6d7))
+
+
 ## v0.6.1 (2025-04-10)
 
 ### Bug Fixes
