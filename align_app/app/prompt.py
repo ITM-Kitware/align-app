@@ -6,8 +6,10 @@ from ..adm.adm_core import (
     get_attributes,
     get_system_prompt,
     get_dataset_decider_configs,
+    get_alignment_descriptions_map,
+    serialize_prompt,
 )
-from .ui import readable_scenario
+from .ui import readable_scenario, readable_attribute
 from ..utils.utils import get_id, readable, debounce
 
 COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME = 0.1
@@ -49,6 +51,13 @@ class PromptController:
         )(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
                 self.compute_system_prompt
+            )
+        )
+        self.server.state.change(
+            "alignment_attributes", "decision_maker", "prompt_scenario_id"
+        )(
+            debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
+                self.compute_alignment_descriptions
             )
         )
         self.reset()
@@ -158,7 +167,7 @@ class PromptController:
             )
 
     @change("decision_maker", "alignment_attributes", "prompt_scenario_id")
-    def ensure_alignment_attribute(self, **_):
+    def validate_alignment_attribute(self, **_):
         decider_configs = get_dataset_decider_configs(
             self.server.state.prompt_scenario_id, self.server.state.decision_maker
         )
@@ -172,7 +181,7 @@ class PromptController:
             self.update_decider_message(False, DECISION_ATTRIBUTE_ERROR)
 
     @change("decision_maker", "prompt_scenario_id")
-    def ensure_decision_maker_exists_for_dataset(self, **_):
+    def validate_decision_maker_exists_for_dataset(self, **_):
         decider_configs = get_dataset_decider_configs(
             self.server.state.prompt_scenario_id, self.server.state.decision_maker
         )
@@ -238,3 +247,15 @@ class PromptController:
         scenario_id = self.server.state.prompt_scenario_id
         sys_prompt = get_system_prompt(decider, mapped_attributes, scenario_id)
         self.server.state.system_prompt = sys_prompt
+
+    def compute_alignment_descriptions(self, **_):
+        p = serialize_prompt(self.get_prompt())
+        descriptions = get_alignment_descriptions_map(p)
+        alignment_targets = [
+            {
+                **readable_attribute(a, descriptions),
+                "id": readable(a["id"]),
+            }
+            for a in p["alignment_targets"]
+        ]
+        self.server.state.alignment_targets_readable = alignment_targets

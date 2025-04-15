@@ -20,38 +20,36 @@ def readable_scenario(scenario):
     }
 
 
+def readable_attribute(attribute, descriptions):
+    """Process alignment attribute by adding descriptions to kdma_values"""
+    kdma_values = attribute.get("kdma_values", [])
+    if not isinstance(kdma_values, list):
+        return attribute
+
+    # Add description to each kdma_value
+    return {
+        **attribute,
+        "kdma_values": [
+            {
+                **kdma_value,
+                "description": descriptions.get(kdma_value.get("kdma"), {}).get(
+                    "description",
+                    f"No description for {kdma_value.get('kdma')}",
+                ),
+                "kdma": readable(kdma_value.get("kdma")),
+                "value": round(kdma_value.get("value"), 2),
+            }
+            for kdma_value in kdma_values
+        ],
+    }
+
+
 def prep_for_state(prompt: Prompt):
-    # Load descriptions map first using the original prompt object
-    descriptions_map = get_alignment_descriptions_map(prompt)
-
-    p = serialize_prompt(prompt)  # Now serialize
-
-    def readable_attribute(a):
-        """Process alignment attribute by adding descriptions to kdma_values"""
-        kdma_values = a.get("kdma_values", [])
-        if not isinstance(kdma_values, list):
-            return a
-
-        # Add description to each kdma_value
-        return {
-            **a,
-            "kdma_values": [
-                {
-                    **kdma_value,
-                    "description": descriptions_map.get(kdma_value.get("kdma"), {}).get(
-                        "description",
-                        f"No description for {kdma_value.get('kdma')}",
-                    ),
-                    "kdma": readable(kdma_value.get("kdma")),
-                }
-                for kdma_value in kdma_values
-            ],
-        }
-
+    descriptions = get_alignment_descriptions_map(prompt)
     p = serialize_prompt(prompt)
     p["alignment_targets"] = [
         {
-            **readable_attribute(a),
+            **readable_attribute(a, descriptions),
             "id": readable(a["id"]),
         }
         for a in p["alignment_targets"]
@@ -95,7 +93,7 @@ class RowWithLabel:
     def __init__(self, run_content=noop, label="", no_runs=None):
         title = bool(label)
         with vuetify3.VRow(style="max-width: 100%;"):
-            with vuetify3.VCol(cols=2):
+            with vuetify3.VCol(cols=2, classes="align-self-center"):
                 html.Span(label, classes="text-h6")
             with vuetify3.VCol(
                 v_for=("id in runs_to_compare",),
@@ -138,17 +136,17 @@ class DecisionMaker:
             RowWithLabel(run_content=run_content, label="Decision Maker")
 
 
-class AlignmentTargets:
+class Alignment:
     class Title:
         def __init__(self):
             def run_content():
                 html.Span(
                     "{{ runs[id].prompt.alignment_targets.length ? "
                     "runs[id].prompt.alignment_targets.map(att => att.id).join(', ') : "
-                    "'No Alignment Targets' }}"
+                    "'No Alignment' }}"
                 )
 
-            RowWithLabel(run_content=run_content, label="Alignment Target")
+            RowWithLabel(run_content=run_content, label="Alignment")
 
     class Text:
         def __init__(self):
@@ -156,9 +154,8 @@ class AlignmentTargets:
                 with html.Div(
                     v_for=("target in runs[id].prompt.alignment_targets",),
                     key=("target.id",),
-                    classes="mb-4",
                 ):
-                    with html.P(
+                    with html.Div(
                         "{{value.kdma}}", v_for=("value in target.kdma_values",)
                     ):
                         with html.Ul(classes="ml-8"):
@@ -279,7 +276,7 @@ class ResultsComparison(html.Div):
                 PanelSection(child=RunNumber)
                 PanelSection(child=Scenario)
                 PanelSection(child=DecisionMaker)
-                PanelSection(child=AlignmentTargets)
+                PanelSection(child=Alignment)
                 PanelSection(child=SystemPrompt)
                 PanelSection(child=LlmBackbone)
                 PanelSection(child=Decision)
@@ -325,14 +322,14 @@ class PromptInput(vuetify3.VCard):
                 ):
                     with vuetify3.VRow(no_gutters=True):
                         vuetify3.VSelect(
-                            label="Alignment Target",
+                            label="Alignment",
                             items=("possible_alignment_attributes",),
                             model_value=("alignment_attribute",),
                             update_modelValue=(
                                 self.server.controller.update_value_alignment_attribute,
                                 r"[alignment_attribute.id, $event]",
                             ),
-                            no_data_text="No available alignment targets",
+                            no_data_text="No available alignments",
                             hide_details="auto",
                         )
                         with vuetify3.VBtn(
@@ -398,7 +395,37 @@ class PromptInput(vuetify3.VCard):
                     classes="my-2",
                 )
 
-                with vuetify3.VExpansionPanels(classes="mb-6 mt-4"):
+                with vuetify3.VExpansionPanels(
+                    classes="mb-6 mt-4", multiple=True, variant="accordion"
+                ):
+                    with vuetify3.VExpansionPanel():
+                        with vuetify3.VExpansionPanelTitle():
+                            with html.Div(
+                                classes="text-subtitle-1 text-no-wrap text-truncate"
+                            ):
+                                html.Span("Alignment:")
+                                html.Span(
+                                    "{{alignment_targets_readable.length ? "
+                                    "alignment_targets_readable.map(att => att.id).join(', ') "
+                                    ": 'No Alignments'}}"
+                                )
+                        with vuetify3.VExpansionPanelText():
+                            with html.Div(
+                                v_for=("target in alignment_targets_readable",),
+                                key=("target.id",),
+                            ):
+                                with html.Div(
+                                    "{{value.kdma}}",
+                                    v_for=("value in target.kdma_values",),
+                                ):
+                                    with html.Ul(classes="ml-8"):
+                                        html.Li("Value: {{value.value}}")
+                                        html.Li("{{value.description}}")
+                            html.Div(
+                                "",
+                                v_if=("alignment_targets_readable.length === 0",),
+                            )
+
                     with vuetify3.VExpansionPanel():
                         with vuetify3.VExpansionPanelTitle():
                             with html.Div(
