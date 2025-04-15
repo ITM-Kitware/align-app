@@ -37,6 +37,12 @@ poetry run align-app
 
 Then visit http://localhost:8080
 
+The web server is from Trame. To expose the server to the network run with the `--host` arg
+
+```console
+poetry run align-app --host 0.0.0.0
+```
+
 ## Development
 
 ```console
