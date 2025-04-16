@@ -96,7 +96,7 @@ class RowWithLabel:
             with vuetify3.VCol(cols=2, classes="align-self-center"):
                 html.Span(label, classes="text-h6")
             with vuetify3.VCol(
-                v_for=("id in runs_to_compare",),
+                v_for=("(id, column) in runs_to_compare",),
                 key=("id",),
                 v_if=("runs_to_compare.length > 0",),
                 classes=(
@@ -257,7 +257,7 @@ class RunNumber:
                     model_value=("Object.keys(runs).indexOf(id) + 1",),
                     update_modelValue=(
                         self.server.controller.update_run_to_compare,
-                        r"[$event, runs_to_compare.indexOf(id)]",
+                        r"[$event, column]",
                     ),
                     hide_details="auto",
                 )
