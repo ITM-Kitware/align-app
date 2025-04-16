@@ -16,9 +16,9 @@ Users select the ADM type, LLM backbone, alignment targets, and scenario. Then t
 Install using Poetry:
 
 ```console
+pip install poetry
 git clone https://github.com/ITM-Kitware/align-app.git
 cd align-app
-pip install poetry
 poetry install
 ```
 
@@ -46,9 +46,9 @@ poetry run align-app --host 0.0.0.0
 ## Development
 
 ```console
+pip install poetry
 git clone https://github.com/ITM-Kitware/align-app.git
 cd align-app
-pip install poetry
 poetry install --with dev
 pre-commit install
 ```

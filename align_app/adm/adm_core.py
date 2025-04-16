@@ -252,12 +252,12 @@ datasets = {
             },
         },
         "attributes": {
-            "CREGION_Northeast": {"possible_scores": ["HIGH"]},
-            "CREGION_South": {"possible_scores": ["HIGH"]},
-            "EDUCATION_College_graduate_some_postgrad": {"possible_scores": ["HIGH"]},
-            "EDUCATION_Less_than_high_school": {"possible_scores": ["HIGH"]},
-            "INCOME_$100,000_or_more": {"possible_scores": ["HIGH"]},
-            "INCOME_Less_than_$30,000": {"possible_scores": ["HIGH"]},
+            "CREGION_Northeast": {"possible_scores": ["High"]},
+            "CREGION_South": {"possible_scores": ["High"]},
+            "EDUCATION_College_graduate_some_postgrad": {"possible_scores": ["High"]},
+            "EDUCATION_Less_than_high_school": {"possible_scores": ["High"]},
+            "INCOME_$100,000_or_more": {"possible_scores": ["High"]},
+            "INCOME_Less_than_$30,000": {"possible_scores": ["High"]},
         },
         "attribute_descriptions_dir": align_system_path
         / "configs"
@@ -413,45 +413,59 @@ def serialize_prompt(prompt: Prompt):
 
 
 def get_dataset_decider_configs(scenario_id, decider):
+    """
+    Merges base decider config, common decider config, and dataset-specific
+    decider config using the merge_dicts utility.
+    """
     dataset_name = get_dataset_name(scenario_id)
-    dataset_specific_config = datasets[dataset_name]["deciders"].get(decider)
-    if dataset_specific_config is None:
-        return None
+    # Use .get() with default {} to handle cases where 'deciders' or the specific decider might be missing
+    dataset_specific_config = copy.deepcopy(
+        datasets[dataset_name].get("deciders", {}).get(decider, {})
+    )
 
+    if not dataset_specific_config:
+        if decider not in datasets[dataset_name].get("deciders", {}):
+            return None
+
+    # Load the base configuration from the YAML file
     yaml_path = deciders[decider]["config_path"]
-    yaml_config = OmegaConf.load(yaml_path)
-    decider_base = OmegaConf.to_container(yaml_config)
+    base_cfg = OmegaConf.load(yaml_path)
+    decider_base = OmegaConf.to_container(base_cfg, resolve=True)
 
     common_config = copy.deepcopy(deciders[decider])
-    # Not needed in the merged config
+    #  Not needed in the merged config
     del common_config["config_path"]
 
-    # Merge common and dataset-specific configs using merge_dicts for nested fields
+    # Merge non-posture configurations
     common_config_no_postures = {
         k: v for k, v in common_config.items() if k != "postures"
     }
     dataset_config_no_postures = {
         k: v for k, v in dataset_specific_config.items() if k != "postures"
     }
-    result = merge_dicts(common_config_no_postures, dataset_config_no_postures)
+    decider_with_postures = merge_dicts(
+        common_config_no_postures, dataset_config_no_postures
+    )
 
+    # Merge postures: Base YAML <- Common Posture Overrides <- Dataset Posture Overrides
     merged_postures = {}
-    posture_keys = set()
-    posture_keys.update(common_config["postures"].keys())
-    posture_keys.update(dataset_specific_config["postures"].keys())
+    common_postures = common_config.get("postures", {})
+    dataset_postures = dataset_specific_config.get("postures", {})
+
+    posture_keys = set(common_postures.keys()) | set(dataset_postures.keys())
     for posture in posture_keys:
         posturing_decider = copy.deepcopy(decider_base)
-        if posture in common_config["postures"]:
-            posturing_decider = merge_dicts(
-                posturing_decider, common_config["postures"][posture]
-            )
-        if posture in dataset_specific_config["postures"]:
-            posturing_decider = merge_dicts(
-                posturing_decider, dataset_specific_config["postures"][posture]
-            )
+
+        common_posture_override = common_postures.get(posture, {})
+        posturing_decider = merge_dicts(posturing_decider, common_posture_override)
+        dataset_posture_override = dataset_postures.get(posture, {})
+        posturing_decider = merge_dicts(posturing_decider, dataset_posture_override)
+
         merged_postures[posture] = posturing_decider
-    result["postures"] = merged_postures
-    return result
+
+    decider_with_postures["postures"] = merged_postures
+
+    return decider_with_postures
 
 
 def get_decider_config(scenario_id, decider, baseline):
@@ -528,10 +542,8 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     scenario_id = prompt["scenario"]["scenario_id"]
     decider = prompt["decider_params"]["decider"]
 
-    # Need the original DictConfig prompt for get_decider_config
     config = get_decider_config(scenario_id, decider, baseline=False)
     if not config:
-        print(f"Warning: Config not found for {scenario_id}, {decider}")
         return {}
 
     # Check nested structure for kdma_descriptions_map
