@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.7.1 (2025-04-24)
+
+### Bug Fixes
+
+- **ui**: Change correct column on run number selection
+  ([`26cc9cc`](https://github.com/ITM-Kitware/align-app/commit/26cc9cc51b32ad2c16d86bc2490044096f8d36ca))
+
+### Refactoring
+
+- **adm_core**: More readable get_dataset_decider_configs
+  ([`6e05d3a`](https://github.com/ITM-Kitware/align-app/commit/6e05d3acdc63dbb9dedd0b2a476e47d8142506ca))
+
+
 ## v0.7.0 (2025-04-15)
 
 ### Bug Fixes
