@@ -6,6 +6,7 @@ from ..utils.utils import get_id
 import asyncio
 import gc
 import torch
+from queue import Empty
 
 
 class RequestType(str, Enum):
@@ -37,10 +38,10 @@ class DeciderResponse(TypedDict):
 
 
 def decider_process_worker(request_queue: Queue, response_queue: Queue):
-    """Worker function to run in a separate process."""
     decider = None
     decider_cleanup = None
     decider_key = None
+    shutdown_requested = False
 
     def cleanup_decider():
         nonlocal decider, decider_cleanup
@@ -49,69 +50,114 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
             decider_cleanup()
             decider_cleanup = None
             gc.collect()
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
-    shutdown = False
-    while not shutdown:
-        request = cast(DeciderRequest, request_queue.get())
+    def _initialize_or_update_decider(prompt: Prompt, current_decider_key):
+        nonlocal decider, decider_cleanup, decider_key
+        decider_params = prompt["decider_params"]
+        baseline = len(prompt["alignment_targets"]) == 0
+        dataset_name = prompt["scenario"]["scenario_id"].split(".")[0]
+        requested_decider_key = (
+            decider_params["llm_backbone"],
+            decider_params["decider"],
+            baseline,
+            dataset_name,
+        )
 
-        if request["request_type"] == RequestType.SHUTDOWN:
-            response_queue.put(
-                DeciderResponse(
-                    request_id=request["request_id"],
-                    result="Shutting down",
-                    error=None,
-                    success=True,
-                )
-            )
-            shutdown = True
-        elif request["request_type"] == RequestType.RUN:
-            prompt: Prompt = request["prompt"]
-            decider_params = prompt["decider_params"]
-            baseline = len(prompt["alignment_targets"]) == 0
-
-            dataset_name = prompt["scenario"]["scenario_id"].split(".")[0]
-
-            requested_decider_key = (
-                decider_params["llm_backbone"],
-                decider_params["decider"],
-                baseline,
-                dataset_name,
-            )
-
-            if requested_decider_key != decider_key:
-                cleanup_decider()
-                decider_key = requested_decider_key
-                # Use create_adm to get both the decider function and its cleanup function
-                decider, decider_cleanup = create_adm(
+        if requested_decider_key != current_decider_key:
+            cleanup_decider()
+            try:
+                new_decider, new_decider_cleanup = create_adm(
                     llm_backbone=decider_params["llm_backbone"],
                     decider=decider_params["decider"],
                     baseline=baseline,
                     scenario_id=prompt["scenario"]["scenario_id"],
                 )
+                decider = new_decider
+                decider_cleanup = new_decider_cleanup
+                decider_key = requested_decider_key
+            except Exception:
+                decider = None
+                decider_cleanup = None
+                decider_key = None
+                raise
 
-            if decider is None:
+    def _execute_decision(
+        decider: Any,
+        prompt: Prompt,
+    ) -> Decision:
+        action_decision = decider(prompt)
+        decision_dict = action_decision.to_dict()
+        return decision_dict
+
+    # Main worker loop
+    try:
+        while not shutdown_requested:
+            request = None
+            try:
+                request = cast(DeciderRequest, request_queue.get(timeout=1.0))
+            except Empty:
+                continue
+            except (KeyboardInterrupt, SystemExit):
+                shutdown_requested = True
+                break
+
+            current_request_id = request["request_id"]
+
+            if request["request_type"] == RequestType.SHUTDOWN:
                 response_queue.put(
                     DeciderResponse(
-                        request_id=request["request_id"],
-                        result=None,
-                        error="Failed to initialize decider",
-                        success=False,
+                        request_id=current_request_id,
+                        result="Shutting down",
+                        error=None,
+                        success=True,
                     )
                 )
-                continue
+                shutdown_requested = True
 
-            action_decision = decider(prompt)
+            elif request["request_type"] == RequestType.RUN:
+                run_request = cast(RunDeciderRequest, request)
+                prompt_data: Prompt = run_request["prompt"]
 
-            decision_dict = action_decision.to_dict()
-            response_queue.put(
-                DeciderResponse(
-                    request_id=request["request_id"],
-                    result=decision_dict,
-                    error=None,
-                    success=True,
-                )
-            )
+                try:
+                    _initialize_or_update_decider(prompt_data, decider_key)
+
+                    decision_result = _execute_decision(decider, prompt_data)
+                    response_queue.put(
+                        DeciderResponse(
+                            request_id=current_request_id,
+                            result=decision_result,
+                            error=None,
+                            success=True,
+                        )
+                    )
+
+                except (KeyboardInterrupt, SystemExit):
+                    shutdown_requested = True
+                    response_queue.put(
+                        DeciderResponse(
+                            request_id=current_request_id,
+                            result=None,
+                            error=f"Shutdown requested during RUN processing for request {current_request_id}.",
+                            success=False,
+                        )
+                    )
+                    break
+                except Exception as e_run:
+                    response_queue.put(
+                        DeciderResponse(
+                            request_id=current_request_id,
+                            result=None,
+                            error=(
+                                f"Error processing RUN request {current_request_id}: "
+                                f"{str(e_run)} ({type(e_run).__name__})"
+                            ),
+                            success=False,
+                        )
+                    )
+    finally:
+        cleanup_decider()
 
 
 class MultiprocessDecider:
@@ -159,7 +205,12 @@ class MultiprocessDecider:
                 "request_type": RequestType.SHUTDOWN,
                 "request_id": get_id(),
             }
-            self.request_queue.put(request)
+            self.request_queue.put(request, block=True, timeout=1.0)
+
             self.process.join(timeout=5)
+
             if self.process.is_alive():
                 self.process.terminate()
+                self.process.join(timeout=1)
+
+        self.manager.shutdown()
