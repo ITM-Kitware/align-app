@@ -11,9 +11,9 @@ Users select the ADM type, LLM backbone, alignment targets, and scenario. Then t
 
 ![Align UI Hero](./doc/ui-hero.png)
 
-## Installing
+## Install
 
-Install using Poetry:
+### Use Poetry Package Manager
 
 ```console
 pip install poetry
@@ -22,14 +22,19 @@ cd align-app
 poetry install
 ```
 
-Set an environment variable with your HuggingFace [user access token](https://huggingface.co/docs/transformers.js/en/guides/private).
+### Setup HuggingFace User Access Token
+
 Many of the LLM Backbones used in the app require you agree to some terms.
+Example [Mistral-AI's](https://huggingface.co/mistralai/Mistral-7B-v0.3)
+
+1. Agree to the terms on the HuggingFace website for the models you use.
+2. Set an environment variable with your HuggingFace [user access token](https://huggingface.co/docs/transformers.js/en/guides/private).
 
 ```console
 export HF_TOKEN=<your token obtained from Hugging Face website>
 ```
 
-Run the application:
+### Run the Application
 
 ```console
 poetry run align-app
@@ -37,7 +42,18 @@ poetry run align-app
 
 Then visit http://localhost:8080
 
-The web server is from Trame. To expose the server to the network run with the `--host` arg
+The first time you run a model, it will take some time for the HuggingFace transformers library to
+download the model.
+
+### Optionally Configure Network Port or Host
+
+The web server is from Trame. To configure the port, use the `--port` arg
+
+```console
+poetry run align-app --port 8081
+```
+
+To expose the server to the network run with the `--host` arg
 
 ```console
 poetry run align-app --host 0.0.0.0
