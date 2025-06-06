@@ -165,6 +165,13 @@ deciders = {
             },
         },
     },
+    "pipeline_random": {
+        "config_path": adm_configs / "pipeline_random.yaml",
+        "instance_kwargs": {},
+        "postures": {
+            "baseline": {},
+        },
+    },
 }
 
 
@@ -196,6 +203,7 @@ datasets = {
                     "baseline": {"inference_kwargs": {}},
                 },
             },
+            "pipeline_random": {},
         },
         "attributes": {
             "continuing_care": {"possible_scores": ["Low", "High"]},
@@ -430,7 +438,7 @@ def alignment_targets_to_dict_conf(
 
 def truncate_alignment_targets(targets: List[DictConfig], decider_config):
     max_attr = decider_config.get("max_alignment_attributes", len(targets))
-    if max_attr == 1:
+    if max_attr <= 1:
         return targets[0] if targets else None
     return targets[:max_attr]
 
@@ -585,7 +593,7 @@ def get_system_prompt(decider, attributes, scenario_id):
         )
 
         return partial_template
-    else:
+    elif decider == "outlines_transformers_structured":
         target_class = hydra.utils.get_class(ctx["config"].instance._target_)
         dialogs = target_class.get_dialogs(
             ctx["state"],
@@ -595,6 +603,7 @@ def get_system_prompt(decider, attributes, scenario_id):
             **instance_kwargs,
         )
         return dialogs["positive_system_prompt"]
+    return ""
 
 
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
@@ -705,10 +714,14 @@ def instantiate_adm(
     scenario_id=None,
 ):
     config = get_decider_config(scenario_id, decider, baseline)
-    if decider != "kaleido":
-        config["instance"]["model_name"] = llm_backbone
-    else:
+
+    if decider == "pipeline_random":
+        pass
+    elif decider == "kaleido":
         config["instance"]["kaleido_adm"]["model_name"] = llm_backbone
+    else:
+        # for outlines_transformers_structured
+        config["instance"]["model_name"] = llm_backbone
 
     config["instance"] = OmegaConf.merge(
         config["instance"], config.get("instance_kwargs", {})
