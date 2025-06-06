@@ -204,14 +204,10 @@ class PromptController:
         )
         if decider_configs and "llm_backbones" in decider_configs:
             self.server.state.llm_backbones = decider_configs["llm_backbones"]
-            if (
-                self.server.state.llm_backbone
-                and self.server.state.llm_backbone
-                not in self.server.state.llm_backbones
-            ):
-                self.server.state.llm_backbone = self.server.state.llm_backbones[0]
         else:
-            self.server.state.llm_backbones = []
+            self.server.state.llm_backbones = ["N/A"]
+        if self.server.state.llm_backbone not in self.server.state.llm_backbones:
+            self.server.state.llm_backbone = self.server.state.llm_backbones[0]
 
     @change("prompt_scenario_id", "decision_maker")
     def limit_to_dataset_alignment_attributes(self, **_):
