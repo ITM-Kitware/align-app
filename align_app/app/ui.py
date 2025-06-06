@@ -444,7 +444,7 @@ class PromptInput(vuetify3.VCard):
                             html.Div("{{system_prompt}}")
 
                 vuetify3.VSelect(
-                    v_if=("llm_backbones.length > 0",),
+                    disabled=("llm_backbones.length <= 1",),
                     label="LLM Backbone",
                     items=("llm_backbones",),
                     v_model=("llm_backbone",),
