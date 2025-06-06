@@ -11,9 +11,16 @@ def reload(m=None):
         m.__loader__.exec_module(m)
 
 
+SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
+
+
 def readable_scenario(scenario):
     characters = scenario["full_state"]["characters"]
-    readable_characters = [{**c, "intent": sentence(c["intent"])} for c in characters]
+    readable_characters = [
+        {**c, **{key: sentence(c[key]) for key in SENTENCE_KEYS if key in c}}
+        for c in characters
+    ]
+
     return {
         **scenario,
         "full_state": {**scenario["full_state"], "characters": readable_characters},

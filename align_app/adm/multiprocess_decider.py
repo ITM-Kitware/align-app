@@ -144,18 +144,6 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
                         )
                     )
                     break
-                except Exception as e_run:
-                    response_queue.put(
-                        DeciderResponse(
-                            request_id=current_request_id,
-                            result=None,
-                            error=(
-                                f"Error processing RUN request {current_request_id}: "
-                                f"{str(e_run)} ({type(e_run).__name__})"
-                            ),
-                            success=False,
-                        )
-                    )
     finally:
         cleanup_decider()
 
