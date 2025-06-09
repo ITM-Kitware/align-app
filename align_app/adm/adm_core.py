@@ -6,10 +6,14 @@ import yaml
 import hydra
 from functools import partial
 from omegaconf import OmegaConf, DictConfig
-from align_system.utils.hydrate_state import hydrate_scenario_state
 import align_system
+from align_system.utils.hydrate_state import (
+    hydrate_scenario_state,
+    p2triage_hydrate_scenario_state,
+)
 from align_system.utils import logging
-from .action_filtering import filter_actions
+
+# from .action_filtering import filter_actions
 from ..utils.utils import merge_dicts
 import gc
 import torch
@@ -61,9 +65,10 @@ def load_scenarios(evaluation_file: str):
     scenarios = {}
     for record in dataset:
         input = record["input"]
+        # ensure id is unique
         scenario_id = f"{prefix}.{input['scenario_id']}.{next_id}"
         next_id += 1
-        input["scenario_id"] = scenario_id  # ensure id is unique
+        input["scenario_id"] = scenario_id
 
         # Create a display_state field if full_state.unstructured exists
         if (
@@ -86,8 +91,7 @@ align_system_path = Path(align_system.__file__).parent
 
 current_dir = Path(__file__).parent
 configs = current_dir / "configs"
-adm_configs = configs / "hydra" / "adm"
-alignment_configs = configs / "hydra" / "alignment_target"
+adm_configs = configs / "adm"
 
 naacl24_input_dir = current_dir / "input_output_files" / "NAACL24_dataset_split"
 opinionqa_input_dir = current_dir / "input_output_files" / "OpinionQA_dataset_split"
@@ -117,6 +121,32 @@ def truncate_unstructured_text(scenarios):
     return scenarios_copy
 
 
+def _generate_kaleido_system_prompt(ctx, alignment, hydrated_instance_kwargs):
+    target_class = hydra.utils.get_class(ctx["config"].instance.kaleido_adm._target_)
+    all_kwargs = {
+        **ctx["config"].get("inference_kwargs", {}),
+        **hydrated_instance_kwargs,
+    }
+    partial_template = target_class.get_partial_template(ctx["state"], **all_kwargs)
+    return partial_template
+
+
+def _generate_outlines_system_prompt(ctx, alignment, hydrated_instance_kwargs):
+    target_class = hydra.utils.get_class(ctx["config"].instance._target_)
+    all_kwargs = {
+        **ctx["config"].get("inference_kwargs", {}),
+        **hydrated_instance_kwargs,
+    }
+    dialogs = target_class.get_dialogs(
+        ctx["state"], ctx["actions"], alignment, **all_kwargs
+    )
+    return dialogs["positive_system_prompt"]
+
+
+def _generate_pipeline_random_system_prompt(ctx, alignment, hydrated_instance_kwargs):
+    return "I pick a choice at random."
+
+
 deciders = {
     "outlines_transformers_structured": {
         "config_path": adm_configs / "outlines_transformers_structured.yaml",
@@ -139,6 +169,7 @@ deciders = {
                 "instance_kwargs": {"baseline": True},
             },
         },
+        "system_prompt_generator": _generate_outlines_system_prompt,
     },
     "kaleido": {
         "config_path": adm_configs / "kaleido.yaml",
@@ -159,6 +190,15 @@ deciders = {
                 },
             },
         },
+        "system_prompt_generator": _generate_kaleido_system_prompt,
+    },
+    "pipeline_random": {
+        "config_path": adm_configs / "pipeline_random.yaml",
+        "instance_kwargs": {},
+        "postures": {
+            "baseline": {},
+        },
+        "system_prompt_generator": _generate_pipeline_random_system_prompt,
     },
 }
 
@@ -166,8 +206,49 @@ deciders = {
 decider_names = list(deciders.keys())
 
 datasets = {
+    "phase2": {
+        "scenarios": get_scenarios(
+            ["/data/shared/samba/phase2_icl/June2025-AF-train_20250523.json"]
+        ),
+        "scenario_hydration_func": p2triage_hydrate_scenario_state,
+        "deciders": {
+            "outlines_transformers_structured": {
+                "instance_kwargs": {
+                    "scenario_description_template": {
+                        "_target_": "align_system.prompt_engineering.outlines_prompts.Phase2ScenarioDescription"
+                    },
+                },
+                "postures": {
+                    "aligned": {
+                        "inference_kwargs": {
+                            "kdma_descriptions_map": str(
+                                align_system_path
+                                / "prompt_engineering"
+                                / "naacl24_kdma_descriptions.yml"
+                            )
+                        },
+                    },
+                    "baseline": {"inference_kwargs": {}},
+                },
+            },
+            "pipeline_random": {},
+        },
+        "attributes": {
+            "continuing_care": {"possible_scores": ["Low", "High"]},
+            "fairness": {"possible_scores": ["Low", "High"]},
+            "moral_desert": {"possible_scores": ["Low", "High"]},
+            "protocol_focus": {"possible_scores": ["Low", "High"]},
+            "risk_aversion": {"possible_scores": ["Low", "High"]},
+            "utilitarianism": {"possible_scores": ["Low", "High"]},
+        },
+        "attribute_descriptions_dir": align_system_path
+        / "configs"
+        / "alignment_target"
+        / "NAACL24_dataset_attributes",
+    },
     "naacl24": {
         "scenarios": load_scenarios_dir(naacl24_input_dir),
+        "scenario_hydration_func": hydrate_scenario_state,
         "deciders": {
             "outlines_transformers_structured": {
                 "postures": {
@@ -224,6 +305,7 @@ datasets = {
         "scenarios": truncate_unstructured_text(
             load_scenarios_dir(opinionqa_input_dir)
         ),
+        "scenario_hydration_func": hydrate_scenario_state,
         "deciders": {
             "outlines_transformers_structured": {
                 "instance_kwargs": {
@@ -310,8 +392,22 @@ def get_attributes(scenario_id, decider):
 
 def create_scenario_state(scenario):
     """Create a scenario state from a scenario description"""
-    state, actions = hydrate_scenario_state(scenario)
-    actions = filter_actions(state, actions)
+    scenario_id = scenario["scenario_id"]
+    dataset_name = get_dataset_name(scenario_id)
+    hydration_func = datasets[dataset_name]["scenario_hydration_func"]
+    # keep swagger_client validation happy for phase 2 JSON shape
+    if (
+        "environment" not in scenario["full_state"]
+        or not scenario["full_state"]["environment"]
+    ):
+        scenario["full_state"]["environment"] = {}
+    if (
+        "supplies" not in scenario["full_state"]
+        or not scenario["full_state"]["supplies"]
+    ):
+        scenario["full_state"]["supplies"] = {}
+    state, actions = hydration_func(scenario)
+    # actions = filter_actions(state, actions)
     return state, actions
 
 
@@ -370,7 +466,7 @@ def alignment_targets_to_dict_conf(
 
 def truncate_alignment_targets(targets: List[DictConfig], decider_config):
     max_attr = decider_config.get("max_alignment_attributes", len(targets))
-    if max_attr == 1:
+    if max_attr <= 1:
         return targets[0] if targets else None
     return targets[:max_attr]
 
@@ -503,38 +599,26 @@ def prepare_context(scenario, decider, attributes):
 
 
 def get_system_prompt(decider, attributes, scenario_id):
-    scenario = scenarios[scenario_id]
+    decider_main_config = deciders.get(decider)
+
+    generator_func = decider_main_config.get("system_prompt_generator")
+
+    scenario = scenarios.get(scenario_id)
+
     ctx = prepare_context(scenario, decider, attributes)
-    if ctx["config"] is None:
-        return ""  # No config found for the given decider and scenario_id
-    # Pass decider name to prepare_alignment
+
+    if ctx.get("config") is None:
+        # This implies that for the given decider and baseline/aligned posture,
+        # a valid configuration was not found (e.g., kaleido needs an alignment and has no baseline posture).
+        return ""
+
     alignment = prepare_alignment(
         ctx["dataset_name"], attributes, ctx["config"], decider=decider
     )
-    instance_kwargs = hydra.utils.instantiate(
+    hydrated_instance_kwargs = hydra.utils.instantiate(
         ctx["config"].get("instance_kwargs", {}), recursive=True
     )
-    if decider == "kaleido":
-        target_class = hydra.utils.get_class(
-            ctx["config"].instance.kaleido_adm._target_
-        )
-        partial_template = target_class.get_partial_template(
-            ctx["state"],
-            **ctx["config"].get("inference_kwargs", {}),
-            **instance_kwargs,
-        )
-
-        return partial_template
-    else:
-        target_class = hydra.utils.get_class(ctx["config"].instance._target_)
-        dialogs = target_class.get_dialogs(
-            ctx["state"],
-            ctx["actions"],
-            alignment,
-            **ctx["config"].get("inference_kwargs", {}),
-            **instance_kwargs,
-        )
-        return dialogs["positive_system_prompt"]
+    return generator_func(ctx, alignment, hydrated_instance_kwargs)
 
 
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
@@ -645,10 +729,14 @@ def instantiate_adm(
     scenario_id=None,
 ):
     config = get_decider_config(scenario_id, decider, baseline)
-    if decider != "kaleido":
-        config["instance"]["model_name"] = llm_backbone
-    else:
+
+    if decider == "pipeline_random":
+        pass
+    elif decider == "kaleido":
         config["instance"]["kaleido_adm"]["model_name"] = llm_backbone
+    else:
+        # for outlines_transformers_structured
+        config["instance"]["model_name"] = llm_backbone
 
     config["instance"] = OmegaConf.merge(
         config["instance"], config.get("instance_kwargs", {})
