@@ -2,7 +2,6 @@ from pathlib import Path
 import copy
 from typing import TypedDict, List
 import json
-import yaml
 import hydra
 from functools import partial
 from omegaconf import OmegaConf, DictConfig
@@ -12,6 +11,8 @@ from align_system.utils.hydrate_state import (
     p2triage_hydrate_scenario_state,
 )
 from align_system.utils import logging
+from align_system.utils.hydra_utils import initialize_with_custom_references
+
 
 # from .action_filtering import filter_actions
 from ..utils.utils import merge_dicts
@@ -88,6 +89,8 @@ def get_scenarios(files):
 
 
 align_system_path = Path(align_system.__file__).parent
+base_align_system_config_dir = align_system_path / "configs"
+hydra.initialize_config_dir(str(base_align_system_config_dir), version_base=None)
 
 current_dir = Path(__file__).parent
 configs = current_dir / "configs"
@@ -148,6 +151,23 @@ def _generate_pipeline_random_system_prompt(ctx, alignment, hydrated_instance_kw
 
 
 deciders = {
+    "phase2_pipeline_zeroshot_comparative_regression": {
+        "config_path": "adm/phase2_pipeline_zeroshot_comparative_regression.yaml",
+        "llm_backbones": [
+            "mistralai/Mistral-7B-Instruct-v0.2",
+            "mistralai/Mistral-7B-Instruct-v0.3",
+            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "meta-llama/Llama-3.3-70B-Instruct",
+            "Qwen/Qwen2.5-32B-Instruct",
+        ],
+        "instance_kwargs": {},
+        "postures": {
+            "aligned": {
+                "max_alignment_attributes": 1,
+            },
+        },
+        "system_prompt_generator": _generate_pipeline_random_system_prompt,
+    },
     "outlines_transformers_structured": {
         "config_path": adm_configs / "outlines_transformers_structured.yaml",
         "llm_backbones": [
@@ -212,39 +232,25 @@ datasets = {
         ),
         "scenario_hydration_func": p2triage_hydrate_scenario_state,
         "deciders": {
-            "outlines_transformers_structured": {
-                "instance_kwargs": {
-                    "scenario_description_template": {
-                        "_target_": "align_system.prompt_engineering.outlines_prompts.Phase2ScenarioDescription"
-                    },
-                },
+            "phase2_pipeline_zeroshot_comparative_regression": {
                 "postures": {
                     "aligned": {
-                        "inference_kwargs": {
-                            "kdma_descriptions_map": str(
-                                align_system_path
-                                / "prompt_engineering"
-                                / "naacl24_kdma_descriptions.yml"
-                            )
-                        },
+                        "inference_kwargs": {},
                     },
-                    "baseline": {"inference_kwargs": {}},
                 },
             },
             "pipeline_random": {},
         },
         "attributes": {
-            "continuing_care": {"possible_scores": ["Low", "High"]},
-            "fairness": {"possible_scores": ["Low", "High"]},
-            "moral_desert": {"possible_scores": ["Low", "High"]},
-            "protocol_focus": {"possible_scores": ["Low", "High"]},
-            "risk_aversion": {"possible_scores": ["Low", "High"]},
-            "utilitarianism": {"possible_scores": ["Low", "High"]},
+            "medical": {"possible_scores": "continuous"},
+            "affiliation": {"possible_scores": "continuous"},
+            "merit": {"possible_scores": "continuous"},
+            "search": {"possible_scores": "continuous"},
+            "personal_safety": {"possible_scores": "continuous"},
         },
         "attribute_descriptions_dir": align_system_path
         / "configs"
-        / "alignment_target"
-        / "NAACL24_dataset_attributes",
+        / "alignment_target",
     },
     "naacl24": {
         "scenarios": load_scenarios_dir(naacl24_input_dir),
@@ -412,45 +418,18 @@ def create_scenario_state(scenario):
 
 
 def load_alignment_target(dataset_name, decider, kdma, kdma_value=0):
-    attribute_descriptions_dir = datasets[dataset_name]["attribute_descriptions_dir"]
-
-    all_dataset_attrs = _get_attributes(dataset_name, decider)
-    attr_config = all_dataset_attrs.get(kdma)
-
-    if attr_config is None:
-        raise ValueError(
-            f"Attribute {kdma} not found in dataset {dataset_name} (decider: {decider})"
-        )
-
-    scores = attr_config.get("possible_scores", [])
-    is_continuous = scores == "continuous"
-
-    if is_continuous:
-        alignment_suffix = "high" if float(kdma_value) >= 0.5 else "low"
-    elif isinstance(scores, list) and len(scores) == 1:
-        alignment_suffix = scores[0].lower()
-    elif isinstance(scores, list) and len(scores) > 1:
-        num_scores = len(scores)
-        # Map 0 to 1 kdma_value to index [0, num_scores - 1]
-        index = round(float(kdma_value) * (num_scores - 1))
-        clamped_index = max(0, min(index, num_scores - 1))
-        alignment_suffix = scores[clamped_index].lower()
-    else:
-        raise ValueError(
-            f"Unsupported score format for {kdma} in {dataset_name}: {scores}"
-        )
-
-    filename = f"{kdma}_{alignment_suffix}.yaml"
-    filepath = attribute_descriptions_dir / filename
-    if not filepath.exists():
-        raise FileNotFoundError(f"Alignment target file not found: {filepath}")
-    alignment = OmegaConf.load(filepath)
-
-    if is_continuous:
-        for i in range(len(alignment.kdma_values)):
-            alignment.kdma_values[i].value = float(kdma_value)
-
-    return alignment
+    target = {
+        "_target_": "swagger_client.models.AlignmentTarget",
+        "id": kdma,
+        "kdma_values": [
+            {
+                "kdes": None,
+                "kdma": kdma,
+                "value": kdma_value,
+            }
+        ],
+    }
+    return OmegaConf.create(target)
 
 
 def alignment_targets_to_dict_conf(
@@ -474,8 +453,10 @@ def truncate_alignment_targets(targets: List[DictConfig], decider_config):
 def prepare_alignment(
     dataset_name, attributes: List[Attribute], decider_config, decider: str
 ):
-    targets = alignment_targets_to_dict_conf(dataset_name, attributes, decider=decider)
-    return truncate_alignment_targets(targets, decider_config)
+    attributes = alignment_targets_to_dict_conf(
+        dataset_name, attributes, decider=decider
+    )
+    return truncate_alignment_targets(attributes, decider_config)
 
 
 def get_prompt(
@@ -523,12 +504,14 @@ def get_dataset_decider_configs(scenario_id, decider):
         if decider not in datasets[dataset_name].get("deciders", {}):
             return None
 
-    # Load the base configuration from the YAML file
-    yaml_path = deciders[decider]["config_path"]
-    base_cfg = OmegaConf.load(yaml_path)
-    decider_base = OmegaConf.to_container(base_cfg, resolve=True)
+    decider_cfg = deciders[decider]
 
-    common_config = copy.deepcopy(deciders[decider])
+    yaml_path = decider_cfg["config_path"]
+    base_cfg = hydra.compose(yaml_path)
+    adm_cfg = base_cfg["adm"]
+    decider_base = OmegaConf.to_container(adm_cfg)
+
+    common_config = copy.deepcopy(decider_cfg)
     #  Not needed in the merged config
     del common_config["config_path"]
 
@@ -601,7 +584,7 @@ def prepare_context(scenario, decider, attributes):
 def get_system_prompt(decider, attributes, scenario_id):
     decider_main_config = deciders.get(decider)
 
-    generator_func = decider_main_config.get("system_prompt_generator")
+    generate_sys_prompt = decider_main_config.get("system_prompt_generator")
 
     scenario = scenarios.get(scenario_id)
 
@@ -615,14 +598,14 @@ def get_system_prompt(decider, attributes, scenario_id):
     alignment = prepare_alignment(
         ctx["dataset_name"], attributes, ctx["config"], decider=decider
     )
+
     hydrated_instance_kwargs = hydra.utils.instantiate(
         ctx["config"].get("instance_kwargs", {}), recursive=True
     )
-    return generator_func(ctx, alignment, hydrated_instance_kwargs)
+    return generate_sys_prompt(ctx, alignment, hydrated_instance_kwargs)
 
 
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
-    """Loads the KDMA descriptions map based on the prompt context."""
     scenario_id = prompt["scenario"]["scenario_id"]
     decider = prompt["decider_params"]["decider"]
 
@@ -630,40 +613,21 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     if not config:
         return {}
 
-    # Check nested structure for kdma_descriptions_map
-    kdma_map_path_str = None
-    if (
-        "inference_kwargs" in config
-        and "kdma_descriptions_map" in config["inference_kwargs"]
-    ):
-        kdma_map_path_str = config["inference_kwargs"]["kdma_descriptions_map"]
-    elif (
-        "instance_kwargs" in config
-        and "kdma_descriptions_map" in config["instance_kwargs"]
-    ):
-        kdma_map_path_str = config["instance_kwargs"]["kdma_descriptions_map"]
+    # remove custom refs Omega errors on resolving
+    del config["instance"]
+    del config["step_definitions"]
 
-    if not kdma_map_path_str:
-        print(
-            f"Warning: KDMA descriptions map path not found in config for {scenario_id}, {decider}"
-        )
-        return {}
+    attributes_resolved = OmegaConf.to_container(
+        OmegaConf.create({"adm": config}),
+        resolve=True,
+    )
 
-    kdma_map_path = Path(kdma_map_path_str)
-    if not kdma_map_path.exists():
-        print(f"Warning: KDMA descriptions file not found: {kdma_map_path}")
-        return {}
+    attribute_map = attributes_resolved["adm"].get("attribute_definitions", {})
 
-    try:
-        with open(kdma_map_path, "r") as f:
-            kdma_descriptions = yaml.safe_load(f)
-        return kdma_descriptions or {}
-    except Exception as e:
-        print(f"Error loading KDMA descriptions from {kdma_map_path}: {e}")
-        return {}
+    return attribute_map
 
 
-def execute_model(model, prompt: Prompt):
+def choose_action(model, prompt: Prompt):
     scenario = prompt["scenario"]
     decider = prompt["decider_params"]["decider"]
     attributes = prompt["alignment_targets"]
@@ -734,19 +698,20 @@ def instantiate_adm(
         pass
     elif decider == "kaleido":
         config["instance"]["kaleido_adm"]["model_name"] = llm_backbone
-    else:
-        # for outlines_transformers_structured
+    elif decider == "outlines_transformers_structured":
         config["instance"]["model_name"] = llm_backbone
+    else:
+        pass
 
     config["instance"] = OmegaConf.merge(
         config["instance"], config.get("instance_kwargs", {})
     )
-    model = hydra.utils.instantiate(config, recursive=True)
+    adm = initialize_with_custom_references({"adm": config})["adm"]
     if decider == "kaleido":
         cleanup = cleanup_hybrid_kaleido_adm
     else:
         cleanup = cleanup_generic_adm
-    return model, cleanup
+    return adm, cleanup
 
 
 def create_adm(
@@ -756,4 +721,4 @@ def create_adm(
     scenario_id=None,
 ):
     model, cleanup = instantiate_adm(llm_backbone, decider, baseline, scenario_id)
-    return partial(execute_model, model), partial(cleanup, model)
+    return partial(choose_action, model), partial(cleanup, model)
