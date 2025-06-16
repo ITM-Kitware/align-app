@@ -136,10 +136,6 @@ def truncate_unstructured_text(scenarios):
     return scenarios_copy
 
 
-def _generate_pipeline_random_system_prompt(ctx, alignment, hydrated_instance_kwargs):
-    return "I pick a choice at random."
-
-
 def _generate_comparative_regression_pipeline_system_prompt(
     ctx, alignment, hydrated_instance_kwargs
 ):
@@ -191,7 +187,6 @@ deciders = {
         "postures": {
             "baseline": {},
         },
-        "system_prompt_generator": _generate_pipeline_random_system_prompt,
     },
 }
 
@@ -429,6 +424,8 @@ def get_system_prompt(decider, attributes, scenario_id):
     decider_main_config = deciders.get(decider)
 
     generate_sys_prompt = decider_main_config.get("system_prompt_generator")
+    if not generate_sys_prompt:
+        return "N/A"
 
     scenario = scenarios.get(scenario_id)
 
