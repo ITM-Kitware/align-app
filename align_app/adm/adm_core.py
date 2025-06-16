@@ -3,7 +3,7 @@ import copy
 from typing import TypedDict, List
 import json
 import hydra
-from functools import partial
+from functools import partial, lru_cache
 from omegaconf import OmegaConf, DictConfig
 import align_system
 from align_system.utils.hydrate_state import (
@@ -327,6 +327,12 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
+@lru_cache(maxsize=32)
+def _cached_hydra_compose(yaml_path):
+    """Cached version of hydra.compose to speed up repeated calls with the same path"""
+    return hydra.compose(yaml_path)  # takes .4 seconds on ITM machine
+
+
 def get_dataset_decider_configs(scenario_id, decider):
     """
     Merges base decider config, common decider config, and dataset-specific
@@ -345,7 +351,7 @@ def get_dataset_decider_configs(scenario_id, decider):
     decider_cfg = deciders[decider]
 
     yaml_path = decider_cfg["config_path"]
-    base_cfg = hydra.compose(yaml_path)
+    base_cfg = _cached_hydra_compose(yaml_path)
     adm_cfg = base_cfg["adm"]
     decider_base = OmegaConf.to_container(adm_cfg)
 
@@ -486,37 +492,6 @@ def choose_action(model, prompt: Prompt):
     return action_decision
 
 
-def cleanup_hybrid_kaleido_adm(hybrid_adm_obj_config):
-    hybrid_adm_obj = hybrid_adm_obj_config.instance
-    try:
-        kaleido_adm = hybrid_adm_obj.kaleido_adm
-        ks = kaleido_adm.kaleido
-        if hasattr(ks, "model") and ks.model is not None:
-            try:
-                ks.model.cpu()
-                delattr(ks, "model")
-            except Exception as e:
-                print("Error moving KaleidoSys model to CPU:", e)
-
-        if hasattr(ks, "embed_model") and ks.embed_model is not None:
-            try:
-                ks.embed_model.cpu()
-                delattr(ks, "embed_model")
-            except Exception as e:
-                print("Error moving KaleidoSys embed_model to CPU:", e)
-
-        hybrid_adm_obj.kaleido_adm.kaleido = None
-
-        hybrid_adm_obj.kaleido_adm = None
-
-        hybrid_adm_obj.outlines_adm = None
-    except Exception as e:
-        print(f"Exception during cleanup: {e}")
-    finally:
-        gc.collect()
-        torch.cuda.empty_cache()
-
-
 def cleanup_generic_adm(_):
     gc.collect()
     torch.cuda.empty_cache()
@@ -540,10 +515,7 @@ def instantiate_adm(
         config["instance"], config.get("instance_kwargs", {})
     )
     adm = initialize_with_custom_references({"adm": config})["adm"]
-    if decider == "kaleido":
-        cleanup = cleanup_hybrid_kaleido_adm
-    else:
-        cleanup = cleanup_generic_adm
+    cleanup = cleanup_generic_adm
     return adm, cleanup
 
 
