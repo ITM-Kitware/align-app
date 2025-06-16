@@ -56,7 +56,7 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
     def _initialize_or_update_decider(prompt: Prompt, current_decider_key):
         nonlocal decider, decider_cleanup, decider_key
         decider_params = prompt["decider_params"]
-        baseline = len(prompt["alignment_targets"]) == 0
+        baseline = len(prompt["alignment_target"].kdma_values) == 0
         dataset_name = prompt["scenario"]["scenario_id"].split(".")[0]
         requested_decider_key = (
             decider_params["llm_backbone"],

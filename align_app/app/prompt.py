@@ -6,10 +6,8 @@ from ..adm.adm_core import (
     get_attributes,
     get_system_prompt,
     get_dataset_decider_configs,
-    get_alignment_descriptions_map,
-    serialize_prompt,
 )
-from .ui import readable_scenario, readable_attribute
+from .ui import readable_scenario, prep_for_state
 from ..utils.utils import get_id, readable, debounce
 
 COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME = 0.1
@@ -245,13 +243,7 @@ class PromptController:
         self.server.state.system_prompt = sys_prompt
 
     def compute_alignment_descriptions(self, **_):
-        p = serialize_prompt(self.get_prompt())
-        descriptions = get_alignment_descriptions_map(p)
-        alignment_targets = [
-            {
-                **readable_attribute(a, descriptions),
-                "id": readable(a["id"]),
-            }
-            for a in p["alignment_targets"]
-        ]
-        self.server.state.alignment_targets_readable = alignment_targets
+        readable_prompt = prep_for_state(self.get_prompt())
+        self.server.state.attribute_targets = readable_prompt.get(
+            "alignment_target", {}
+        ).get("kdma_values", [])
