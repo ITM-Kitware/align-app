@@ -7,7 +7,6 @@ from functools import partial
 from omegaconf import OmegaConf, DictConfig
 import align_system
 from align_system.utils.hydrate_state import (
-    hydrate_scenario_state,
     p2triage_hydrate_scenario_state,
 )
 from align_system.utils import logging, call_with_coerced_args
@@ -110,9 +109,7 @@ hydra.initialize_config_dir(str(base_align_system_config_dir), version_base=None
 current_dir = Path(__file__).parent
 configs = current_dir / "configs"
 adm_configs = configs / "adm"
-
-naacl24_input_dir = current_dir / "input_output_files" / "NAACL24_dataset_split"
-opinionqa_input_dir = current_dir / "input_output_files" / "OpinionQA_dataset_split"
+input_output_files = current_dir / "input_output_files"
 
 
 def load_scenarios_dir(dir_path: Path):
@@ -137,28 +134,6 @@ def truncate_unstructured_text(scenarios):
                 ]
 
     return scenarios_copy
-
-
-def _generate_kaleido_system_prompt(ctx, alignment, hydrated_instance_kwargs):
-    target_class = hydra.utils.get_class(ctx["config"].instance.kaleido_adm._target_)
-    all_kwargs = {
-        **ctx["config"].get("inference_kwargs", {}),
-        **hydrated_instance_kwargs,
-    }
-    partial_template = target_class.get_partial_template(ctx["state"], **all_kwargs)
-    return partial_template
-
-
-def _generate_outlines_system_prompt(ctx, alignment, hydrated_instance_kwargs):
-    target_class = hydra.utils.get_class(ctx["config"].instance._target_)
-    all_kwargs = {
-        **ctx["config"].get("inference_kwargs", {}),
-        **hydrated_instance_kwargs,
-    }
-    dialogs = target_class.get_dialogs(
-        ctx["state"], ctx["actions"], alignment, **all_kwargs
-    )
-    return dialogs["positive_system_prompt"]
 
 
 def _generate_pipeline_random_system_prompt(ctx, alignment, hydrated_instance_kwargs):
@@ -201,6 +176,7 @@ deciders = {
             "meta-llama/Llama-3.3-70B-Instruct",
             "Qwen/Qwen2.5-32B-Instruct",
         ],
+        "model_path_keys": ["structured_inference_engine", "model_name"],
         "instance_kwargs": {},
         "postures": {
             "aligned": {
@@ -208,53 +184,6 @@ deciders = {
             },
         },
         "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
-        "model_path_keys": ["structured_inference_engine", "model_name"],
-    },
-    "outlines_transformers_structured": {
-        "config_path": adm_configs / "outlines_transformers_structured.yaml",
-        "llm_backbones": [
-            "mistralai/Mistral-7B-Instruct-v0.2",
-            "mistralai/Mistral-7B-Instruct-v0.3",
-            "meta-llama/Meta-Llama-3-8B-Instruct",
-            "meta-llama/Llama-3.3-70B-Instruct",
-            "Qwen/Qwen2.5-32B-Instruct",
-        ],
-        "instance_kwargs": {},
-        "postures": {
-            "aligned": {
-                "max_alignment_attributes": 1,
-                "inference_kwargs": {},
-                "instance_kwargs": {"baseline": False},
-            },
-            "baseline": {
-                "inference_kwargs": {},
-                "instance_kwargs": {"baseline": True},
-            },
-        },
-        "system_prompt_generator": _generate_outlines_system_prompt,
-        "model_path_keys": ["instance", "model_name"],
-    },
-    "kaleido": {
-        "config_path": adm_configs / "kaleido.yaml",
-        "llm_backbones": [
-            "allenai/kaleido-large",
-            "allenai/kaleido-xl",
-            "allenai/kaleido-xxl",
-        ],
-        "instance_kwargs": {},
-        "postures": {
-            "aligned": {
-                "max_alignment_attributes": 1,
-                "inference_kwargs": {
-                    "action_template": (
-                        'What action do you take? "{{choice}}" instead of {{other_choices}}. '
-                        "In the context of the following scenario: {{scene_state}} "
-                    ),
-                },
-            },
-        },
-        "system_prompt_generator": _generate_kaleido_system_prompt,
-        "model_path_keys": ["instance", "kaleido_adm", "model_name"],
     },
     "pipeline_random": {
         "config_path": "adm/pipeline_random.yaml",
@@ -263,7 +192,6 @@ deciders = {
             "baseline": {},
         },
         "system_prompt_generator": _generate_pipeline_random_system_prompt,
-        "model_path_keys": None,  # No model configuration needed
     },
 }
 
@@ -272,9 +200,7 @@ decider_names = list(deciders.keys())
 
 datasets = {
     "phase2": {
-        "scenarios": get_scenarios(
-            ["/data/shared/samba/phase2_icl/June2025-AF-train_20250523.json"]
-        ),
+        "scenarios": load_scenarios_dir(input_output_files / "phase2"),
         "scenario_hydration_func": p2triage_hydrate_scenario_state,
         "deciders": {
             "phase2_pipeline_zeroshot_comparative_regression": {
@@ -296,106 +222,6 @@ datasets = {
         "attribute_descriptions_dir": align_system_path
         / "configs"
         / "alignment_target",
-    },
-    "naacl24": {
-        "scenarios": load_scenarios_dir(naacl24_input_dir),
-        "scenario_hydration_func": hydrate_scenario_state,
-        "deciders": {
-            "outlines_transformers_structured": {
-                "postures": {
-                    "aligned": {
-                        "inference_kwargs": {
-                            "kdma_descriptions_map": str(
-                                align_system_path
-                                / "prompt_engineering"
-                                / "naacl24_kdma_descriptions.yml"
-                            )
-                        },
-                    },
-                    "baseline": {"inference_kwargs": {}},
-                },
-            },
-            "kaleido": {
-                "postures": {
-                    "aligned": {
-                        "inference_kwargs": {
-                            "kdma_descriptions_map": str(
-                                align_system_path
-                                / "algorithms"
-                                / "lib"
-                                / "templates"
-                                / "kdma_descriptions_short_naacl24_paper.yml"
-                            ),
-                        },
-                    },
-                },
-                "attributes": {
-                    "continuing_care": {"possible_scores": "continuous"},
-                    "fairness": {"possible_scores": "continuous"},
-                    "moral_desert": {"possible_scores": "continuous"},
-                    "protocol_focus": {"possible_scores": "continuous"},
-                    "risk_aversion": {"possible_scores": "continuous"},
-                    "utilitarianism": {"possible_scores": "continuous"},
-                },
-            },
-        },
-        "attributes": {
-            "continuing_care": {"possible_scores": ["Low", "High"]},
-            "fairness": {"possible_scores": ["Low", "High"]},
-            "moral_desert": {"possible_scores": ["Low", "High"]},
-            "protocol_focus": {"possible_scores": ["Low", "High"]},
-            "risk_aversion": {"possible_scores": ["Low", "High"]},
-            "utilitarianism": {"possible_scores": ["Low", "High"]},
-        },
-        "attribute_descriptions_dir": align_system_path
-        / "configs"
-        / "alignment_target"
-        / "NAACL24_dataset_attributes",
-    },
-    "opinionqa": {
-        "scenarios": truncate_unstructured_text(
-            load_scenarios_dir(opinionqa_input_dir)
-        ),
-        "scenario_hydration_func": hydrate_scenario_state,
-        "deciders": {
-            "outlines_transformers_structured": {
-                "instance_kwargs": {
-                    "scenario_description_template": {
-                        "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_scenario_description"
-                    },
-                    "action_selection_prompt_template": {
-                        "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_action_selection"
-                    },
-                    "baseline_system_prompt": {
-                        "_target_": "align_system.prompt_engineering.outlines_prompts.opinion_qa_baseline_system_prompt"
-                    },
-                },
-                "postures": {
-                    "aligned": {
-                        "inference_kwargs": {
-                            "kdma_descriptions_map": str(
-                                align_system_path
-                                / "prompt_engineering"
-                                / "opinionqa_kdma_descriptions.yml"
-                            )
-                        },
-                    },
-                    "baseline": {"inference_kwargs": {}},
-                },
-            },
-        },
-        "attributes": {
-            "CREGION_Northeast": {"possible_scores": ["High"]},
-            "CREGION_South": {"possible_scores": ["High"]},
-            "EDUCATION_College_graduate_some_postgrad": {"possible_scores": ["High"]},
-            "EDUCATION_Less_than_high_school": {"possible_scores": ["High"]},
-            "INCOME_$100,000_or_more": {"possible_scores": ["High"]},
-            "INCOME_Less_than_$30,000": {"possible_scores": ["High"]},
-        },
-        "attribute_descriptions_dir": align_system_path
-        / "configs"
-        / "alignment_target"
-        / "OpinionQA_dataset_attributes",
     },
 }
 
