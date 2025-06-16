@@ -1,9 +1,0 @@
-instance:
-  _target_: align_system.algorithms.pipeline_adm.PipelineADM
-
-  steps:
-    - _target_: align_system.algorithms.misc_itm_adm_components.ITMFormatChoicesADMComponent
-    - _target_: align_system.algorithms.random_adm_component.RandomChoiceADMComponent
-    - _target_: align_system.algorithms.random_adm_component.RandomParameterCompletionADMComponent
-    - _target_: align_system.algorithms.misc_itm_adm_components.EnsureChosenActionADMComponent
-    - _target_: align_system.algorithms.misc_itm_adm_components.PopulateChoiceInfo
