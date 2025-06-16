@@ -44,9 +44,23 @@ class Attribute(TypedDict):
     score: float
 
 
+class AlignmentTarget(DictConfig):
+    """
+    example of an alignment target:
+    _target_: swagger_client.models.AlignmentTarget
+
+    id: ADEPT-DryRun-Ingroup Bias-0.0
+    kdma_values:
+        - kdma: Ingroup Bias
+          value: 0.0
+    """
+
+    pass
+
+
 class ScenarioAndAlignment(TypedDict):
     scenario: Scenario
-    alignment_targets: List[DictConfig]
+    alignment_target: AlignmentTarget
 
 
 class Prompt(ScenarioAndAlignment):
@@ -163,7 +177,7 @@ deciders = {
         "instance_kwargs": {},
         "postures": {
             "aligned": {
-                "max_alignment_attributes": 1,
+                "max_alignment_attributes": 10,
             },
         },
         "system_prompt_generator": _generate_pipeline_random_system_prompt,
@@ -417,46 +431,22 @@ def create_scenario_state(scenario):
     return state, actions
 
 
-def load_alignment_target(dataset_name, decider, kdma, kdma_value=0):
+def attributes_to_alignment_target_dict_conf(
+    attributes: List[Attribute],
+):
     target = {
         "_target_": "swagger_client.models.AlignmentTarget",
-        "id": kdma,
+        "id": "ad_hoc",
         "kdma_values": [
             {
                 "kdes": None,
-                "kdma": kdma,
-                "value": kdma_value,
+                "kdma": a["type"],
+                "value": a["score"],
             }
+            for a in attributes
         ],
     }
     return OmegaConf.create(target)
-
-
-def alignment_targets_to_dict_conf(
-    dataset_name, attributes: List[Attribute], decider
-) -> List[DictConfig]:
-    return [
-        load_alignment_target(
-            dataset_name, kdma=a["type"], kdma_value=a["score"], decider=decider
-        )
-        for a in attributes
-    ]
-
-
-def truncate_alignment_targets(targets: List[DictConfig], decider_config):
-    max_attr = decider_config.get("max_alignment_attributes", len(targets))
-    if max_attr <= 1:
-        return targets[0] if targets else None
-    return targets[:max_attr]
-
-
-def prepare_alignment(
-    dataset_name, attributes: List[Attribute], decider_config, decider: str
-):
-    attributes = alignment_targets_to_dict_conf(
-        dataset_name, attributes, decider=decider
-    )
-    return truncate_alignment_targets(attributes, decider_config)
 
 
 def get_prompt(
@@ -465,26 +455,17 @@ def get_prompt(
     decider=decider_names[0],
     attributes: List[Attribute] = [],
 ) -> Prompt:
-    decider_params = DeciderParams(llm_backbone=llm_backbone, decider=decider)
-    dataset_name = get_dataset_name(scenario_id)
-    alignment_targets = alignment_targets_to_dict_conf(
-        dataset_name, attributes, decider=decider
-    )
-    scenario = scenarios[scenario_id]
     return {
-        "decider_params": decider_params,
-        "alignment_targets": alignment_targets,
-        "scenario": scenario,
+        "decider_params": DeciderParams(llm_backbone=llm_backbone, decider=decider),
+        "alignment_target": attributes_to_alignment_target_dict_conf(attributes),
+        "scenario": scenarios[scenario_id],
     }
 
 
 def serialize_prompt(prompt: Prompt):
-    alignment_targets = [
-        OmegaConf.to_container(target) for target in prompt["alignment_targets"]
-    ]
     p = {
         **prompt,
-        "alignment_targets": alignment_targets,
+        "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
     }
     return copy.deepcopy(p)
 
@@ -566,10 +547,10 @@ def get_decider_config(scenario_id, decider, baseline):
     return resolved_config
 
 
-def prepare_context(scenario, decider, attributes):
+def prepare_context(scenario, decider, alignment_target):
     state, actions = create_scenario_state(scenario)
     scenario_id = scenario["scenario_id"]
-    baseline = len(attributes) == 0
+    baseline = len(alignment_target.kdma_values) == 0
     config = get_decider_config(scenario_id, decider, baseline)
     dataset_name = get_dataset_name(scenario_id)
     return {
@@ -588,16 +569,15 @@ def get_system_prompt(decider, attributes, scenario_id):
 
     scenario = scenarios.get(scenario_id)
 
-    ctx = prepare_context(scenario, decider, attributes)
+    alignment_target = attributes_to_alignment_target_dict_conf(attributes)
+    ctx = prepare_context(scenario, decider, alignment_target)
 
     if ctx.get("config") is None:
         # This implies that for the given decider and baseline/aligned posture,
         # a valid configuration was not found (e.g., kaleido needs an alignment and has no baseline posture).
         return ""
 
-    alignment = prepare_alignment(
-        ctx["dataset_name"], attributes, ctx["config"], decider=decider
-    )
+    alignment = attributes_to_alignment_target_dict_conf(attributes)
 
     hydrated_instance_kwargs = hydra.utils.instantiate(
         ctx["config"].get("instance_kwargs", {}), recursive=True
@@ -630,9 +610,8 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
 def choose_action(model, prompt: Prompt):
     scenario = prompt["scenario"]
     decider = prompt["decider_params"]["decider"]
-    attributes = prompt["alignment_targets"]
-    ctx = prepare_context(scenario, decider, attributes)
-    alignment = truncate_alignment_targets(attributes, ctx["config"])
+    alignment_target = prompt["alignment_target"]
+    ctx = prepare_context(scenario, decider, alignment_target)
     func = (
         model.instance.top_level_choose_action
         if hasattr(model.instance, "top_level_choose_action")
@@ -641,7 +620,7 @@ def choose_action(model, prompt: Prompt):
     action_decision, *_ = func(
         scenario_state=ctx["state"],
         available_actions=ctx["actions"],
-        alignment_target=alignment,
+        alignment_target=alignment_target,
         **model.get("inference_kwargs", {}),
         reasoning_max_length=-1,
         generator_seed=2,
