@@ -95,3 +95,26 @@ def merge_dicts(base_dict, override_dict):
             result[key] = copy.deepcopy(override_value)
 
     return result
+
+
+def create_nested_dict_from_path(path_keys, value):
+    """
+    Creates a nested dictionary from a list of keys with the specified value at the leaf.
+
+    Example:
+    create_nested_dict_from_path(["instance", "model_name"], "my_model") returns
+    {"instance": {"model_name": "my_model"}}
+    """
+    result = {}
+    current = result
+
+    # Build the nested structure
+    for key in path_keys[:-1]:
+        current[key] = {}
+        current = current[key]
+
+    # Set the leaf value
+    if path_keys:
+        current[path_keys[-1]] = value
+
+    return result

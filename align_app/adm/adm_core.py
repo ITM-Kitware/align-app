@@ -15,7 +15,7 @@ from align_system.utils.hydra_utils import initialize_with_custom_references
 
 
 # from .action_filtering import filter_actions
-from ..utils.utils import merge_dicts
+from ..utils.utils import merge_dicts, create_nested_dict_from_path
 import gc
 import torch
 
@@ -164,6 +164,11 @@ def _generate_pipeline_random_system_prompt(ctx, alignment, hydrated_instance_kw
     return "I pick a choice at random."
 
 
+def _generate_pipeline_system_prompt(ctx, alignment, hydrated_instance_kwargs):
+    # adm_confg = ctx["config"]
+    return "TODO"
+
+
 deciders = {
     "phase2_pipeline_zeroshot_comparative_regression": {
         "config_path": "adm/phase2_pipeline_zeroshot_comparative_regression.yaml",
@@ -180,7 +185,8 @@ deciders = {
                 "max_alignment_attributes": 10,
             },
         },
-        "system_prompt_generator": _generate_pipeline_random_system_prompt,
+        "system_prompt_generator": _generate_pipeline_system_prompt,
+        "model_path_keys": ["structured_inference_engine", "model_name"],
     },
     "outlines_transformers_structured": {
         "config_path": adm_configs / "outlines_transformers_structured.yaml",
@@ -204,6 +210,7 @@ deciders = {
             },
         },
         "system_prompt_generator": _generate_outlines_system_prompt,
+        "model_path_keys": ["instance", "model_name"],
     },
     "kaleido": {
         "config_path": adm_configs / "kaleido.yaml",
@@ -225,6 +232,7 @@ deciders = {
             },
         },
         "system_prompt_generator": _generate_kaleido_system_prompt,
+        "model_path_keys": ["instance", "kaleido_adm", "model_name"],
     },
     "pipeline_random": {
         "config_path": adm_configs / "pipeline_random.yaml",
@@ -233,6 +241,7 @@ deciders = {
             "baseline": {},
         },
         "system_prompt_generator": _generate_pipeline_random_system_prompt,
+        "model_path_keys": None,  # No model configuration needed
     },
 }
 
@@ -538,7 +547,7 @@ def get_decider_config(scenario_id, decider, baseline):
         return None
 
     config = merged_configs["postures"][alignment]
-    resolved_config = OmegaConf.create(config)
+    resolved_config = copy.deepcopy(config)
     instance_kwargs = merged_configs.get("instance_kwargs", {})
     resolved_config["instance_kwargs"] = merge_dicts(
         instance_kwargs,
@@ -673,14 +682,11 @@ def instantiate_adm(
 ):
     config = get_decider_config(scenario_id, decider, baseline)
 
-    if decider == "pipeline_random":
-        pass
-    elif decider == "kaleido":
-        config["instance"]["kaleido_adm"]["model_name"] = llm_backbone
-    elif decider == "outlines_transformers_structured":
-        config["instance"]["model_name"] = llm_backbone
-    else:
-        pass
+    if deciders[decider].get("model_path_keys") and llm_backbone:
+        model_config = create_nested_dict_from_path(
+            deciders[decider]["model_path_keys"], llm_backbone
+        )
+        config = merge_dicts(config, model_config)
 
     config["instance"] = OmegaConf.merge(
         config["instance"], config.get("instance_kwargs", {})
