@@ -10,7 +10,8 @@ from align_system.utils.hydrate_state import (
     hydrate_scenario_state,
     p2triage_hydrate_scenario_state,
 )
-from align_system.utils import logging
+from align_system.utils import logging, call_with_coerced_args
+from align_system.utils.alignment_utils import attributes_in_alignment_target
 from align_system.utils.hydra_utils import initialize_with_custom_references
 
 
@@ -164,9 +165,30 @@ def _generate_pipeline_random_system_prompt(ctx, alignment, hydrated_instance_kw
     return "I pick a choice at random."
 
 
-def _generate_pipeline_system_prompt(ctx, alignment, hydrated_instance_kwargs):
-    # adm_confg = ctx["config"]
-    return "TODO"
+def _generate_comparative_regression_pipeline_system_prompt(
+    ctx, alignment, hydrated_instance_kwargs
+):
+    adm_config = ctx["config"]
+
+    system_prompt_template_config = adm_config["step_definitions"][
+        "comparative_regression"
+    ]["system_prompt_template"]
+    system_prompt_template = hydra.utils.instantiate(system_prompt_template_config)
+
+    # To resolve references like `${adm.mu}`, we need to provide the 'adm' context to hydra.
+    # We can wrap the config and then instantiate the 'attribute_definitions' part.
+    config_for_instantiation = OmegaConf.create({"adm": adm_config})
+    all_attributes = hydra.utils.instantiate(
+        config_for_instantiation.adm.attribute_definitions
+    )
+
+    target_attribute_names = attributes_in_alignment_target(alignment)
+    target_attributes = [all_attributes[n] for n in target_attribute_names]
+    attribute_prompts = [
+        call_with_coerced_args(system_prompt_template, {"target_attribute": attribute})
+        for attribute in target_attributes
+    ]
+    return "\n\n".join(attribute_prompts)
 
 
 deciders = {
@@ -185,7 +207,7 @@ deciders = {
                 "max_alignment_attributes": 10,
             },
         },
-        "system_prompt_generator": _generate_pipeline_system_prompt,
+        "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
         "model_path_keys": ["structured_inference_engine", "model_name"],
     },
     "outlines_transformers_structured": {
@@ -235,7 +257,7 @@ deciders = {
         "model_path_keys": ["instance", "kaleido_adm", "model_name"],
     },
     "pipeline_random": {
-        "config_path": adm_configs / "pipeline_random.yaml",
+        "config_path": "adm/pipeline_random.yaml",
         "instance_kwargs": {},
         "postures": {
             "baseline": {},
