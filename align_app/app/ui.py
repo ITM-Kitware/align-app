@@ -1,7 +1,7 @@
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
 from ..adm.adm_core import serialize_prompt, Prompt, get_alignment_descriptions_map
-from ..utils.utils import noop, readable, sentence
+from ..utils.utils import noop, readable, sentence_lines
 
 MAX_ALIGNMENT_ATTRIBUTES = 1
 
@@ -17,7 +17,7 @@ SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
 def readable_scenario(scenario):
     characters = scenario["full_state"]["characters"]
     readable_characters = [
-        {**c, **{key: sentence(c[key]) for key in SENTENCE_KEYS if key in c}}
+        {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
         for c in characters
     ]
 

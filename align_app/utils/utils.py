@@ -35,10 +35,6 @@ def readable(snake_or_kebab_or_camel: str):
     return s.replace("_", " ").replace("-", " ").title()
 
 
-def sentence(text: str):
-    return text[0].upper() + text[1:]
-
-
 def noop():
     """
     A no-operation function.
@@ -118,3 +114,19 @@ def create_nested_dict_from_path(path_keys, value):
         current[path_keys[-1]] = value
 
     return result
+
+
+def sentence_lines(text: str):
+    """Convert newline-separated text into sentences with capital first letter and period ending."""
+    lines = text.split("\n")
+    processed = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        # Capitalize first letter, add period if missing
+        line = line[0].upper() + line[1:]
+        if not line.endswith("."):
+            line += "."
+        processed.append(line)
+    return " ".join(processed)
