@@ -9,6 +9,8 @@ Users select the ADM type, LLM backbone, alignment targets, and scenario. Then t
 - Expose internal operations of the ADM to facilitate learning about how each ADM functions.
 - Battle test ALIGN System’s use as a Python library.
 
+### [Watch the demo](https://drive.google.com/file/d/1d7rykoFe7UB6SyoV_GtJy499F5zqBTea/view?usp=sharing)
+
 ![Align UI Hero](./doc/ui-hero.png)
 
 ## Install
