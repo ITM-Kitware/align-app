@@ -52,22 +52,31 @@ class AlignApp:
 
         await self.server.network_completion  # let spinner be shown
 
-        decision = await get_decision(prompt)
+        adm_result = await get_decision(prompt)
 
         choice_idx = next(
             (
                 i
                 for i, choice in enumerate(prompt["scenario"]["choices"])
-                if choice["unstructured"] == decision["unstructured"]
+                if choice["unstructured"] == adm_result.decision["unstructured"]
             ),
             0,
         )
         choice_letter = chr(choice_idx + ord("A"))
-        decision["unstructured"] = f"{choice_letter}. " + decision["unstructured"]
+
+        # Create decision with choice letter prefix
+        decision_data = adm_result.decision.copy()
+        decision_data["unstructured"] = (
+            f"{choice_letter}. " + decision_data["unstructured"]
+        )
+        decision_data["choice_info"] = adm_result.choice_info
+
+        # Format for UI display
+        formatted_decision = ui.prep_decision_for_state(decision_data)
 
         with self.state:
             self.state.runs = {
-                id: {**item, "decision": decision} if id == run_id else item
+                id: {**item, "decision": formatted_decision} if id == run_id else item
                 for id, item in self.state.runs.items()
             }
 

@@ -87,9 +87,8 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
         decider: Any,
         prompt: Prompt,
     ) -> Decision:
-        action_decision = decider(prompt)
-        decision_dict = action_decision.to_dict()
-        return decision_dict
+        adm_result = decider(prompt)
+        return adm_result
 
     # Main worker loop
     try:
