@@ -54,6 +54,16 @@ def prep_for_state(prompt: Prompt):
     return p
 
 
+def prep_decision_for_state(decision_data):
+    """Format decision data for UI display"""
+    choice_info_keys = list(decision_data["choice_info"].keys())
+    return {
+        **decision_data,
+        "choice_info_readable_keys": [readable(key) for key in choice_info_keys],
+        "choice_info_key_mapping": {key: readable(key) for key in choice_info_keys},
+    }
+
+
 class UnorderedObject(html.Ul):
     def __init__(self, obj, **kwargs):
         super().__init__(**kwargs)
@@ -242,6 +252,43 @@ class Decision:
             RowWithLabel(run_content=render_run_decision_text)
 
 
+class ChoiceInfo:
+    class Title:
+        def __init__(self):
+            def render_choice_info():
+                html.Span(
+                    "{{runs[id].decision.choice_info_readable_keys.join(', ')}}",
+                    v_if=(
+                        "runs[id].decision && runs[id].decision.choice_info_readable_keys",
+                    ),
+                )
+                vuetify3.VProgressCircular(v_else=True, indeterminate=True, size=20)
+
+            RowWithLabel(run_content=render_choice_info, label="Choice Info")
+
+    class Text:
+        def __init__(self):
+            def render_choice_info_text():
+                with html.Template(
+                    v_if=("runs[id].decision && runs[id].decision.choice_info",)
+                ):
+                    with html.Div(
+                        v_for=(
+                            "[key, value] in Object.entries(runs[id].decision.choice_info)",
+                        ),
+                        key=("key",),
+                        classes="mb-4",
+                    ):
+                        html.Div(
+                            "{{runs[id].decision.choice_info_key_mapping[key]}}",
+                            classes="text-h6",
+                        )
+                        with html.Div(classes="ml-4"):
+                            UnorderedObject("value")
+
+            RowWithLabel(run_content=render_choice_info_text)
+
+
 class RunNumber:
     class Title(html.Template):
         def __init__(self, **kwargs):
@@ -276,6 +323,7 @@ class ResultsComparison(html.Div):
                 PanelSection(child=SystemPrompt)
                 PanelSection(child=LlmBackbone)
                 PanelSection(child=Decision)
+                PanelSection(child=ChoiceInfo)
 
 
 class ScenarioPanel(vuetify3.VExpansionPanel):

@@ -1,6 +1,6 @@
 from pathlib import Path
 import copy
-from typing import TypedDict, List
+from typing import TypedDict, List, NamedTuple, Dict, Any
 import json
 import hydra
 from functools import partial, lru_cache
@@ -20,6 +20,33 @@ import gc
 import torch
 
 MAX_GENERATOR_TOKENS = 8092
+
+
+class ChoiceInfo(TypedDict, total=False):
+    """Choice info structure - all keys are optional and ADM-dependent"""
+
+    # Known possible keys (all optional)
+    predicted_kdma_values: Dict[str, Dict[str, float]]  # Choice -> KDMA -> score
+    true_kdma_values: Dict[str, Dict[str, float]]  # Choice -> KDMA -> score
+    true_relevance: Dict[str, float]  # KDMA -> relevance
+    icl_example_responses: Dict[str, Any]  # In-context learning examples
+    # Allow any other arbitrary keys that different ADMs might provide
+    # Note: TypedDict with total=False makes all keys optional
+
+
+class Decision(TypedDict):
+    """Decision structure containing only fields used by the app"""
+
+    unstructured: str
+    justification: str
+
+
+class ADMResult(NamedTuple):
+    """Result from ADM containing decision and choice_info"""
+
+    decision: Decision
+    choice_info: ChoiceInfo
+
 
 root_logger = logging.getLogger()
 root_logger.setLevel("WARNING")
@@ -477,7 +504,7 @@ def choose_action(model, prompt: Prompt):
         if hasattr(model.instance, "top_level_choose_action")
         else model.instance.choose_action
     )
-    action_decision, *_ = func(
+    result = func(
         scenario_state=ctx["state"],
         available_actions=ctx["actions"],
         alignment_target=alignment_target,
@@ -486,7 +513,15 @@ def choose_action(model, prompt: Prompt):
         generator_seed=2,
         max_generator_tokens=MAX_GENERATOR_TOKENS,
     )
-    return action_decision
+    raw_decision = result[0]
+    choice_info = result[1]["choice_info"]
+
+    decision_dict: Decision = {
+        "unstructured": raw_decision.unstructured,
+        "justification": raw_decision.justification,
+    }
+
+    return ADMResult(decision=decision_dict, choice_info=choice_info)
 
 
 def cleanup_generic_adm(_):
