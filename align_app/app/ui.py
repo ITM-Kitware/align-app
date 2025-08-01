@@ -54,13 +54,30 @@ def prep_for_state(prompt: Prompt):
     return p
 
 
+def make_keys_readable(obj, max_depth=2, current_depth=0):
+    if current_depth >= max_depth or not isinstance(obj, dict):
+        return obj
+
+    result = {}
+    for key, value in obj.items():
+        readable_key = readable(key)
+        if isinstance(value, dict):
+            result[readable_key] = make_keys_readable(
+                value, max_depth, current_depth + 1
+            )
+        elif isinstance(value, list):
+            result[readable_key] = value
+        else:
+            result[readable_key] = value
+    return result
+
+
 def prep_decision_for_state(decision_data):
-    """Format decision data for UI display"""
     choice_info_keys = list(decision_data["choice_info"].keys())
     return {
         **decision_data,
         "choice_info_readable_keys": [readable(key) for key in choice_info_keys],
-        "choice_info_key_mapping": {key: readable(key) for key in choice_info_keys},
+        "choice_info_readable": make_keys_readable(decision_data["choice_info"]),
     }
 
 
@@ -72,7 +89,27 @@ class UnorderedObject(html.Ul):
                 v_if=f"{obj}", v_for=(f"[key, value] in Object.entries({obj})",)
             ):
                 html.Span("{{key}}: ")
-                html.Span("{{value}}")
+
+                with html.Template(
+                    v_if=(
+                        "typeof value === 'object' && value !== null && !Array.isArray(value)",
+                    )
+                ):
+                    html.Br()
+                    with html.Ul(classes="ml-4"):
+                        with html.Li(v_for=("[k, v] in Object.entries(value)",)):
+                            html.Span("{{k}}: ")
+                            with html.Template(v_if=("Array.isArray(v)",)):
+                                html.Span("{{v.join(', ')}}")
+                            with html.Template(v_else=True):
+                                html.Span("{{v}}")
+
+                with html.Template(v_else_if=("Array.isArray(value)",)):
+                    html.Span("{{value.join(', ')}}")
+
+                with html.Template(v_else=True):
+                    html.Span("{{value}}")
+
             html.Div("No Object", v_else=True)
 
 
@@ -270,19 +307,18 @@ class ChoiceInfo:
         def __init__(self):
             def render_choice_info_text():
                 with html.Template(
-                    v_if=("runs[id].decision && runs[id].decision.choice_info",)
+                    v_if=(
+                        "runs[id].decision && runs[id].decision.choice_info_readable",
+                    )
                 ):
                     with html.Div(
                         v_for=(
-                            "[key, value] in Object.entries(runs[id].decision.choice_info)",
+                            "[key, value] in Object.entries(runs[id].decision.choice_info_readable)",
                         ),
                         key=("key",),
                         classes="mb-4",
                     ):
-                        html.Div(
-                            "{{runs[id].decision.choice_info_key_mapping[key]}}",
-                            classes="text-h6",
-                        )
+                        html.Div("{{key}}", classes="text-h6")
                         with html.Div(classes="ml-4"):
                             UnorderedObject("value")
 
