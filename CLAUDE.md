@@ -84,3 +84,7 @@ The app supports various LLM backbones through HuggingFace transformers. Models 
 
 ## Workflow Reminders
 - Run ruff format after changes
+
+## Development Guidelines
+- **ALWAYS** do not add descriptive comments
+- **ALWAYS** run ruff format after changes
