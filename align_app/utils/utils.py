@@ -32,7 +32,10 @@ def readable(snake_or_kebab_or_camel: str):
     # Handle camelCase by inserting spaces before capital letters
     s = re.sub(r"([a-z])([A-Z])", r"\1 \2", snake_or_kebab_or_camel)
     # Handle snake_case and kebab-case
-    return s.replace("_", " ").replace("-", " ").title()
+    result = s.replace("_", " ").replace("-", " ").title()
+    # Fix specific acronyms
+    result = result.replace("Icl", "ICL")
+    return result
 
 
 def noop():

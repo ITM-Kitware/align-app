@@ -113,6 +113,38 @@ class UnorderedObject(html.Ul):
             html.Div("No Object", v_else=True)
 
 
+class IclExampleListRenderer(html.Ul):
+    def __init__(self, icl_data, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with html.Li(
+                v_for=(f"[kdma, examples] in Object.entries({icl_data})",),
+                key=("kdma",),
+            ):
+                html.Span("{{kdma}}: ")
+                with html.Ul(classes="ml-4"):
+                    with html.Li(
+                        v_for=("(example, index) in examples",),
+                        key=("index",),
+                    ):
+                        html.Span("Example {{index + 1}}: ")
+                        with html.Ul(classes="ml-4"):
+                            with html.Li():
+                                html.Span("Prompt: {{example.prompt}}")
+                            html.Li(
+                                "Reasoning: {{example.response.reasoning}}",
+                                v_if=("example.response.reasoning",),
+                            )
+                            with html.Li(
+                                v_for=(
+                                    "([choice, responseData]) in Object.entries(example.response)"
+                                    ".filter(([key]) => key !== 'reasoning')"
+                                ),
+                                key=("choice",),
+                            ):
+                                html.Span("{{choice}}: Score {{responseData.score}}")
+
+
 class PanelSection(vuetify3.VExpansionPanel):
     def __init__(self, child, **kwargs):
         super().__init__(**kwargs)
@@ -320,7 +352,12 @@ class ChoiceInfo:
                     ):
                         html.Div("{{key}}", classes="text-h6")
                         with html.Div(classes="ml-4"):
-                            UnorderedObject("value")
+                            with html.Template(
+                                v_if=("key === 'ICL Example Responses'",)
+                            ):
+                                IclExampleListRenderer("value")
+                            with html.Template(v_else=True):
+                                UnorderedObject("value")
 
             RowWithLabel(run_content=render_choice_info_text)
 
