@@ -6,6 +6,7 @@ import hydra
 from functools import partial, lru_cache
 from omegaconf import OmegaConf, DictConfig
 import align_system
+import align_system.utils.hydrate_state
 from align_system.utils.hydrate_state import (
     p2triage_hydrate_scenario_state,
 )
@@ -18,6 +19,33 @@ from align_system.utils.hydra_utils import initialize_with_custom_references
 from ..utils.utils import merge_dicts, create_nested_dict_from_path
 import gc
 import torch
+
+
+def p2triage_hydrate_scenario_state_with_defaults(record):
+    """Add default fields if missing (needed for phase2 ICL data) then call original function"""
+    record_copy = record.copy()
+    state_data = record_copy["full_state"].copy()
+
+    if "environment" not in state_data or state_data["environment"] is None:
+        state_data["environment"] = {
+            "sim_environment": {
+                "type": "arctic",
+                "weather": "clear",
+            }
+        }
+
+    if "supplies" not in state_data or state_data["supplies"] is None:
+        state_data["supplies"] = []
+
+    record_copy["full_state"] = state_data
+    return p2triage_hydrate_scenario_state(record_copy)
+
+
+# Monkey-patch the hydration function
+align_system.utils.hydrate_state.p2triage_hydrate_scenario_state = (
+    p2triage_hydrate_scenario_state_with_defaults
+)
+
 
 MAX_GENERATOR_TOKENS = 8092
 
@@ -197,7 +225,23 @@ deciders = {
             "mistralai/Mistral-7B-Instruct-v0.3",
             "meta-llama/Meta-Llama-3-8B-Instruct",
             "meta-llama/Llama-3.3-70B-Instruct",
-            "Qwen/Qwen2.5-32B-Instruct",
+        ],
+        "model_path_keys": ["structured_inference_engine", "model_name"],
+        "instance_kwargs": {},
+        "postures": {
+            "aligned": {
+                "max_alignment_attributes": 10,
+            },
+        },
+        "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
+    },
+    "phase2_pipeline_fewshot_comparative_regression": {
+        "config_path": "adm/phase2_pipeline_fewshot_comparative_regression.yaml",
+        "llm_backbones": [
+            "mistralai/Mistral-7B-Instruct-v0.2",
+            "mistralai/Mistral-7B-Instruct-v0.3",
+            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "meta-llama/Llama-3.3-70B-Instruct",
         ],
         "model_path_keys": ["structured_inference_engine", "model_name"],
         "instance_kwargs": {},
@@ -226,6 +270,13 @@ datasets = {
         "scenario_hydration_func": p2triage_hydrate_scenario_state,
         "deciders": {
             "phase2_pipeline_zeroshot_comparative_regression": {
+                "postures": {
+                    "aligned": {
+                        "inference_kwargs": {},
+                    },
+                },
+            },
+            "phase2_pipeline_fewshot_comparative_regression": {
                 "postures": {
                     "aligned": {
                         "inference_kwargs": {},
