@@ -222,7 +222,7 @@ decider_names = list(deciders.keys())
 
 datasets = {
     "phase2": {
-        "scenarios": load_scenarios_dir(input_output_files / "phase2"),
+        "scenarios": load_scenarios_dir(input_output_files / "phase2_july"),
         "scenario_hydration_func": p2triage_hydrate_scenario_state,
         "deciders": {
             "phase2_pipeline_zeroshot_comparative_regression": {
