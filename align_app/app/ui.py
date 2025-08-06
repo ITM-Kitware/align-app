@@ -197,16 +197,16 @@ class LlmBackbone:
             def run_content():
                 html.Span("{{runs[id].prompt.decider_params.llm_backbone}}")
 
-            RowWithLabel(run_content=run_content, label="LLM Backbone")
+            RowWithLabel(run_content=run_content, label="LLM")
 
 
-class DecisionMaker:
+class Decider:
     class Title:
         def __init__(self):
             def run_content():
                 html.Span("{{runs[id].prompt.decider_params.decider}}")
 
-            RowWithLabel(run_content=run_content, label="Decision Maker")
+            RowWithLabel(run_content=run_content, label="Decider")
 
 
 class Alignment:
@@ -391,7 +391,7 @@ class ResultsComparison(html.Div):
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                 PanelSection(child=RunNumber)
                 PanelSection(child=Scenario)
-                PanelSection(child=DecisionMaker)
+                PanelSection(child=Decider)
                 PanelSection(child=Alignment)
                 PanelSection(child=SystemPrompt)
                 PanelSection(child=LlmBackbone)
