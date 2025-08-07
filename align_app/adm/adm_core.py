@@ -21,23 +21,28 @@ import gc
 import torch
 
 
+def add_default_state_fields(scenario):
+    """Add default environment and supplies fields to scenario if missing.
+    Modifies scenario in place.
+    """
+    # keep swagger_client validation happy for phase 2 JSON shape
+    if (
+        "environment" not in scenario["full_state"]
+        or not scenario["full_state"]["environment"]
+    ):
+        scenario["full_state"]["environment"] = {}
+    if (
+        "supplies" not in scenario["full_state"]
+        or not scenario["full_state"]["supplies"]
+    ):
+        scenario["full_state"]["supplies"] = {}
+
+
 def p2triage_hydrate_scenario_state_with_defaults(record):
     """Add default fields if missing (needed for phase2 ICL data) then call original function"""
     record_copy = record.copy()
-    state_data = record_copy["full_state"].copy()
-
-    if "environment" not in state_data or state_data["environment"] is None:
-        state_data["environment"] = {
-            "sim_environment": {
-                "type": "arctic",
-                "weather": "clear",
-            }
-        }
-
-    if "supplies" not in state_data or state_data["supplies"] is None:
-        state_data["supplies"] = []
-
-    record_copy["full_state"] = state_data
+    record_copy["full_state"] = record_copy["full_state"].copy()
+    add_default_state_fields(record_copy)
     return p2triage_hydrate_scenario_state(record_copy)
 
 
@@ -345,18 +350,11 @@ def create_scenario_state(scenario):
     scenario_id = scenario["scenario_id"]
     dataset_name = get_dataset_name(scenario_id)
     hydration_func = datasets[dataset_name]["scenario_hydration_func"]
-    # keep swagger_client validation happy for phase 2 JSON shape
-    if (
-        "environment" not in scenario["full_state"]
-        or not scenario["full_state"]["environment"]
-    ):
-        scenario["full_state"]["environment"] = {}
-    if (
-        "supplies" not in scenario["full_state"]
-        or not scenario["full_state"]["supplies"]
-    ):
-        scenario["full_state"]["supplies"] = {}
-    state, actions = hydration_func(scenario)
+    # Ensure scenario has required fields
+    scenario_copy = scenario.copy()
+    scenario_copy["full_state"] = scenario_copy.get("full_state", {}).copy()
+    add_default_state_fields(scenario_copy)
+    state, actions = hydration_func(scenario_copy)
     # actions = filter_actions(state, actions)
     return state, actions
 
