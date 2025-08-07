@@ -6,6 +6,8 @@ import re
 
 _id_counter = 0
 
+ACRONYM_REPLACEMENTS = {"Icl": "ICL", "Kdma": "KDMA"}
+
 
 def get_id():
     """
@@ -34,7 +36,8 @@ def readable(snake_or_kebab_or_camel: str):
     # Handle snake_case and kebab-case
     result = s.replace("_", " ").replace("-", " ").title()
     # Fix specific acronyms
-    result = result.replace("Icl", "ICL")
+    for old, new in ACRONYM_REPLACEMENTS.items():
+        result = result.replace(old, new)
     return result
 
 
