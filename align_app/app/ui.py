@@ -1,7 +1,7 @@
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
 from ..adm.adm_core import serialize_prompt, Prompt, get_alignment_descriptions_map
-from ..utils.utils import noop, readable, sentence_lines
+from ..utils.utils import noop, readable, readable_sentence, sentence_lines
 
 MAX_ALIGNMENT_ATTRIBUTES = 1
 
@@ -60,13 +60,18 @@ def make_keys_readable(obj, max_depth=2, current_depth=0):
 
     result = {}
     for key, value in obj.items():
-        readable_key = readable(key)
+        readable_key = readable_sentence(key)
         if isinstance(value, dict):
             result[readable_key] = make_keys_readable(
                 value, max_depth, current_depth + 1
             )
         elif isinstance(value, list):
-            result[readable_key] = value
+            result[readable_key] = [
+                make_keys_readable(item, max_depth, current_depth + 1)
+                if isinstance(item, dict)
+                else item
+                for item in value
+            ]
         else:
             result[readable_key] = value
     return result
@@ -89,7 +94,7 @@ class ValueWithProgressBar(html.Span):
                 model_value=(f"{value_expression} * 100",),
                 height="10",
                 readonly=True,
-                style=("display: inline-block; width: 100px;"),
+                style=("display: inline-block; width: 80px;"),
             )
             html.Span(
                 f"{{{{{value_expression}.toFixed({decimals})}}}}",
@@ -114,17 +119,49 @@ class UnorderedObject(html.Ul):
                     html.Br()
                     with html.Ul(classes="ml-4"):
                         with html.Li(v_for=("[k, v] in Object.entries(value)",)):
-                            html.Span("{{k}}: ")
+                            html.Span("{{k.charAt(0).toUpperCase() + k.slice(1)}}: ")
                             with html.Template(v_if=("Array.isArray(v)",)):
-                                html.Span("{{v.join(', ')}}")
+                                with html.Template(
+                                    v_if=(
+                                        "v.every(item => typeof item === 'number' && item >= 0 && item <= 1)",
+                                    )
+                                ):
+                                    with html.Span(
+                                        v_for=("(item, index) in v",), key=("index",)
+                                    ):
+                                        ValueWithProgressBar("item")
+                                        html.Span(", ", v_if=("index < v.length - 1",))
+                                with html.Template(v_else=True):
+                                    html.Span("{{v.join(', ')}}")
                             with html.Template(v_else=True):
-                                html.Span("{{v}}")
+                                with html.Template(
+                                    v_if=("typeof v === 'number' && v >= 0 && v <= 1",)
+                                ):
+                                    ValueWithProgressBar("v")
+                                with html.Template(v_else=True):
+                                    html.Span("{{v}}")
 
                 with html.Template(v_else_if=("Array.isArray(value)",)):
-                    html.Span("{{value.join(', ')}}")
+                    with html.Template(
+                        v_if=(
+                            "value.every(v => typeof v === 'number' && v >= 0 && v <= 1)",
+                        )
+                    ):
+                        with html.Span(
+                            v_for=("(item, index) in value",), key=("index",)
+                        ):
+                            ValueWithProgressBar("item")
+                            html.Span(", ", v_if=("index < value.length - 1",))
+                    with html.Template(v_else=True):
+                        html.Span("{{value.join(', ')}}")
 
                 with html.Template(v_else=True):
-                    html.Span("{{value}}")
+                    with html.Template(
+                        v_if=("typeof value === 'number' && value >= 0 && value <= 1",)
+                    ):
+                        ValueWithProgressBar("value")
+                    with html.Template(v_else=True):
+                        html.Span("{{value}}")
 
             html.Div("No Object", v_else=True)
 
@@ -251,8 +288,7 @@ class Alignment:
                     ):
                         html.Span("{{kdma_value.kdma}}")
                         ValueWithProgressBar("kdma_value.value")
-                    with html.Ul(classes="ml-8"):
-                        html.Li("{{kdma_value.description}}")
+                    html.Div("{{kdma_value.description}}", classes="ml-8")
                 html.Div(
                     "",
                     v_if=("runs[id].prompt.alignment_target.kdma_values.length === 0",),
@@ -372,7 +408,7 @@ class ChoiceInfo:
                         html.Div("{{key}}", classes="text-h6")
                         with html.Div(classes="ml-4"):
                             with html.Template(
-                                v_if=("key === 'ICL Example Responses'",)
+                                v_if=("key === 'ICL example responses'",)
                             ):
                                 IclExampleListRenderer("value")
                             with html.Template(v_else=True):
@@ -534,37 +570,37 @@ class PromptInput(vuetify3.VCard):
                 with vuetify3.VExpansionPanels(
                     classes="mb-6 mt-4", multiple=True, variant="accordion"
                 ):
-                    with vuetify3.VExpansionPanel():
-                        with vuetify3.VExpansionPanelTitle():
-                            with html.Div(
-                                classes="text-subtitle-1 text-no-wrap text-truncate"
-                            ):
-                                html.Span("Alignment:")
-                                html.Span(
-                                    "{{attribute_targets.length ? "
-                                    "attribute_targets.map(att => `${att.kdma} ${att.value}`).join(', ')"
-                                    ": 'No Alignments'}}"
-                                )
-                        with vuetify3.VExpansionPanelText():
-                            with html.Div(
-                                "{{kdma_value.kdma}}",
-                                v_for=("kdma_value in attribute_targets",),
-                                key=("kdma_value.kdma",),
-                            ):
-                                with html.Ul(classes="ml-8"):
-                                    with html.Li():
-                                        html.Span("Value: {{kdma_value.value}} ")
-                                        vuetify3.VProgressLinear(
-                                            model_value=("kdma_value.value * 100",),
-                                            height="10",
-                                            readonly=True,
-                                            style="display: inline-block; width: 100px; vertical-align: middle;",
-                                        )
-                                    html.Li("{{kdma_value.description}}")
-                            html.Div(
-                                "",
-                                v_if=("attribute_targets.length === 0",),
-                            )
+                    # with vuetify3.VExpansionPanel():
+                    #     with vuetify3.VExpansionPanelTitle():
+                    #         with html.Div(
+                    #             classes="text-subtitle-1 text-no-wrap text-truncate"
+                    #         ):
+                    #             html.Span("Alignment:")
+                    #             html.Span(
+                    #                 "{{attribute_targets.length ? "
+                    #                 "attribute_targets.map(att => `${att.kdma} ${att.value}`).join(', ')"
+                    #                 ": 'No Alignments'}}"
+                    #             )
+                    #     with vuetify3.VExpansionPanelText():
+                    #         with html.Div(
+                    #             "{{kdma_value.kdma}}",
+                    #             v_for=("kdma_value in attribute_targets",),
+                    #             key=("kdma_value.kdma",),
+                    #         ):
+                    #             with html.Ul(classes="ml-8"):
+                    #                 with html.Li():
+                    #                     html.Span("Value: {{kdma_value.value}} ")
+                    #                     vuetify3.VProgressLinear(
+                    #                         model_value=("kdma_value.value * 100",),
+                    #                         height="10",
+                    #                         readonly=True,
+                    #                         style="display: inline-block; width: 100px; vertical-align: middle;",
+                    #                     )
+                    #                 html.Li("{{kdma_value.description}}")
+                    #         html.Div(
+                    #             "",
+                    #             v_if=("attribute_targets.length === 0",),
+                    #         )
 
                     with vuetify3.VExpansionPanel():
                         with vuetify3.VExpansionPanelTitle():
