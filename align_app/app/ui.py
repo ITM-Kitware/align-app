@@ -275,9 +275,19 @@ class SystemPrompt:
 
 
 class ScenarioLayout:
-    def __init__(self, scenario):
+    def __init__(self, scenario, editable=False):
         html.Div("Situation", classes="text-h6")
-        html.P(f"{{{{{scenario}.display_state}}}}")
+        if editable:
+            vuetify3.VTextarea(
+                v_model=("edited_scenario_text",),
+                auto_grow=True,
+                rows=3,
+                hide_details="auto",
+                variant="outlined",
+                density="compact",
+            )
+        else:
+            html.P(f"{{{{{scenario}.display_state}}}}")
         html.Div(
             "Characters",
             classes="text-h6 pt-4",
@@ -309,7 +319,7 @@ class Scenario:
     class Text:
         def __init__(self):
             def run_content():
-                ScenarioLayout("runs[id].prompt.scenario")
+                ScenarioLayout("runs[id].prompt.scenario", editable=False)
 
             RowWithLabel(run_content=run_content)
 
@@ -419,7 +429,7 @@ class ResultsComparison(html.Div):
 
 
 class ScenarioPanel(vuetify3.VExpansionPanel):
-    def __init__(self, scenario, **kwargs):
+    def __init__(self, scenario, editable=False, **kwargs):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VExpansionPanelTitle():
@@ -429,7 +439,7 @@ class ScenarioPanel(vuetify3.VExpansionPanel):
                         f"{{{{{scenario}.full_state.unstructured}}}}",
                     )
             with vuetify3.VExpansionPanelText():
-                ScenarioLayout(scenario)
+                ScenarioLayout(scenario, editable=editable)
 
 
 class PromptInput(vuetify3.VCard):
@@ -443,7 +453,7 @@ class PromptInput(vuetify3.VCard):
                     v_model=("prompt_scenario_id",),
                 )
                 with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                    ScenarioPanel("prompt_scenario")
+                    ScenarioPanel("prompt_scenario", editable=True)
 
                 vuetify3.VSelect(
                     classes="mt-6",

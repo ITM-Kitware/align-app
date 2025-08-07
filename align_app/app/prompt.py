@@ -77,6 +77,12 @@ class PromptController:
         self.server.state.alignment_attributes = []
         self.update_decision_maker_params()
         self.server.state.llm_backbone = self.server.state.llm_backbones[0]
+        # Initialize edited_scenario_text with first scenario's display_state
+        if self.server.state.scenarios:
+            first_scenario_id = self.server.state.scenarios[0]["value"]
+            self.server.state.edited_scenario_text = scenarios[first_scenario_id].get(
+                "display_state", ""
+            )
 
     def update_decider_message(self, add, message):
         current = self.server.state.decider_messages or []
@@ -91,6 +97,8 @@ class PromptController:
     def on_scenario_change(self, prompt_scenario_id, **kwargs):
         s = scenarios[prompt_scenario_id]
         self.server.state.prompt_scenario = readable_scenario(s)
+        # Initialize edited_scenario_text with the scenario's display_state
+        self.server.state.edited_scenario_text = s.get("display_state", "")
 
     def get_prompt(self):
         mapped_attributes = map_ui_to_align_attributes(
@@ -105,6 +113,18 @@ class PromptController:
             ),
             "system_prompt": self.server.state.system_prompt,
         }
+
+        # Override the scenario's display_state and full_state.unstructured with edited text
+        if (
+            hasattr(self.server.state, "edited_scenario_text")
+            and self.server.state.edited_scenario_text
+        ):
+            prompt["scenario"]["display_state"] = self.server.state.edited_scenario_text
+            if "full_state" in prompt["scenario"]:
+                prompt["scenario"]["full_state"]["unstructured"] = (
+                    self.server.state.edited_scenario_text
+                )
+
         return prompt
 
     @controller.add("add_alignment_attribute")
