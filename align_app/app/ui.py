@@ -81,6 +81,22 @@ def prep_decision_for_state(decision_data):
     }
 
 
+class ValueWithProgressBar(html.Span):
+    def __init__(self, value_expression, decimals=2, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            vuetify3.VProgressLinear(
+                model_value=(f"{value_expression} * 100",),
+                height="10",
+                readonly=True,
+                style=("display: inline-block; width: 100px;"),
+            )
+            html.Span(
+                f"{{{{{value_expression}.toFixed({decimals})}}}}",
+                style="display: inline-block; margin-left: 8px;",
+            )
+
+
 class UnorderedObject(html.Ul):
     def __init__(self, obj, **kwargs):
         super().__init__(**kwargs)
@@ -225,14 +241,17 @@ class Alignment:
         def __init__(self):
             def run_content():
                 with html.Div(
-                    "{{kdma_value.kdma}}",
                     v_for=(
                         "kdma_value in runs[id].prompt.alignment_target.kdma_values",
                     ),
                     key=("kdma_value.kdma",),
                 ):
+                    with html.Div(
+                        style="display: flex; align-items: center; gap: 8px;"
+                    ):
+                        html.Span("{{kdma_value.kdma}}")
+                        ValueWithProgressBar("kdma_value.value")
                     with html.Ul(classes="ml-8"):
-                        html.Li("Value: {{kdma_value.value}}")
                         html.Li("{{kdma_value.description}}")
                 html.Div(
                     "",
@@ -533,7 +552,14 @@ class PromptInput(vuetify3.VCard):
                                 key=("kdma_value.kdma",),
                             ):
                                 with html.Ul(classes="ml-8"):
-                                    html.Li("Value: {{kdma_value.value}}")
+                                    with html.Li():
+                                        html.Span("Value: {{kdma_value.value}} ")
+                                        vuetify3.VProgressLinear(
+                                            model_value=("kdma_value.value * 100",),
+                                            height="10",
+                                            readonly=True,
+                                            style="display: inline-block; width: 100px; vertical-align: middle;",
+                                        )
                                     html.Li("{{kdma_value.description}}")
                             html.Div(
                                 "",
