@@ -3,8 +3,6 @@ from trame.widgets import vuetify3, html
 from ..adm.adm_core import serialize_prompt, Prompt, get_alignment_descriptions_map
 from ..utils.utils import noop, readable, readable_sentence, sentence_lines
 
-MAX_ALIGNMENT_ATTRIBUTES = 1
-
 
 def reload(m=None):
     if m:
@@ -12,6 +10,15 @@ def reload(m=None):
 
 
 SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
+
+CHOICE_INFO_DESCRIPTIONS = {
+    "Predicted KDMA values": "Key Decision-Making Attributes associated with each choice",
+    "ICL example responses": (
+        "Training examples with annotated KDMA scores used to guide model alignment through similarity matching"
+    ),
+    "True KDMA values": "Ground-truth KDMA scores from annotations in the training dataset",
+    "True relevance": "Ground-truth relevance labels indicating how much a KDMA applies to the scenario",
+}
 
 
 def readable_scenario(scenario):
@@ -84,6 +91,25 @@ def prep_decision_for_state(decision_data):
         "choice_info_readable_keys": [readable(key) for key in choice_info_keys],
         "choice_info_readable": make_keys_readable(decision_data["choice_info"]),
     }
+
+
+class TooltipIcon(vuetify3.VTooltip):
+    """Question mark icon with tooltip for showing descriptions."""
+
+    def __init__(self, description_expression, **kwargs):
+        super().__init__(location="top", max_width="400px", **kwargs)
+        with self:
+            with vuetify3.Template(v_slot_activator=("{ props }",)):
+                vuetify3.VIcon(
+                    "mdi-help-circle-outline",
+                    size="small",
+                    v_bind="props",
+                    classes="ml-2 text-grey",
+                )
+            html.Div(
+                "{{ " + description_expression + " }}",
+                style="white-space: normal; word-wrap: break-word;",
+            )
 
 
 class ValueWithProgressBar(html.Span):
@@ -405,7 +431,12 @@ class ChoiceInfo:
                         key=("key",),
                         classes="mb-4",
                     ):
-                        html.Div("{{key}}", classes="text-h6")
+                        with html.Div(classes="text-h6 d-flex align-center"):
+                            html.Span("{{key}}")
+                            TooltipIcon(
+                                "choiceInfoDescriptions[key] || 'No description available'",
+                                v_if=("choiceInfoDescriptions[key]",),
+                            )
                         with html.Div(classes="ml-4"):
                             with html.Template(
                                 v_if=("key === 'ICL example responses'",)
@@ -504,6 +535,7 @@ class PromptInput(vuetify3.VCard):
                             no_data_text="No available alignments",
                             hide_details="auto",
                         )
+                        TooltipIcon("alignment_attribute.description")
                         with vuetify3.VBtn(
                             classes="ml-2 mt-1",
                             icon=True,
@@ -570,38 +602,6 @@ class PromptInput(vuetify3.VCard):
                 with vuetify3.VExpansionPanels(
                     classes="mb-6 mt-4", multiple=True, variant="accordion"
                 ):
-                    # with vuetify3.VExpansionPanel():
-                    #     with vuetify3.VExpansionPanelTitle():
-                    #         with html.Div(
-                    #             classes="text-subtitle-1 text-no-wrap text-truncate"
-                    #         ):
-                    #             html.Span("Alignment:")
-                    #             html.Span(
-                    #                 "{{attribute_targets.length ? "
-                    #                 "attribute_targets.map(att => `${att.kdma} ${att.value}`).join(', ')"
-                    #                 ": 'No Alignments'}}"
-                    #             )
-                    #     with vuetify3.VExpansionPanelText():
-                    #         with html.Div(
-                    #             "{{kdma_value.kdma}}",
-                    #             v_for=("kdma_value in attribute_targets",),
-                    #             key=("kdma_value.kdma",),
-                    #         ):
-                    #             with html.Ul(classes="ml-8"):
-                    #                 with html.Li():
-                    #                     html.Span("Value: {{kdma_value.value}} ")
-                    #                     vuetify3.VProgressLinear(
-                    #                         model_value=("kdma_value.value * 100",),
-                    #                         height="10",
-                    #                         readonly=True,
-                    #                         style="display: inline-block; width: 100px; vertical-align: middle;",
-                    #                     )
-                    #                 html.Li("{{kdma_value.description}}")
-                    #         html.Div(
-                    #             "",
-                    #             v_if=("attribute_targets.length === 0",),
-                    #         )
-
                     with vuetify3.VExpansionPanel():
                         with vuetify3.VExpansionPanelTitle():
                             with html.Div(
@@ -638,6 +638,7 @@ class AlignLayout(SinglePageLayout):
         super().__init__(server, **kwargs)
 
         self.state.trame__title = "align-app"
+        self.state.choiceInfoDescriptions = CHOICE_INFO_DESCRIPTIONS
         self.title.set_text("Align App")
         self.icon.hide()
 

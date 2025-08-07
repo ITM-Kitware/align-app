@@ -6,6 +6,7 @@ from ..adm.adm_core import (
     get_attributes,
     get_system_prompt,
     get_dataset_decider_configs,
+    get_alignment_descriptions_map,
 )
 from .ui import readable_scenario, prep_for_state
 from ..utils.utils import get_id, readable, debounce
@@ -29,6 +30,7 @@ def readable_items(items):
                 "value": value,
                 "title": readable(value),
                 "possible_scores": item.get("possible_scores", []),
+                "description": item.get("description", ""),
             }
         return {"value": item, "title": readable(item)}
 
@@ -115,8 +117,16 @@ class PromptController:
 
     @controller.add("update_value_alignment_attribute")
     def update_value_alignment_attribute(self, alignment_attribute_id, value):
+        # Get the description for the new value
+        prompt = self.get_prompt()
+        descriptions = get_alignment_descriptions_map(prompt)
+        description = descriptions.get(value, {}).get(
+            "description", f"No description available for {value}"
+        )
+
         self._update_alignment_attribute(
-            alignment_attribute_id, {"value": value, "title": readable(value)}
+            alignment_attribute_id,
+            {"value": value, "title": readable(value), "description": description},
         )
 
     @controller.add("update_score_alignment_attribute")
@@ -225,9 +235,20 @@ class PromptController:
         attrs = get_attributes(
             self.server.state.prompt_scenario_id, self.server.state.decision_maker
         )
+
+        # Get alignment descriptions
+        prompt = self.get_prompt()
+        descriptions = get_alignment_descriptions_map(prompt)
+
         used = {a["value"] for a in self.server.state.alignment_attributes}
         possible = [
-            {"value": key, **details}
+            {
+                "value": key,
+                **details,
+                "description": descriptions.get(key, {}).get(
+                    "description", f"No description available for {key}"
+                ),
+            }
             for key, details in attrs.items()
             if key not in used
         ]
