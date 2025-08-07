@@ -21,6 +21,43 @@ def get_id():
     return str(_id_counter)
 
 
+def _normalize_to_words(snake_or_kebab_or_camel: str):
+    """
+    Shared helper to convert snake_case, kebab-case, or camelCase to space-separated words.
+
+    Args:
+        snake_or_kebab_or_camel (str): The input string in snake_case, kebab-case, or camelCase.
+
+    Returns:
+        str: Space-separated words in lowercase.
+    """
+    # Handle camelCase by inserting spaces before capital letters
+    s = re.sub(r"([a-z])([A-Z])", r"\1 \2", snake_or_kebab_or_camel)
+    # Handle snake_case and kebab-case
+    return s.replace("_", " ").replace("-", " ").lower()
+
+
+def _apply_acronym_replacements(text: str, preserve_case: bool = False):
+    """
+    Apply acronym replacements to text.
+
+    Args:
+        text (str): The text to process.
+        preserve_case (bool): If True, match acronyms in lowercase for sentence case.
+
+    Returns:
+        str: Text with acronym replacements applied.
+    """
+    for old, new in ACRONYM_REPLACEMENTS.items():
+        if preserve_case:
+            # Handle both lowercase and capitalized forms for sentence case
+            text = text.replace(old.lower(), new)
+            text = text.replace(old.capitalize(), new)
+        else:
+            text = text.replace(old, new)
+    return text
+
+
 def readable(snake_or_kebab_or_camel: str):
     """
     Converts a snake_case, kebab-case, or camelCase string to a human-readable format.
@@ -31,14 +68,23 @@ def readable(snake_or_kebab_or_camel: str):
     Returns:
         str: The human-readable string.
     """
-    # Handle camelCase by inserting spaces before capital letters
-    s = re.sub(r"([a-z])([A-Z])", r"\1 \2", snake_or_kebab_or_camel)
-    # Handle snake_case and kebab-case
-    result = s.replace("_", " ").replace("-", " ").title()
-    # Fix specific acronyms
-    for old, new in ACRONYM_REPLACEMENTS.items():
-        result = result.replace(old, new)
-    return result
+    result = _normalize_to_words(snake_or_kebab_or_camel).title()
+    return _apply_acronym_replacements(result)
+
+
+def readable_sentence(snake_or_kebab_or_camel: str):
+    """
+    Converts a snake_case, kebab-case, or camelCase string to sentence-style capitalization.
+    Only capitalizes the first word, like a sentence.
+
+    Args:
+        snake_or_kebab_or_camel (str): The input string in snake_case, kebab-case, or camelCase.
+
+    Returns:
+        str: The sentence-style readable string.
+    """
+    result = _normalize_to_words(snake_or_kebab_or_camel).capitalize()
+    return _apply_acronym_replacements(result, preserve_case=True)
 
 
 def noop():
