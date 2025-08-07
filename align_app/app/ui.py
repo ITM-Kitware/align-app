@@ -134,9 +134,8 @@ class IclExampleListRenderer(html.Ul):
                                     "example.similarity_score !== null && example.similarity_score !== undefined",
                                 )
                             ):
-                                html.Span(
-                                    "Similarity: {{example.similarity_score.toFixed(2)}}"
-                                )
+                                html.Span("Similarity: ")
+                                ValueWithProgressBar("example.similarity_score")
                             with html.Li(
                                 v_else_if=("example.similarity_score === null",)
                             ):
@@ -154,7 +153,10 @@ class IclExampleListRenderer(html.Ul):
                                 ),
                                 key=("choice",),
                             ):
-                                html.Span("{{choice}}: Score {{responseData.score}}")
+                                html.Span("{{choice}}: Score ")
+                                ValueWithProgressBar(
+                                    "responseData.score", decimals=0, max_value=100
+                                )
 
 
 class PanelSection(vuetify3.VExpansionPanel):
@@ -275,34 +277,38 @@ class SystemPrompt:
 
 
 class ScenarioLayout:
-    def __init__(self, scenario, editable=False):
+    def __init__(self, scenario):
         html.Div("Situation", classes="text-h6")
-        if editable:
-            vuetify3.VTextarea(
-                v_model=("edited_scenario_text",),
-                auto_grow=True,
-                rows=3,
-                hide_details="auto",
-                variant="outlined",
-                density="compact",
-            )
-        else:
-            html.P(f"{{{{{scenario}.display_state}}}}")
-        html.Div(
-            "Characters",
-            classes="text-h6 pt-4",
-            v_if=f"{scenario}.full_state.characters && {scenario}.full_state.characters.length",
-        )
-        with html.Div(
-            v_for=(f"character in {scenario}.full_state.characters",), classes="pt-2"
-        ):
-            html.Div("{{character.name}}")
-            with html.Div(classes="ml-8"):
-                html.P("{{character.unstructured}}", classes="my-2")
-                html.P("{{character.intent}}")
+        html.P(f"{{{{{scenario}.display_state}}}}", style="white-space: pre-wrap;")
         html.Div("Choices", classes="text-h6 pt-4")
         with html.Ol(classes="ml-8", type="A"):
             html.Li("{{choice.unstructured}}", v_for=(f"choice in {scenario}.choices"))
+
+
+class EditableScenarioLayout:
+    def __init__(self):
+        html.Div("Situation", classes="text-h6")
+        vuetify3.VTextarea(
+            v_model=("edited_scenario_text",),
+            auto_grow=True,
+            rows=3,
+            hide_details="auto",
+        )
+        html.Div("Choices", classes="text-h6 pt-4")
+        with html.Div(classes="ml-4"):
+            with html.Div(
+                v_for=("(choice, index) in edited_choices",),
+                key=("index",),
+                classes="d-flex align-center mb-2",
+            ):
+                html.Span("{{String.fromCharCode(65 + index)}}.", classes="mr-2")
+                vuetify3.VTextarea(
+                    v_model=("edited_choices[index]",),
+                    auto_grow=True,
+                    rows=1,
+                    hide_details="auto",
+                    density="compact",
+                )
 
 
 class Scenario:
@@ -319,7 +325,7 @@ class Scenario:
     class Text:
         def __init__(self):
             def run_content():
-                ScenarioLayout("runs[id].prompt.scenario", editable=False)
+                ScenarioLayout("runs[id].prompt.scenario")
 
             RowWithLabel(run_content=run_content)
 
@@ -429,7 +435,7 @@ class ResultsComparison(html.Div):
 
 
 class ScenarioPanel(vuetify3.VExpansionPanel):
-    def __init__(self, scenario, editable=False, **kwargs):
+    def __init__(self, scenario, **kwargs):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VExpansionPanelTitle():
@@ -439,7 +445,21 @@ class ScenarioPanel(vuetify3.VExpansionPanel):
                         f"{{{{{scenario}.full_state.unstructured}}}}",
                     )
             with vuetify3.VExpansionPanelText():
-                ScenarioLayout(scenario, editable=editable)
+                ScenarioLayout(scenario)
+
+
+class EditableScenarioPanel(vuetify3.VExpansionPanel):
+    def __init__(self, scenario, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VExpansionPanelTitle():
+                with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
+                    html.Span(
+                        f"{{{{{scenario}.scenario_id}}}} - "
+                        f"{{{{{scenario}.full_state.unstructured}}}}",
+                    )
+            with vuetify3.VExpansionPanelText():
+                EditableScenarioLayout()
 
 
 class PromptInput(vuetify3.VCard):
@@ -453,7 +473,7 @@ class PromptInput(vuetify3.VCard):
                     v_model=("prompt_scenario_id",),
                 )
                 with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                    ScenarioPanel("prompt_scenario", editable=True)
+                    EditableScenarioPanel("prompt_scenario")
 
                 vuetify3.VSelect(
                     classes="mt-6",

@@ -1,3 +1,4 @@
+import copy
 from trame.decorators import TrameApp, change, controller
 from ..adm.adm_core import (
     scenarios,
@@ -80,9 +81,15 @@ class PromptController:
         # Initialize edited_scenario_text with first scenario's display_state
         if self.server.state.scenarios:
             first_scenario_id = self.server.state.scenarios[0]["value"]
-            self.server.state.edited_scenario_text = scenarios[first_scenario_id].get(
+            first_scenario = scenarios[first_scenario_id]
+            self.server.state.edited_scenario_text = first_scenario.get(
                 "display_state", ""
             )
+            # Initialize edited_choices with first scenario's choices
+            self.server.state.edited_choices = [
+                choice.get("unstructured", "")
+                for choice in first_scenario.get("choices", [])
+            ]
 
     def update_decider_message(self, add, message):
         current = self.server.state.decider_messages or []
@@ -94,36 +101,39 @@ class PromptController:
         self.server.state.decider_messages = current
 
     @change("prompt_scenario_id")
-    def on_scenario_change(self, prompt_scenario_id, **kwargs):
+    def on_scenario_change(self, prompt_scenario_id, **_):
         s = scenarios[prompt_scenario_id]
         self.server.state.prompt_scenario = readable_scenario(s)
         # Initialize edited_scenario_text with the scenario's display_state
         self.server.state.edited_scenario_text = s.get("display_state", "")
+        # Initialize edited_choices with the scenario's choices
+        self.server.state.edited_choices = [
+            choice.get("unstructured", "") for choice in s.get("choices", [])
+        ]
 
     def get_prompt(self):
         mapped_attributes = map_ui_to_align_attributes(
             self.server.state.alignment_attributes
         )
-        prompt = {
-            **get_prompt(
-                self.server.state.prompt_scenario_id,
-                self.server.state.llm_backbone,
-                self.server.state.decision_maker,
-                mapped_attributes,
-            ),
-            "system_prompt": self.server.state.system_prompt,
-        }
+        prompt = copy.deepcopy(
+            {
+                **get_prompt(
+                    self.server.state.prompt_scenario_id,
+                    self.server.state.llm_backbone,
+                    self.server.state.decision_maker,
+                    mapped_attributes,
+                ),
+                "system_prompt": self.server.state.system_prompt,
+            }
+        )
 
-        # Override the scenario's display_state and full_state.unstructured with edited text
-        if (
-            hasattr(self.server.state, "edited_scenario_text")
-            and self.server.state.edited_scenario_text
-        ):
-            prompt["scenario"]["display_state"] = self.server.state.edited_scenario_text
-            if "full_state" in prompt["scenario"]:
-                prompt["scenario"]["full_state"]["unstructured"] = (
-                    self.server.state.edited_scenario_text
-                )
+        prompt["scenario"]["display_state"] = self.server.state.edited_scenario_text
+        prompt["scenario"]["full_state"]["unstructured"] = (
+            self.server.state.edited_scenario_text
+        )
+
+        for i, choice_text in enumerate(self.server.state.edited_choices):
+            prompt["scenario"]["choices"][i]["unstructured"] = choice_text
 
         return prompt
 
