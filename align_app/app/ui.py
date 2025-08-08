@@ -208,6 +208,18 @@ class IclExampleListRenderer(html.Ul):
                     ):
                         html.Span("Example {{index + 1}}: ")
                         with html.Ul(classes="ml-4"):
+                            with html.Li(
+                                v_if=(
+                                    "example.similarity_score !== null && example.similarity_score !== undefined",
+                                )
+                            ):
+                                html.Span(
+                                    "Similarity: {{example.similarity_score.toFixed(2)}}"
+                                )
+                            with html.Li(
+                                v_else_if=("example.similarity_score === null",)
+                            ):
+                                html.Span("Random")
                             with html.Li():
                                 html.Span("Prompt: {{example.prompt}}")
                             html.Li(
