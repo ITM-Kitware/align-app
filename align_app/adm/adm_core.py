@@ -52,9 +52,6 @@ align_system.utils.hydrate_state.p2triage_hydrate_scenario_state = (
 )
 
 
-MAX_GENERATOR_TOKENS = 8092
-
-
 class ChoiceInfo(TypedDict, total=False):
     """Choice info structure - all keys are optional and ADM-dependent"""
 
@@ -196,9 +193,7 @@ def truncate_unstructured_text(scenarios):
     return scenarios_copy
 
 
-def _generate_comparative_regression_pipeline_system_prompt(
-    ctx, alignment, hydrated_instance_kwargs
-):
+def _generate_comparative_regression_pipeline_system_prompt(ctx, alignment):
     adm_config = ctx["config"]
 
     system_prompt_template_config = adm_config["step_definitions"][
@@ -232,7 +227,9 @@ deciders = {
             "meta-llama/Llama-3.3-70B-Instruct",
         ],
         "model_path_keys": ["structured_inference_engine", "model_name"],
-        "instance_kwargs": {},
+        "config_overrides": {
+            "comparative_regression_choice_schema": {"reasoning_max_length": -1}
+        },
         "postures": {
             "aligned": {
                 "max_alignment_attributes": 10,
@@ -249,7 +246,9 @@ deciders = {
             "meta-llama/Llama-3.3-70B-Instruct",
         ],
         "model_path_keys": ["structured_inference_engine", "model_name"],
-        "instance_kwargs": {},
+        "config_overrides": {
+            "comparative_regression_choice_schema": {"reasoning_max_length": -1}
+        },
         "postures": {
             "aligned": {
                 "max_alignment_attributes": 10,
@@ -259,7 +258,6 @@ deciders = {
     },
     "pipeline_random": {
         "config_path": "adm/pipeline_random.yaml",
-        "instance_kwargs": {},
         "postures": {
             "baseline": {},
         },
@@ -472,12 +470,15 @@ def get_decider_config(scenario_id, decider, baseline):
         return None
 
     config = merged_configs["postures"][alignment]
-    resolved_config = copy.deepcopy(config)
-    instance_kwargs = merged_configs.get("instance_kwargs", {})
-    resolved_config["instance_kwargs"] = merge_dicts(
-        instance_kwargs,
-        resolved_config.get("instance_kwargs", {}),
-    )
+
+    base_config = OmegaConf.create(config)
+
+    if "config_overrides" in merged_configs:
+        overrides = OmegaConf.create(merged_configs["config_overrides"])
+        base_config = OmegaConf.merge(base_config, overrides)
+
+    resolved_config = OmegaConf.to_container(base_config)
+
     return resolved_config
 
 
@@ -514,11 +515,7 @@ def get_system_prompt(decider, attributes, scenario_id):
         return ""
 
     alignment = attributes_to_alignment_target_dict_conf(attributes)
-
-    hydrated_instance_kwargs = hydra.utils.instantiate(
-        ctx["config"].get("instance_kwargs", {}), recursive=True
-    )
-    return generate_sys_prompt(ctx, alignment, hydrated_instance_kwargs)
+    return generate_sys_prompt(ctx, alignment)
 
 
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
@@ -559,8 +556,8 @@ def choose_action(model, prompt: Prompt):
         alignment_target=alignment_target,
         **model.get("inference_kwargs", {}),
         reasoning_max_length=-1,
+        max_generator_tokens=-1,
         generator_seed=2,
-        max_generator_tokens=MAX_GENERATOR_TOKENS,
     )
     raw_decision = result[0]
     choice_info = result[1]["choice_info"]
@@ -592,9 +589,6 @@ def instantiate_adm(
         )
         config = merge_dicts(config, model_config)
 
-    config["instance"] = OmegaConf.merge(
-        config["instance"], config.get("instance_kwargs", {})
-    )
     adm = initialize_with_custom_references({"adm": config})["adm"]
     cleanup = cleanup_generic_adm
     return adm, cleanup
