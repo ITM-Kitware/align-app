@@ -2,6 +2,7 @@ from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
 from ..adm.adm_core import serialize_prompt, Prompt, get_alignment_descriptions_map
 from ..utils.utils import noop, readable, readable_sentence, sentence_lines
+from .unordered_object import UnorderedObject, ValueWithProgressBar
 
 
 def reload(m=None):
@@ -110,86 +111,6 @@ class TooltipIcon(vuetify3.VTooltip):
                 "{{ " + description_expression + " }}",
                 style="white-space: normal; word-wrap: break-word;",
             )
-
-
-class ValueWithProgressBar(html.Span):
-    def __init__(self, value_expression, decimals=2, **kwargs):
-        super().__init__(**kwargs)
-        with self:
-            vuetify3.VProgressLinear(
-                model_value=(f"{value_expression} * 100",),
-                height="10",
-                readonly=True,
-                style=("display: inline-block; width: 80px;"),
-            )
-            html.Span(
-                f"{{{{{value_expression}.toFixed({decimals})}}}}",
-                style="display: inline-block; margin-left: 8px;",
-            )
-
-
-class UnorderedObject(html.Ul):
-    def __init__(self, obj, **kwargs):
-        super().__init__(**kwargs)
-        with self:
-            with html.Li(
-                v_if=f"{obj}", v_for=(f"[key, value] in Object.entries({obj})",)
-            ):
-                html.Span("{{key}}: ")
-
-                with html.Template(
-                    v_if=(
-                        "typeof value === 'object' && value !== null && !Array.isArray(value)",
-                    )
-                ):
-                    html.Br()
-                    with html.Ul(classes="ml-4"):
-                        with html.Li(v_for=("[k, v] in Object.entries(value)",)):
-                            html.Span("{{k.charAt(0).toUpperCase() + k.slice(1)}}: ")
-                            with html.Template(v_if=("Array.isArray(v)",)):
-                                with html.Template(
-                                    v_if=(
-                                        "v.every(item => typeof item === 'number' && item >= 0 && item <= 1)",
-                                    )
-                                ):
-                                    with html.Span(
-                                        v_for=("(item, index) in v",), key=("index",)
-                                    ):
-                                        ValueWithProgressBar("item")
-                                        html.Span(", ", v_if=("index < v.length - 1",))
-                                with html.Template(v_else=True):
-                                    html.Span("{{v.join(', ')}}")
-                            with html.Template(v_else=True):
-                                with html.Template(
-                                    v_if=("typeof v === 'number' && v >= 0 && v <= 1",)
-                                ):
-                                    ValueWithProgressBar("v")
-                                with html.Template(v_else=True):
-                                    html.Span("{{v}}")
-
-                with html.Template(v_else_if=("Array.isArray(value)",)):
-                    with html.Template(
-                        v_if=(
-                            "value.every(v => typeof v === 'number' && v >= 0 && v <= 1)",
-                        )
-                    ):
-                        with html.Span(
-                            v_for=("(item, index) in value",), key=("index",)
-                        ):
-                            ValueWithProgressBar("item")
-                            html.Span(", ", v_if=("index < value.length - 1",))
-                    with html.Template(v_else=True):
-                        html.Span("{{value.join(', ')}}")
-
-                with html.Template(v_else=True):
-                    with html.Template(
-                        v_if=("typeof value === 'number' && value >= 0 && value <= 1",)
-                    ):
-                        ValueWithProgressBar("value")
-                    with html.Template(v_else=True):
-                        html.Span("{{value}}")
-
-            html.Div("No Object", v_else=True)
 
 
 class IclExampleListRenderer(html.Ul):
@@ -536,7 +457,7 @@ class PromptInput(vuetify3.VCard):
                     key=("alignment_attribute.id",),
                 ):
                     with vuetify3.VRow(no_gutters=True):
-                        vuetify3.VSelect(
+                        with vuetify3.VSelect(
                             label="Alignment",
                             items=("possible_alignment_attributes",),
                             model_value=("alignment_attribute",),
@@ -546,8 +467,9 @@ class PromptInput(vuetify3.VCard):
                             ),
                             no_data_text="No available alignments",
                             hide_details="auto",
-                        )
-                        TooltipIcon("alignment_attribute.description")
+                        ):
+                            with vuetify3.Template(v_slot_append_inner=""):
+                                TooltipIcon("alignment_attribute.description")
                         with vuetify3.VBtn(
                             classes="ml-2 mt-1",
                             icon=True,

@@ -35,10 +35,9 @@ priority = "supplemental"
 python = ">=3.9,<3.13"
 trame = ">=3.7.1"
 trame-vuetify = "*"
-trame-vtk = "*"
 hydra-core = "*"
 omegaconf = "*"
-align-system = {git = "https://github.com/ITM-Kitware/align-system.git", rev = "e3095a07f4a21127529f41b40f170a0e773083d7"}
+align-system = {git = "https://github.com/ITM-Kitware/align-system.git", rev = "bbfb63b34815dde28368e48440bee8bad4185726"}
 
 [tool.poetry.group.app.dependencies]
 pywebview = "*"
