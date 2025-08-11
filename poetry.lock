@@ -239,8 +239,8 @@ ubelt = "1.3.6"
 [package.source]
 type = "git"
 url = "https://github.com/ITM-Kitware/align-system.git"
-reference = "e3095a07f4a21127529f41b40f170a0e773083d7"
-resolved_reference = "e3095a07f4a21127529f41b40f170a0e773083d7"
+reference = "bbfb63b34815dde28368e48440bee8bad4185726"
+resolved_reference = "bbfb63b34815dde28368e48440bee8bad4185726"
 
 [[package]]
 name = "annotated-types"
@@ -6393,24 +6393,6 @@ wslink = ">=2.2.2,<3"
 dev = ["nox", "pre-commit", "pytest", "pytest-asyncio", "ruff"]
 
 [[package]]
-name = "trame-vtk"
-version = "2.8.15"
-description = "VTK widgets for trame"
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "trame_vtk-2.8.15-py3-none-any.whl", hash = "sha256:abf7d23d267dd15b87db4b249302a0aea8572c260d205e264dba5836b3adc92b"},
-    {file = "trame_vtk-2.8.15.tar.gz", hash = "sha256:584049637491a7c5ba00efec2a5c5eb96a337bab31d6f0c4bcca8bea60446646"},
-]
-
-[package.dependencies]
-trame-client = ">=3.4,<4"
-
-[package.extras]
-dev = ["coverage", "nox", "pre-commit", "pytest", "pytest-asyncio", "ruff"]
-
-[[package]]
 name = "trame-vuetify"
 version = "2.9.0"
 description = "Vuetify widgets for trame"
@@ -7093,4 +7075,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<3.13"
-content-hash = "e19303ba650d7d9a2fdc247d30cad89068beff3345dd490eed7db0843f1a30bf"
+content-hash = "92fa827038ecc47f76832dcd7831628655abe797ffc5ecd01fcc90a955199c68"
