@@ -285,29 +285,59 @@ class ScenarioLayout:
             html.Li("{{choice.unstructured}}", v_for=(f"choice in {scenario}.choices"))
 
 
-class EditableScenarioLayout:
-    def __init__(self):
-        html.Div("Situation", classes="text-h6")
-        vuetify3.VTextarea(
-            v_model=("edited_scenario_text",),
-            auto_grow=True,
-            rows=3,
-            hide_details="auto",
-        )
-        html.Div("Choices", classes="text-h6 pt-4")
-        with html.Div(classes="ml-4"):
-            with html.Div(
-                v_for=("(choice, index) in edited_choices",),
-                key=("index",),
-                classes="d-flex align-center mb-2",
-            ):
-                html.Span("{{String.fromCharCode(65 + index)}}.", classes="mr-2")
-                vuetify3.VTextarea(
-                    v_model=("edited_choices[index]",),
-                    auto_grow=True,
-                    rows=1,
-                    hide_details="auto",
-                    density="compact",
+class EditableScenarioLayout(html.Div):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            html.Div("Situation", classes="text-h6")
+            vuetify3.VTextarea(
+                v_model=("edited_scenario_text",),
+                auto_grow=True,
+                rows=3,
+                hide_details="auto",
+            )
+            html.Div("Choices", classes="text-h6 pt-4")
+            with html.Div(classes="ml-4"):
+                with html.Ul(classes="pa-0", style="list-style: none"):
+                    with html.Li(
+                        v_for=("(choice, index) in edited_choices",),
+                        key=("index",),
+                        classes="d-flex align-center mb-2",
+                    ):
+                        html.Span(
+                            "{{String.fromCharCode(65 + index)}}.", classes="mr-2"
+                        )
+                        vuetify3.VTextarea(
+                            model_value=("edited_choices[index]",),
+                            update_modelValue=(
+                                self.server.controller.update_choice,
+                                "[index, $event]",
+                            ),
+                            auto_grow=True,
+                            rows=1,
+                            hide_details="auto",
+                            density="compact",
+                            classes="flex-grow-1",
+                        )
+                        with vuetify3.VBtn(
+                            icon=True,
+                            size="small",
+                            classes="ml-2",
+                            disabled=("edited_choices.length <= 2",),
+                            click=(
+                                self.server.controller.delete_choice,
+                                "[index]",
+                            ),
+                            v_if=("max_choices > 2",),
+                        ):
+                            vuetify3.VIcon("mdi-close", size="small")
+                vuetify3.VBtn(
+                    "Add Choice",
+                    click=self.server.controller.add_choice,
+                    variant="outlined",
+                    size="small",
+                    classes="mt-2",
+                    v_if=("edited_choices.length < max_choices && max_choices > 2",),
                 )
 
 
@@ -462,7 +492,7 @@ class EditableScenarioPanel(vuetify3.VExpansionPanel):
                 EditableScenarioLayout()
 
 
-class PromptInput(vuetify3.VCard):
+class PromptInput(html.Div):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self:
