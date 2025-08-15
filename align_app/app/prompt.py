@@ -1,3 +1,4 @@
+import copy
 from trame.decorators import TrameApp, change, controller
 from ..adm.adm_core import (
     scenarios,
@@ -10,6 +11,9 @@ from ..adm.adm_core import (
 )
 from .ui import readable_scenario, prep_for_state
 from ..utils.utils import get_id, readable, debounce
+
+# Maximum number of choices allowed (limited by alignment system)
+MAX_CHOICES = 2
 
 COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME = 0.1
 
@@ -46,6 +50,7 @@ def map_ui_to_align_attributes(attributes):
 class PromptController:
     def __init__(self, server):
         self.server = server
+        self.server.state.max_choices = MAX_CHOICES
         self.server.state.change(
             "alignment_attributes", "decision_maker", "prompt_scenario_id"
         )(
@@ -70,6 +75,23 @@ class PromptController:
         self.server.state.scenarios = items
         self.server.state.prompt_scenario_id = self.server.state.scenarios[0]["value"]
 
+    def _create_default_choice(self, index, text):
+        """Create a new choice with required fields for the alignment system."""
+        return {
+            "action_id": f"action-{index}",
+            "unstructured": text,
+            "action_type": "APPLY_TREATMENT",
+            "intent_action": True,
+            "parameters": {},
+            "justification": None,
+        }
+
+    def _initialize_edited_fields(self, scenario):
+        self.server.state.edited_scenario_text = scenario.get("display_state", "")
+        self.server.state.edited_choices = [
+            choice.get("unstructured", "") for choice in scenario.get("choices", [])
+        ]
+
     def reset(self):
         self.update_scenarios()
         self.server.state.decision_makers = readable_items(decider_names)
@@ -77,6 +99,10 @@ class PromptController:
         self.server.state.alignment_attributes = []
         self.update_decision_maker_params()
         self.server.state.llm_backbone = self.server.state.llm_backbones[0]
+        if self.server.state.scenarios:
+            first_scenario_id = self.server.state.scenarios[0]["value"]
+            first_scenario = scenarios[first_scenario_id]
+            self._initialize_edited_fields(first_scenario)
 
     def update_decider_message(self, add, message):
         current = self.server.state.decider_messages or []
@@ -88,24 +114,87 @@ class PromptController:
         self.server.state.decider_messages = current
 
     @change("prompt_scenario_id")
-    def on_scenario_change(self, prompt_scenario_id, **kwargs):
+    def on_scenario_change(self, prompt_scenario_id, **_):
         s = scenarios[prompt_scenario_id]
         self.server.state.prompt_scenario = readable_scenario(s)
+        self._initialize_edited_fields(s)
 
     def get_prompt(self):
         mapped_attributes = map_ui_to_align_attributes(
             self.server.state.alignment_attributes
         )
-        prompt = {
-            **get_prompt(
-                self.server.state.prompt_scenario_id,
-                self.server.state.llm_backbone,
-                self.server.state.decision_maker,
-                mapped_attributes,
-            ),
-            "system_prompt": self.server.state.system_prompt,
-        }
+        prompt = copy.deepcopy(
+            {
+                **get_prompt(
+                    self.server.state.prompt_scenario_id,
+                    self.server.state.llm_backbone,
+                    self.server.state.decision_maker,
+                    mapped_attributes,
+                ),
+                "system_prompt": self.server.state.system_prompt,
+            }
+        )
+
+        prompt["scenario"]["display_state"] = self.server.state.edited_scenario_text
+        prompt["scenario"]["full_state"]["unstructured"] = (
+            self.server.state.edited_scenario_text
+        )
+
+        # Get original choices from prompt_scenario if available, otherwise from prompt
+        original_choices = []
+        if self.server.state.prompt_scenario is not None:
+            original_choices = self.server.state.prompt_scenario.get("choices", [])
+        else:
+            # Fallback to choices from the prompt we just created
+            original_choices = prompt.get("scenario", {}).get("choices", [])
+
+        # Build new choices array with edited text
+        new_choices = []
+        for i, choice_text in enumerate(self.server.state.edited_choices):
+            if i < len(original_choices):
+                # Update existing choice, preserving other fields
+                choice = copy.deepcopy(original_choices[i])
+                choice["unstructured"] = choice_text
+            else:
+                # Create new choice with required fields
+                # Note: Currently not reachable when MAX_CHOICES=2 since add button is hidden
+                choice = self._create_default_choice(i, choice_text)
+            new_choices.append(choice)
+
+        # Replace the choices in the prompt
+        prompt["scenario"]["choices"] = new_choices
+
         return prompt
+
+    @controller.add("add_choice")
+    def add_choice(self):
+        # Note: This method is currently disabled in UI when MAX_CHOICES=2
+        # because the alignment system only supports exactly 2 choices.
+        # Kept for future compatibility if MAX_CHOICES increases.
+        if len(self.server.state.edited_choices) < MAX_CHOICES:
+            self.server.state.edited_choices = [
+                *self.server.state.edited_choices,
+                "",
+            ]
+
+    @controller.add("update_choice")
+    def update_choice(self, index, value):
+        # Create a new list to ensure Vue reactivity
+        choices = list(self.server.state.edited_choices)
+        choices[index] = value
+        self.server.state.edited_choices = choices
+
+    @controller.add("delete_choice")
+    def delete_choice(self, index):
+        # Note: This method is currently disabled in UI when MAX_CHOICES=2
+        # because the alignment system requires exactly 2 choices.
+        # Kept for future compatibility if MAX_CHOICES increases.
+        if len(self.server.state.edited_choices) > MAX_CHOICES:
+            self.server.state.edited_choices = [
+                choice
+                for i, choice in enumerate(self.server.state.edited_choices)
+                if i != index
+            ]
 
     @controller.add("add_alignment_attribute")
     def add_alignment_attribute(self):

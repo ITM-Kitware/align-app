@@ -2,11 +2,11 @@ from trame.widgets import html, vuetify3
 
 
 class ValueWithProgressBar(html.Span):
-    def __init__(self, value_expression, decimals=2, **kwargs):
+    def __init__(self, value_expression, decimals=2, max_value=1, **kwargs):
         super().__init__(**kwargs)
         with self:
             vuetify3.VProgressLinear(
-                model_value=(f"{value_expression} * 100",),
+                model_value=(f"({value_expression} / {max_value}) * 100",),
                 height="10",
                 readonly=True,
                 style=("display: inline-block; width: 80px;"),
