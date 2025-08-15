@@ -20,6 +20,12 @@ from ..utils.utils import merge_dicts, create_nested_dict_from_path
 import gc
 import torch
 
+# Import prompt classes at module level to avoid 6.7s delay on first use
+from align_system.prompt_engineering.outlines_prompts import (
+    ComparativeKDMASystemPrompt,
+    ComparativeRegressionSystemPromptWithTemplate,
+)
+
 
 def add_default_state_fields(scenario):
     """Add default environment and supplies fields to scenario if missing.
@@ -199,7 +205,21 @@ def _generate_comparative_regression_pipeline_system_prompt(ctx, alignment):
     system_prompt_template_config = adm_config["step_definitions"][
         "comparative_regression"
     ]["system_prompt_template"]
-    system_prompt_template = hydra.utils.instantiate(system_prompt_template_config)
+
+    target_class = system_prompt_template_config.get("_target_")
+    if (
+        target_class
+        == "align_system.prompt_engineering.outlines_prompts.ComparativeKDMASystemPrompt"
+    ):
+        system_prompt_template = ComparativeKDMASystemPrompt()
+    elif (
+        target_class
+        == "align_system.prompt_engineering.outlines_prompts.ComparativeRegressionSystemPromptWithTemplate"
+    ):
+        system_prompt_template = ComparativeRegressionSystemPromptWithTemplate()
+    else:
+        # Fall back to Hydra for unknown classes.  Was slow.
+        system_prompt_template = hydra.utils.instantiate(system_prompt_template_config)
 
     # To resolve references like `${adm.mu}`, we need to provide the 'adm' context to hydra.
     # We can wrap the config and then instantiate the 'attribute_definitions' part.
