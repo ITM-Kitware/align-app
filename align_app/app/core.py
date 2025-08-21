@@ -1,9 +1,10 @@
 from trame.app import get_server, asynchronous
-from trame.decorators import TrameApp, controller
+from trame.decorators import TrameApp, controller, change
 from . import ui
 from ..adm.decider import get_decision
 from .prompt import PromptController
 from ..utils.utils import get_id
+import json
 
 
 @TrameApp()
@@ -13,8 +14,10 @@ class AlignApp:
         self._promptController = PromptController(self.server)
         if self.server.hot_reload:
             self.server.controller.on_server_reload.add(self._build_ui)
+
         self._build_ui()
         self.reset_state()
+        self.state.runs_json = "[]"
 
     @property
     def state(self):
@@ -83,6 +86,56 @@ class AlignApp:
     @controller.set("submit_prompt")
     def submit_prompt(self):
         asynchronous.create_task(self.make_decision())
+
+    def export_runs_to_json(self):
+        exported_runs = []
+
+        for run_id, run_data in self.state.runs.items():
+            if "decision" not in run_data:
+                continue
+
+            prompt = run_data["prompt"]
+            decision = run_data["decision"]
+
+            # Find choice index from decision unstructured text
+            choice_idx = 0
+            if "unstructured" in decision:
+                decision_text = decision["unstructured"]
+                if decision_text and len(decision_text) > 0:
+                    first_char = decision_text[0]
+                    if first_char.isalpha() and first_char.upper() >= "A":
+                        choice_idx = ord(first_char.upper()) - ord("A")
+
+            # Build input section
+            input_data = {
+                "scenario_id": prompt["scenario"]["scenario_id"],
+                "full_state": prompt["scenario"]["full_state"],
+                "state": prompt["scenario"]["full_state"]["unstructured"],
+                "choices": prompt["scenario"]["choices"],
+            }
+
+            # Build output section
+            output_data = {"choice": choice_idx}
+
+            # Add action data if available
+            if choice_idx < len(prompt["scenario"]["choices"]):
+                selected_choice = prompt["scenario"]["choices"][choice_idx]
+                output_data["action"] = {
+                    "unstructured": selected_choice["unstructured"],
+                    "justification": decision.get("justification", ""),
+                }
+
+            exported_run = {"input": input_data, "output": output_data}
+            exported_runs.append(exported_run)
+
+        return json.dumps(exported_runs, indent=2)
+
+    @change("runs")
+    def update_runs_json(self, **_):
+        """Update the runs_json state variable whenever runs change"""
+        json_data = self.export_runs_to_json()
+        self.state.runs_json = json_data
+        self.state.flush()
 
     def _build_ui(self, *args, **kwargs):
         extra_args = {}
