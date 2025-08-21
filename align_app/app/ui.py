@@ -642,6 +642,12 @@ class AlignLayout(SinglePageLayout):
                 if reload:
                     with vuetify3.VBtn(icon=True, click=reload):
                         vuetify3.VIcon("mdi-refresh")
+                with vuetify3.VBtn(
+                    icon=True,
+                    click="utils.download('align-app-runs.json', runs_json || '[]', 'application/json')",
+                    disabled=("Object.keys(runs).length === 0",),
+                ):
+                    vuetify3.VIcon("mdi-download")
                 with vuetify3.VBtn(icon=True, click=self.server.controller.reset_state):
                     vuetify3.VIcon("mdi-undo")
 
