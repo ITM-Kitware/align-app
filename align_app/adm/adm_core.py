@@ -13,6 +13,7 @@ from align_system.utils.hydrate_state import (
 from align_system.utils import logging, call_with_coerced_args
 from align_system.utils.alignment_utils import attributes_in_alignment_target
 from align_system.utils.hydra_utils import initialize_with_custom_references
+from align_data import get_icl_data_paths
 
 
 # from .action_filtering import filter_actions
@@ -267,7 +268,14 @@ deciders = {
         ],
         "model_path_keys": ["structured_inference_engine", "model_name"],
         "config_overrides": {
-            "comparative_regression_choice_schema": {"reasoning_max_length": -1}
+            "comparative_regression_choice_schema": {"reasoning_max_length": -1},
+            "step_definitions": {
+                "regression_icl": {
+                    "icl_generator_partial": {
+                        "incontext_settings": {"datasets": get_icl_data_paths()}
+                    }
+                }
+            },
         },
         "postures": {
             "aligned": {
