@@ -238,6 +238,24 @@ def _generate_comparative_regression_pipeline_system_prompt(ctx, alignment):
     return "\n\n".join(attribute_prompts)
 
 
+def _generate_baseline_pipeline_system_prompt(ctx, alignment):
+    """Generate system prompt for pipeline_baseline ADM.
+
+    The baseline ADM always uses the same prompt regardless of alignment,
+    as it represents an unaligned baseline approach.
+    """
+    return (
+        "You are an assistant specialized in answering multiple-choice "
+        "questions related to medical triage. When a question is posed, "
+        "carefully analyze the symptoms or conditions "
+        "described. Respond by providing a detailed reasoning using a "
+        "step-by-step process or process of elimination. Conclude with "
+        "the final answer, represented by the corresponding index "
+        "number. Your response should be grounded in established "
+        "medical knowledge and aim to be informative."
+    )
+
+
 deciders = {
     "phase2_pipeline_zeroshot_comparative_regression": {
         "config_path": "adm/phase2_pipeline_zeroshot_comparative_regression.yaml",
@@ -284,6 +302,33 @@ deciders = {
         },
         "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
     },
+    "pipeline_baseline": {
+        "config_path": "adm/pipeline_baseline.yaml",
+        "llm_backbones": [
+            "mistralai/Mistral-7B-Instruct-v0.2",
+            "mistralai/Mistral-7B-Instruct-v0.3",
+            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "meta-llama/Llama-3.3-70B-Instruct",
+        ],
+        "model_path_keys": ["structured_inference_engine", "model_name"],
+        "config_overrides": {
+            "step_definitions": {
+                "outlines_baseline": {
+                    "scenario_description_template": {
+                        "_target_": "align_system.prompt_engineering.outlines_prompts.Phase2ScenarioDescription"
+                    },
+                    "prompt_template": {
+                        "_target_": "align_system.prompt_engineering.outlines_prompts.Phase2BaselinePrompt"
+                    },
+                    "enable_caching": True,
+                }
+            }
+        },
+        "postures": {
+            "baseline": {},
+        },
+        "system_prompt_generator": _generate_baseline_pipeline_system_prompt,
+    },
     "pipeline_random": {
         "config_path": "adm/pipeline_random.yaml",
         "postures": {
@@ -315,6 +360,7 @@ datasets = {
                 },
             },
             "pipeline_random": {},
+            "pipeline_baseline": {},
         },
         "attributes": {
             "medical": {"possible_scores": "continuous"},
