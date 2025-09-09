@@ -2,8 +2,11 @@ from pathlib import Path
 import copy
 from typing import TypedDict, List, NamedTuple, Dict, Any
 import json
-import hydra
+import gc
+import torch
 from functools import partial, lru_cache
+
+import hydra
 from omegaconf import OmegaConf, DictConfig
 import align_system
 import align_system.utils.hydrate_state
@@ -13,19 +16,32 @@ from align_system.utils.hydrate_state import (
 from align_system.utils import logging, call_with_coerced_args
 from align_system.utils.alignment_utils import attributes_in_alignment_target
 from align_system.utils.hydra_utils import initialize_with_custom_references
-from align_data import get_icl_data_paths
-
-
-# from .action_filtering import filter_actions
-from ..utils.utils import merge_dicts, create_nested_dict_from_path
-import gc
-import torch
 
 # Import prompt classes at module level to avoid 6.7s delay on first use
 from align_system.prompt_engineering.outlines_prompts import (
     ComparativeKDMASystemPrompt,
     ComparativeRegressionSystemPromptWithTemplate,
 )
+
+# from .action_filtering import filter_actions
+from ..utils.utils import merge_dicts, create_nested_dict_from_path
+
+
+def get_icl_data_paths():
+    """Get paths to ICL data files from align-system repository"""
+    icl_base_path = Path(align_system.__file__).parent / "resources" / "icl" / "phase2"
+
+    data_mapping = {
+        "medical": "July2025-MU-train_20250804.json",
+        "affiliation": "July2025-AF-train_20250804.json",
+        "merit": "July2025-MF-train_20250804.json",
+        "personal_safety": "July2025-PS-train_20250804.json",
+        "search": "July2025-SS-train_20250804.json",
+    }
+
+    return {
+        key: str(icl_base_path / filename) for key, filename in data_mapping.items()
+    }
 
 
 def add_default_state_fields(scenario):
