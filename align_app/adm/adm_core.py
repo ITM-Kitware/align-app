@@ -272,15 +272,17 @@ def _generate_baseline_pipeline_system_prompt(ctx, alignment):
     )
 
 
+LLM_BACKBONES = [
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    "mistralai/Mistral-7B-Instruct-v0.2",
+    "meta-llama/Meta-Llama-3-8B-Instruct",
+    "meta-llama/Llama-3.3-70B-Instruct",
+]
+
 deciders = {
     "phase2_pipeline_zeroshot_comparative_regression": {
         "config_path": "adm/phase2_pipeline_zeroshot_comparative_regression.yaml",
-        "llm_backbones": [
-            "mistralai/Mistral-7B-Instruct-v0.2",
-            "mistralai/Mistral-7B-Instruct-v0.3",
-            "meta-llama/Meta-Llama-3-8B-Instruct",
-            "meta-llama/Llama-3.3-70B-Instruct",
-        ],
+        "llm_backbones": LLM_BACKBONES,
         "model_path_keys": ["structured_inference_engine", "model_name"],
         "config_overrides": {
             "comparative_regression_choice_schema": {"reasoning_max_length": -1}
@@ -294,12 +296,7 @@ deciders = {
     },
     "phase2_pipeline_fewshot_comparative_regression": {
         "config_path": "adm/phase2_pipeline_fewshot_comparative_regression.yaml",
-        "llm_backbones": [
-            "mistralai/Mistral-7B-Instruct-v0.2",
-            "mistralai/Mistral-7B-Instruct-v0.3",
-            "meta-llama/Meta-Llama-3-8B-Instruct",
-            "meta-llama/Llama-3.3-70B-Instruct",
-        ],
+        "llm_backbones": LLM_BACKBONES,
         "model_path_keys": ["structured_inference_engine", "model_name"],
         "config_overrides": {
             "comparative_regression_choice_schema": {"reasoning_max_length": -1},
@@ -320,12 +317,7 @@ deciders = {
     },
     "pipeline_baseline": {
         "config_path": "adm/pipeline_baseline.yaml",
-        "llm_backbones": [
-            "mistralai/Mistral-7B-Instruct-v0.2",
-            "mistralai/Mistral-7B-Instruct-v0.3",
-            "meta-llama/Meta-Llama-3-8B-Instruct",
-            "meta-llama/Llama-3.3-70B-Instruct",
-        ],
+        "llm_backbones": LLM_BACKBONES,
         "model_path_keys": ["structured_inference_engine", "model_name"],
         "config_overrides": {
             "step_definitions": {
