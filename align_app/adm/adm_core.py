@@ -4,7 +4,7 @@ from typing import TypedDict, List, NamedTuple, Dict, Any
 import json
 import gc
 import torch
-from functools import partial, lru_cache
+from functools import partial
 
 import hydra
 from omegaconf import OmegaConf, DictConfig
@@ -25,6 +25,7 @@ from align_system.prompt_engineering.outlines_prompts import (
 
 # from .action_filtering import filter_actions
 from ..utils.utils import merge_dicts, create_nested_dict_from_path
+from .hydra_config_loader import load_adm_config
 
 
 def get_icl_data_paths():
@@ -184,7 +185,6 @@ def get_scenarios(files):
 
 align_system_path = Path(align_system.__file__).parent
 base_align_system_config_dir = align_system_path / "configs"
-hydra.initialize_config_dir(str(base_align_system_config_dir), version_base=None)
 
 current_dir = Path(__file__).parent
 configs = current_dir / "configs"
@@ -288,9 +288,7 @@ deciders = {
             "comparative_regression_choice_schema": {"reasoning_max_length": -1}
         },
         "postures": {
-            "aligned": {
-                "max_alignment_attributes": 10,
-            },
+            "aligned": {},
         },
         "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
     },
@@ -309,9 +307,7 @@ deciders = {
             },
         },
         "postures": {
-            "aligned": {
-                "max_alignment_attributes": 10,
-            },
+            "aligned": {},
         },
         "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
     },
@@ -347,6 +343,45 @@ deciders = {
 
 
 decider_names = list(deciders.keys())
+
+
+def register_experiment_deciders(config_paths):
+    """Register experiment or ADM configs as deciders"""
+    if not config_paths:
+        return
+
+    global decider_names
+
+    new_decider_keys = []
+    for config_path in config_paths:
+        decider_key = _register_single_config(config_path)
+        if decider_key not in decider_names:
+            new_decider_keys.append(decider_key)
+
+    decider_names = [*new_decider_keys, *decider_names]
+
+
+def _register_single_config(config_path):
+    """Register a single config (experiment or ADM) and return its key."""
+    filename = Path(config_path).stem
+    decider_key = filename
+
+    deciders[decider_key] = {
+        "config_path": config_path,
+        "llm_backbones": LLM_BACKBONES,
+        "model_path_keys": [
+            "structured_inference_engine",
+            "model_name",
+        ],
+        "postures": {
+            "aligned": {},
+            "baseline": {},
+        },
+        "runtime_config": True,
+    }
+
+    return decider_key
+
 
 datasets = {
     "phase2": {
@@ -435,7 +470,6 @@ def create_scenario_state(scenario):
     scenario_copy["full_state"] = scenario_copy.get("full_state", {}).copy()
     add_default_state_fields(scenario_copy)
     state, actions = hydration_func(scenario_copy)
-    # actions = filter_actions(state, actions)
     return state, actions
 
 
@@ -478,37 +512,36 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-@lru_cache(maxsize=32)
-def _cached_hydra_compose(yaml_path):
-    """Cached version of hydra.compose to speed up repeated calls with the same path"""
-    return hydra.compose(yaml_path)  # takes .4 seconds on ITM machine
-
-
 def get_dataset_decider_configs(scenario_id, decider):
     """
     Merges base decider config, common decider config, and dataset-specific
     decider config using the merge_dicts utility.
     """
     dataset_name = get_dataset_name(scenario_id)
-    # Use .get() with default {} to handle cases where 'deciders' or the specific decider might be missing
     dataset_specific_config = copy.deepcopy(
         datasets[dataset_name].get("deciders", {}).get(decider, {})
     )
 
-    if not dataset_specific_config:
-        if decider not in datasets[dataset_name].get("deciders", {}):
-            return None
+    decider_cfg = deciders.get(decider)
 
-    decider_cfg = deciders[decider]
+    if not decider_cfg.get("runtime_config"):
+        if not dataset_specific_config:
+            if decider not in datasets[dataset_name].get("deciders", {}):
+                return None
 
-    yaml_path = decider_cfg["config_path"]
-    base_cfg = _cached_hydra_compose(yaml_path)
-    adm_cfg = base_cfg["adm"]
-    decider_base = OmegaConf.to_container(adm_cfg)
+    config_path = decider_cfg["config_path"]
+
+    full_cfg = load_adm_config(
+        config_path,
+        str(base_align_system_config_dir),
+    )
+
+    decider_base = full_cfg.get("adm", {})
 
     common_config = copy.deepcopy(decider_cfg)
     #  Not needed in the merged config
-    del common_config["config_path"]
+    if "config_path" in common_config:
+        del common_config["config_path"]
 
     # Merge non-posture configurations
     common_config_no_postures = {
@@ -538,6 +571,16 @@ def get_dataset_decider_configs(scenario_id, decider):
         merged_postures[posture] = posturing_decider
 
     decider_with_postures["postures"] = merged_postures
+
+    # Set default max_alignment_attributes for aligned postures
+    if "aligned" in decider_with_postures["postures"]:
+        if (
+            "max_alignment_attributes"
+            not in decider_with_postures["postures"]["aligned"]
+        ):
+            decider_with_postures["postures"]["aligned"]["max_alignment_attributes"] = (
+                10
+            )
 
     return decider_with_postures
 
@@ -584,7 +627,7 @@ def get_system_prompt(decider, attributes, scenario_id):
 
     generate_sys_prompt = decider_main_config.get("system_prompt_generator")
     if not generate_sys_prompt:
-        return "N/A"
+        return "Unknown"
 
     scenario = scenarios.get(scenario_id)
 
@@ -608,16 +651,23 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     if not config:
         return {}
 
-    # remove custom refs Omega errors on resolving
-    del config["instance"]
-    del config["step_definitions"]
+    # remove custom refs which cause errors when Omega is trying to resolve them
+    config.pop("instance", None)
+    config.pop("step_definitions", None)
 
     attributes_resolved = OmegaConf.to_container(
         OmegaConf.create({"adm": config}),
         resolve=True,
     )
 
-    attribute_map = attributes_resolved["adm"].get("attribute_definitions", {})
+    if not isinstance(attributes_resolved, dict):
+        return {}
+
+    adm_section = attributes_resolved.get("adm", {})
+    if not isinstance(adm_section, dict):
+        return {}
+
+    attribute_map = adm_section.get("attribute_definitions", {})
 
     return attribute_map
 

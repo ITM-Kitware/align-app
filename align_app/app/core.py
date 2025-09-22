@@ -4,6 +4,7 @@ from . import ui
 from ..adm.decider import get_decision
 from .prompt import PromptController
 from ..utils.utils import get_id
+from ..adm.adm_core import register_experiment_deciders
 import json
 
 
@@ -11,7 +12,25 @@ import json
 class AlignApp:
     def __init__(self, server=None):
         self.server = get_server(server, client_type="vue3")
+
+        self.server.cli.add_argument(
+            "--decider",
+            nargs="*",
+            help=(
+                "Paths to ADM or experiment config YAML files "
+                "like phase2_july_collab/pipeline_baseline.yaml"
+            ),
+        )
+
+        args, _ = self.server.cli.parse_known_args()
+        if args.decider:
+            register_experiment_deciders(args.decider)
+
         self._promptController = PromptController(self.server)
+
+        # Update deciders list if experiment configs were registered
+        if args.decider:
+            self._promptController.update_deciders()
         if self.server.hot_reload:
             self.server.controller.on_server_reload.add(self._build_ui)
 
