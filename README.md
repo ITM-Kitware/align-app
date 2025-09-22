@@ -47,6 +47,27 @@ Then visit http://localhost:8080
 The first time you run a model, it will take some time for the HuggingFace transformers library to
 download the model.
 
+### Run with Custom ADM Configs
+
+You can load custom ADM configurations from align-system using the `--decider` flag. This supports both:
+
+- **Composable ADM configs** (e.g., `adm/outlines_regression_aligned.yaml`)
+- **Full experiment configs** with `@package _global_` directive (e.g., `phase2_july_collab/pipeline_baseline.yaml`)
+
+```console
+# Load a composable ADM config
+poetry run align-app --decider adm/phase2_pipeline_zeroshot_comparative_regression.yaml
+
+# Load a full experiment config
+poetry run align-app --decider phase2_july_collab/pipeline_fewshot_comparative_regression_20icl_live_eval_test.yaml
+
+# Load multiple configs
+poetry run align-app --decider adm/phase2_pipeline_zeroshot_comparative_regression.yaml phase2_july_collab/pipeline_baseline.yaml
+
+# Load configs using absolute paths
+poetry run align-app --decider /path/to/align-system/configs/adm/phase2_pipeline_zeroshot_comparative_regression.yaml
+```
+
 ### Optionally Configure Network Port or Host
 
 The web server is from Trame. To configure the port, use the `--port` arg

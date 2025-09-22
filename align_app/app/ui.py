@@ -507,9 +507,9 @@ class PromptInput(html.Div):
 
                 vuetify3.VSelect(
                     classes="mt-6",
-                    label="Decision Maker",
-                    items=("decision_makers",),
-                    v_model=("decision_maker",),
+                    label="Decider",
+                    items=("deciders",),
+                    v_model=("decider",),
                     error_messages=("decider_messages",),
                 )
                 with html.Template(

@@ -37,7 +37,13 @@ class DeciderResponse(TypedDict):
     success: bool
 
 
-def decider_process_worker(request_queue: Queue, response_queue: Queue):
+def decider_process_worker(request_queue: Queue, response_queue: Queue, all_deciders):
+    # Import and update the deciders dictionary in the subprocess
+    from . import adm_core
+
+    adm_core.deciders = all_deciders
+    adm_core.decider_names = list(all_deciders.keys())
+
     decider = None
     decider_cleanup = None
     decider_key = None
@@ -158,10 +164,13 @@ class MultiprocessDecider:
 
     def _start_process(self):
         if self.process is None or not self.process.is_alive():
+            # Get all deciders from adm_core to pass to subprocess
+            from .adm_core import deciders
+
             ctx = get_context("spawn")
             self.process = ctx.Process(
                 target=decider_process_worker,
-                args=(self.request_queue, self.response_queue),
+                args=(self.request_queue, self.response_queue, deciders),
                 daemon=True,
             )
             self.process.start()

@@ -1,9 +1,9 @@
 import copy
 from trame.decorators import TrameApp, change, controller
+from ..adm import adm_core
 from ..adm.adm_core import (
     scenarios,
     get_prompt,
-    decider_names,
     get_attributes,
     get_system_prompt,
     get_dataset_decider_configs,
@@ -19,10 +19,10 @@ COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME = 0.1
 
 # Add constants for error messages
 DECISION_ATTRIBUTE_ERROR = (
-    "Decision maker requires alignment attributes. Please add at least one."
+    "Decider requires alignment attributes. Please add at least one."
 )
-DECISION_MAKER_NOT_SUPPORTED_FOR_DATASET = (
-    "The selected decision maker is not supported for the current dataset."
+DECIDER_NOT_SUPPORTED_FOR_DATASET = (
+    "The selected decider is not supported for the current dataset."
 )
 
 
@@ -52,14 +52,14 @@ class PromptController:
         self.server = server
         self.server.state.max_choices = MAX_CHOICES
         self.server.state.change(
-            "alignment_attributes", "decision_maker", "prompt_scenario_id"
+            "alignment_attributes", "decider", "prompt_scenario_id"
         )(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
                 self.compute_system_prompt
             )
         )
         self.server.state.change(
-            "alignment_attributes", "decision_maker", "prompt_scenario_id"
+            "alignment_attributes", "decider", "prompt_scenario_id"
         )(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
                 self.compute_alignment_descriptions
@@ -92,12 +92,21 @@ class PromptController:
             choice.get("unstructured", "") for choice in scenario.get("choices", [])
         ]
 
+    def update_deciders(self):
+        """Update the deciders list - useful after registering experiment configs"""
+        self.server.state.deciders = readable_items(adm_core.decider_names)
+        if self.server.state.deciders:
+            # Only update selection if not already set or if current is invalid
+            current = getattr(self.server.state, "decider", None)
+            valid_values = [dm["value"] for dm in self.server.state.deciders]
+            if not current or current not in valid_values:
+                self.server.state.decider = self.server.state.deciders[0]["value"]
+
     def reset(self):
         self.update_scenarios()
-        self.server.state.decision_makers = readable_items(decider_names)
-        self.server.state.decision_maker = self.server.state.decision_makers[0]["value"]
+        self.update_deciders()
         self.server.state.alignment_attributes = []
-        self.update_decision_maker_params()
+        self.update_decider_params()
         self.server.state.llm_backbone = self.server.state.llm_backbones[0]
         if self.server.state.scenarios:
             first_scenario_id = self.server.state.scenarios[0]["value"]
@@ -128,7 +137,7 @@ class PromptController:
                 **get_prompt(
                     self.server.state.prompt_scenario_id,
                     self.server.state.llm_backbone,
-                    self.server.state.decision_maker,
+                    self.server.state.decider,
                     mapped_attributes,
                 ),
                 "system_prompt": self.server.state.system_prompt,
@@ -240,16 +249,12 @@ class PromptController:
             if a["id"] != alignment_attribute_id
         ]
 
-    @change("decision_maker", "prompt_scenario_id")
+    @change("decider", "prompt_scenario_id")
     def update_max_alignment_attributes(self, **_):
         decider_configs = get_dataset_decider_configs(
-            self.server.state.prompt_scenario_id, self.server.state.decision_maker
+            self.server.state.prompt_scenario_id, self.server.state.decider
         )
-        if (
-            decider_configs
-            and "aligned" in decider_configs["postures"]
-            and "max_alignment_attributes" in decider_configs["postures"]["aligned"]
-        ):
+        if decider_configs and "aligned" in decider_configs["postures"]:
             self.server.state.max_alignment_attributes = decider_configs["postures"][
                 "aligned"
             ]["max_alignment_attributes"]
@@ -263,10 +268,10 @@ class PromptController:
                 self.server.state.alignment_attributes[:max_alignment_attributes]
             )
 
-    @change("decision_maker", "alignment_attributes", "prompt_scenario_id")
+    @change("decider", "alignment_attributes", "prompt_scenario_id")
     def validate_alignment_attribute(self, **_):
         decider_configs = get_dataset_decider_configs(
-            self.server.state.prompt_scenario_id, self.server.state.decision_maker
+            self.server.state.prompt_scenario_id, self.server.state.decider
         )
         if (
             decider_configs
@@ -277,15 +282,15 @@ class PromptController:
         else:
             self.update_decider_message(False, DECISION_ATTRIBUTE_ERROR)
 
-    @change("decision_maker", "prompt_scenario_id")
-    def validate_decision_maker_exists_for_dataset(self, **_):
+    @change("decider", "prompt_scenario_id")
+    def validate_decider_exists_for_dataset(self, **_):
         decider_configs = get_dataset_decider_configs(
-            self.server.state.prompt_scenario_id, self.server.state.decision_maker
+            self.server.state.prompt_scenario_id, self.server.state.decider
         )
         if not decider_configs:
-            self.update_decider_message(True, DECISION_MAKER_NOT_SUPPORTED_FOR_DATASET)
+            self.update_decider_message(True, DECIDER_NOT_SUPPORTED_FOR_DATASET)
         else:
-            self.update_decider_message(False, DECISION_MAKER_NOT_SUPPORTED_FOR_DATASET)
+            self.update_decider_message(False, DECIDER_NOT_SUPPORTED_FOR_DATASET)
 
     @change("decider_messages")
     def gate_send_button(self, **_):
@@ -294,10 +299,10 @@ class PromptController:
         else:
             self.server.state.send_button_disabled = False
 
-    @change("prompt_scenario_id", "decision_maker")
-    def update_decision_maker_params(self, **_):
+    @change("prompt_scenario_id", "decider")
+    def update_decider_params(self, **_):
         decider_configs = get_dataset_decider_configs(
-            self.server.state.prompt_scenario_id, self.server.state.decision_maker
+            self.server.state.prompt_scenario_id, self.server.state.decider
         )
         if decider_configs and "llm_backbones" in decider_configs:
             self.server.state.llm_backbones = decider_configs["llm_backbones"]
@@ -306,11 +311,11 @@ class PromptController:
         if self.server.state.llm_backbone not in self.server.state.llm_backbones:
             self.server.state.llm_backbone = self.server.state.llm_backbones[0]
 
-    @change("prompt_scenario_id", "decision_maker")
+    @change("prompt_scenario_id", "decider")
     def limit_to_dataset_alignment_attributes(self, **_):
         scenario_id = self.server.state.prompt_scenario_id
-        decision_maker = self.server.state.decision_maker
-        valid_attributes = get_attributes(scenario_id, decision_maker)
+        decider = self.server.state.decider
+        valid_attributes = get_attributes(scenario_id, decider)
         self.server.state.alignment_attributes = [
             attr
             for attr in self.server.state.alignment_attributes
@@ -319,10 +324,10 @@ class PromptController:
             == valid_attributes[attr["value"]]["possible_scores"]
         ]
 
-    @change("alignment_attributes", "prompt_scenario_id", "decision_maker")
+    @change("alignment_attributes", "prompt_scenario_id", "decider")
     def compute_possible_alignment_attributes(self, **_):
         attrs = get_attributes(
-            self.server.state.prompt_scenario_id, self.server.state.decision_maker
+            self.server.state.prompt_scenario_id, self.server.state.decider
         )
 
         # Get alignment descriptions
@@ -344,7 +349,7 @@ class PromptController:
         self.server.state.possible_alignment_attributes = readable_items(possible)
 
     def compute_system_prompt(self, **_):
-        decider = self.server.state.decision_maker
+        decider = self.server.state.decider
         mapped_attributes = map_ui_to_align_attributes(
             self.server.state.alignment_attributes
         )
