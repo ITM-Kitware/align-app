@@ -148,6 +148,10 @@ class Prompt(ScenarioAndAlignment):
     decider_params: DeciderParams
 
 
+class DeciderContext(Prompt):
+    resolved_config: dict
+
+
 def list_json_files(dir_path: Path):
     """Recursively find all JSON files in a directory and its subdirectories."""
     return [str(path) for path in dir_path.rglob("*.json")]
@@ -279,108 +283,99 @@ LLM_BACKBONES = [
     "meta-llama/Llama-3.3-70B-Instruct",
 ]
 
-deciders = {
-    "phase2_pipeline_zeroshot_comparative_regression": {
-        "config_path": "adm/phase2_pipeline_zeroshot_comparative_regression.yaml",
+
+def create_decider_entry(config_path, overrides={}):
+    """Base factory for creating decider entries with overrides."""
+    return {
+        "config_path": config_path,
         "llm_backbones": LLM_BACKBONES,
         "model_path_keys": ["structured_inference_engine", "model_name"],
-        "config_overrides": {
-            "comparative_regression_choice_schema": {"reasoning_max_length": -1}
+        "postures": {"baseline": {}},
+        **overrides,
+    }
+
+
+_BASE_DECIDERS = {
+    "phase2_pipeline_zeroshot_comparative_regression": create_decider_entry(
+        "adm/phase2_pipeline_zeroshot_comparative_regression.yaml",
+        {
+            "config_overrides": {
+                "comparative_regression_choice_schema": {"reasoning_max_length": -1}
+            },
+            "postures": {"aligned": {}},
+            "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
         },
-        "postures": {
-            "aligned": {},
+    ),
+    "phase2_pipeline_fewshot_comparative_regression": create_decider_entry(
+        "adm/phase2_pipeline_fewshot_comparative_regression.yaml",
+        {
+            "config_overrides": {
+                "comparative_regression_choice_schema": {"reasoning_max_length": -1},
+                "step_definitions": {
+                    "regression_icl": {
+                        "icl_generator_partial": {
+                            "incontext_settings": {"datasets": get_icl_data_paths()}
+                        }
+                    }
+                },
+            },
+            "postures": {"aligned": {}},
+            "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
         },
-        "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
-    },
-    "phase2_pipeline_fewshot_comparative_regression": {
-        "config_path": "adm/phase2_pipeline_fewshot_comparative_regression.yaml",
-        "llm_backbones": LLM_BACKBONES,
-        "model_path_keys": ["structured_inference_engine", "model_name"],
-        "config_overrides": {
-            "comparative_regression_choice_schema": {"reasoning_max_length": -1},
-            "step_definitions": {
-                "regression_icl": {
-                    "icl_generator_partial": {
-                        "incontext_settings": {"datasets": get_icl_data_paths()}
+    ),
+    "pipeline_baseline": create_decider_entry(
+        "adm/pipeline_baseline.yaml",
+        {
+            "config_overrides": {
+                "step_definitions": {
+                    "outlines_baseline": {
+                        "scenario_description_template": {
+                            "_target_": "align_system.prompt_engineering.outlines_prompts.Phase2ScenarioDescription"
+                        },
+                        "prompt_template": {
+                            "_target_": "align_system.prompt_engineering.outlines_prompts.Phase2BaselinePrompt"
+                        },
+                        "enable_caching": True,
                     }
                 }
             },
+            "postures": {"baseline": {}},
+            "system_prompt_generator": _generate_baseline_pipeline_system_prompt,
         },
-        "postures": {
-            "aligned": {},
-        },
-        "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
-    },
-    "pipeline_baseline": {
-        "config_path": "adm/pipeline_baseline.yaml",
-        "llm_backbones": LLM_BACKBONES,
-        "model_path_keys": ["structured_inference_engine", "model_name"],
-        "config_overrides": {
-            "step_definitions": {
-                "outlines_baseline": {
-                    "scenario_description_template": {
-                        "_target_": "align_system.prompt_engineering.outlines_prompts.Phase2ScenarioDescription"
-                    },
-                    "prompt_template": {
-                        "_target_": "align_system.prompt_engineering.outlines_prompts.Phase2BaselinePrompt"
-                    },
-                    "enable_caching": True,
-                }
-            }
-        },
-        "postures": {
-            "baseline": {},
-        },
-        "system_prompt_generator": _generate_baseline_pipeline_system_prompt,
-    },
-    "pipeline_random": {
-        "config_path": "adm/pipeline_random.yaml",
-        "postures": {
-            "baseline": {},
-        },
-    },
+    ),
+    "pipeline_random": create_decider_entry(
+        "adm/pipeline_random.yaml",
+        {"postures": {"baseline": {}}},
+    ),
 }
 
 
-decider_names = list(deciders.keys())
-
-
-def register_experiment_deciders(config_paths):
-    """Register experiment or ADM configs as deciders"""
-    if not config_paths:
-        return
-
-    global decider_names
-
-    new_decider_keys = []
-    for config_path in config_paths:
-        decider_key = _register_single_config(config_path)
-        if decider_key not in decider_names:
-            new_decider_keys.append(decider_key)
-
-    decider_names = [*new_decider_keys, *decider_names]
-
-
-def _register_single_config(config_path):
-    """Register a single config (experiment or ADM) and return its key."""
-    filename = Path(config_path).stem
-    decider_key = filename
-
-    deciders[decider_key] = {
-        "config_path": config_path,
-        "llm_backbones": LLM_BACKBONES,
-        "model_path_keys": [
-            "structured_inference_engine",
-            "model_name",
-        ],
-        "postures": {
-            "aligned": {},
-            "baseline": {},
+def create_runtime_decider_entry(config_path):
+    """Create a decider entry for a runtime config."""
+    return create_decider_entry(
+        config_path,
+        {
+            "postures": {
+                "aligned": {
+                    "max_alignment_attributes": 10,
+                },
+                "baseline": {},
+            },
+            "runtime_config": True,
         },
-        "runtime_config": True,
-    }
+    )
 
-    return decider_key
+
+def get_all_deciders(config_paths=[]):
+    """Get all deciders, merging runtime configs from paths with base deciders."""
+    runtime_deciders = {
+        Path(config_path).stem: create_runtime_decider_entry(config_path)
+        for config_path in config_paths
+    }
+    return {**runtime_deciders, **_BASE_DECIDERS}
+
+
+decider_names = list(_BASE_DECIDERS.keys())
 
 
 datasets = {
@@ -439,8 +434,9 @@ def get_dataset_name(scenario_id):
     raise ValueError(f"Dataset name for scenario ID {scenario_id} not found.")
 
 
-def _get_attributes(dataset_name, decider):
+def get_attributes(scenario_id, decider):
     """Get the attributes for a dataset, checking for decider-specific overrides."""
+    dataset_name = get_dataset_name(scenario_id)
     dataset_info = datasets[dataset_name]
 
     decider_attrs = dataset_info.get("deciders", {}).get(decider, {}).get("attributes")
@@ -454,10 +450,6 @@ def _get_attributes(dataset_name, decider):
     raise ValueError(
         f"Attributes not found for dataset {dataset_name} (decider: {decider})"
     )
-
-
-def get_attributes(scenario_id, decider):
-    return _get_attributes(get_dataset_name(scenario_id), decider)
 
 
 def create_scenario_state(scenario):
@@ -512,7 +504,7 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-def get_dataset_decider_configs(scenario_id, decider):
+def get_dataset_decider_configs(scenario_id, decider, all_deciders=None):
     """
     Merges base decider config, common decider config, and dataset-specific
     decider config using the merge_dicts utility.
@@ -522,8 +514,16 @@ def get_dataset_decider_configs(scenario_id, decider):
         datasets[dataset_name].get("deciders", {}).get(decider, {})
     )
 
-    decider_cfg = deciders.get(decider)
+    # Use provided deciders or fall back to base
+    deciders_to_use = all_deciders if all_deciders is not None else _BASE_DECIDERS
+    decider_cfg = deciders_to_use.get(decider)
 
+    if not decider_cfg:
+        # Decider not found - return None to indicate it's not available
+        return None
+
+    # Runtime configs are valid for all datasets
+    # Only check dataset compatibility for non-runtime configs
     if not decider_cfg.get("runtime_config"):
         if not dataset_specific_config:
             if decider not in datasets[dataset_name].get("deciders", {}):
@@ -585,8 +585,8 @@ def get_dataset_decider_configs(scenario_id, decider):
     return decider_with_postures
 
 
-def get_decider_config(scenario_id, decider, baseline):
-    merged_configs = get_dataset_decider_configs(scenario_id, decider)
+def get_base_decider_config(scenario_id, decider, baseline, all_deciders=None):
+    merged_configs = get_dataset_decider_configs(scenario_id, decider, all_deciders)
     if merged_configs is None:
         return None
 
@@ -604,14 +604,26 @@ def get_decider_config(scenario_id, decider, baseline):
 
     resolved_config = OmegaConf.to_container(base_config)
 
+    deciders_to_use = all_deciders if all_deciders is not None else _BASE_DECIDERS
+    decider_info = deciders_to_use.get(decider, {})
+    if "model_path_keys" in decider_info:
+        resolved_config["model_path_keys"] = decider_info["model_path_keys"]
+
     return resolved_config
 
 
-def prepare_context(scenario, decider, alignment_target):
+def resolve_decider_config(scenario_id, decider, alignment_target, all_deciders=None):
+    """Resolve decider config based on alignment target."""
+    baseline = len(alignment_target.kdma_values) == 0
+    return get_base_decider_config(scenario_id, decider, baseline, all_deciders)
+
+
+def prepare_context(scenario, decider, alignment_target, all_deciders=None):
     state, actions = create_scenario_state(scenario)
     scenario_id = scenario["scenario_id"]
-    baseline = len(alignment_target.kdma_values) == 0
-    config = get_decider_config(scenario_id, decider, baseline)
+    config = resolve_decider_config(
+        scenario_id, decider, alignment_target, all_deciders
+    )
     dataset_name = get_dataset_name(scenario_id)
     return {
         "state": state,
@@ -622,8 +634,10 @@ def prepare_context(scenario, decider, alignment_target):
     }
 
 
-def get_system_prompt(decider, attributes, scenario_id):
-    decider_main_config = deciders.get(decider)
+def get_system_prompt(decider, attributes, scenario_id, all_deciders=None):
+    # Use provided deciders or fall back to base
+    deciders_to_use = all_deciders if all_deciders is not None else _BASE_DECIDERS
+    decider_main_config = deciders_to_use.get(decider)
 
     generate_sys_prompt = decider_main_config.get("system_prompt_generator")
     if not generate_sys_prompt:
@@ -646,8 +660,11 @@ def get_system_prompt(decider, attributes, scenario_id):
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     scenario_id = prompt["scenario"]["scenario_id"]
     decider = prompt["decider_params"]["decider"]
+    all_deciders = prompt.get("all_deciders")
 
-    config = get_decider_config(scenario_id, decider, baseline=False)
+    config = get_base_decider_config(
+        scenario_id, decider, baseline=False, all_deciders=all_deciders
+    )
     if not config:
         return {}
 
@@ -676,7 +693,8 @@ def choose_action(model, prompt: Prompt):
     scenario = prompt["scenario"]
     decider = prompt["decider_params"]["decider"]
     alignment_target = prompt["alignment_target"]
-    ctx = prepare_context(scenario, decider, alignment_target)
+    all_deciders = prompt.get("all_deciders")
+    ctx = prepare_context(scenario, decider, alignment_target, all_deciders)
     func = (
         model.instance.top_level_choose_action
         if hasattr(model.instance, "top_level_choose_action")
@@ -707,30 +725,27 @@ def cleanup_generic_adm(_):
     torch.cuda.empty_cache()
 
 
-def instantiate_adm(
-    llm_backbone="",
-    decider=decider_names[0],
-    baseline=True,
-    scenario_id=None,
-):
-    config = get_decider_config(scenario_id, decider, baseline)
+def instantiate_adm(decider_config, llm_backbone=""):
+    """Instantiate an ADM from a resolved config."""
+    if decider_config is None:
+        raise ValueError("decider_config is required")
 
-    if deciders[decider].get("model_path_keys") and llm_backbone:
+    config = decider_config
+
+    if config.get("model_path_keys") and llm_backbone:
         model_config = create_nested_dict_from_path(
-            deciders[decider]["model_path_keys"], llm_backbone
+            config["model_path_keys"], llm_backbone
         )
         config = merge_dicts(config, model_config)
 
     adm = initialize_with_custom_references({"adm": config})["adm"]
-    cleanup = cleanup_generic_adm
-    return adm, cleanup
+    return adm, cleanup_generic_adm
 
 
-def create_adm(
-    llm_backbone="",
-    decider=decider_names[0],
-    baseline=True,
-    scenario_id=None,
-):
-    model, cleanup = instantiate_adm(llm_backbone, decider, baseline, scenario_id)
+def create_adm(decider_config, llm_backbone=""):
+    """Create an ADM from a resolved config."""
+    if decider_config is None:
+        raise ValueError("decider_config is required")
+
+    model, cleanup = instantiate_adm(decider_config, llm_backbone)
     return partial(choose_action, model), partial(cleanup, model)
