@@ -17,10 +17,10 @@ def _get_process_manager():
     return _decider
 
 
-async def get_decision(prompt):
-    """Get a decision for a prompt"""
+async def get_decision(context):
+    """Get a decision for a context"""
     process_manager = _get_process_manager()
-    return await process_manager.get_decision(prompt)
+    return await process_manager.get_decision(context)
 
 
 # Ensure the subprocess is cleaned up

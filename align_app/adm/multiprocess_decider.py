@@ -1,7 +1,7 @@
 from multiprocessing import Queue, get_context, Manager
 from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
-from .adm_core import Prompt, create_adm
+from .adm_core import DeciderContext, create_adm
 from ..utils.utils import get_id
 import asyncio
 import gc
@@ -16,7 +16,7 @@ class RequestType(str, Enum):
 
 class RunDeciderRequest(TypedDict):
     request_type: Literal[RequestType.RUN]
-    prompt: Prompt
+    context: DeciderContext
     request_id: str
 
 
@@ -37,13 +37,7 @@ class DeciderResponse(TypedDict):
     success: bool
 
 
-def decider_process_worker(request_queue: Queue, response_queue: Queue, all_deciders):
-    # Import and update the deciders dictionary in the subprocess
-    from . import adm_core
-
-    adm_core.deciders = all_deciders
-    adm_core.decider_names = list(all_deciders.keys())
-
+def decider_process_worker(request_queue: Queue, response_queue: Queue):
     decider = None
     decider_cleanup = None
     decider_key = None
@@ -59,11 +53,11 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue, all_deci
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def _initialize_or_update_decider(prompt: Prompt, current_decider_key):
+    def _initialize_or_update_decider(context: DeciderContext, current_decider_key):
         nonlocal decider, decider_cleanup, decider_key
-        decider_params = prompt["decider_params"]
-        baseline = len(prompt["alignment_target"].kdma_values) == 0
-        dataset_name = prompt["scenario"]["scenario_id"].split(".")[0]
+        decider_params = context["decider_params"]
+        baseline = len(context["alignment_target"].kdma_values) == 0
+        dataset_name = context["scenario"]["scenario_id"].split(".")[0]
         requested_decider_key = (
             decider_params["llm_backbone"],
             decider_params["decider"],
@@ -74,11 +68,12 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue, all_deci
         if requested_decider_key != current_decider_key:
             cleanup_decider()
             try:
+                # Use the resolved config directly from the context
+                config = context["resolved_config"]
+
+                # Create ADM with just config and backbone
                 new_decider, new_decider_cleanup = create_adm(
-                    llm_backbone=decider_params["llm_backbone"],
-                    decider=decider_params["decider"],
-                    baseline=baseline,
-                    scenario_id=prompt["scenario"]["scenario_id"],
+                    decider_config=config, llm_backbone=decider_params["llm_backbone"]
                 )
                 decider = new_decider
                 decider_cleanup = new_decider_cleanup
@@ -91,9 +86,9 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue, all_deci
 
     def _execute_decision(
         decider: Any,
-        prompt: Prompt,
+        context: DeciderContext,
     ) -> Decision:
-        adm_result = decider(prompt)
+        adm_result = decider(context)
         return adm_result
 
     # Main worker loop
@@ -123,12 +118,12 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue, all_deci
 
             elif request["request_type"] == RequestType.RUN:
                 run_request = cast(RunDeciderRequest, request)
-                prompt_data: Prompt = run_request["prompt"]
+                context_data: DeciderContext = run_request["context"]
 
                 try:
-                    _initialize_or_update_decider(prompt_data, decider_key)
+                    _initialize_or_update_decider(context_data, decider_key)
 
-                    decision_result = _execute_decision(decider, prompt_data)
+                    decision_result = _execute_decision(decider, context_data)
                     response_queue.put(
                         DeciderResponse(
                             request_id=current_request_id,
@@ -164,24 +159,21 @@ class MultiprocessDecider:
 
     def _start_process(self):
         if self.process is None or not self.process.is_alive():
-            # Get all deciders from adm_core to pass to subprocess
-            from .adm_core import deciders
-
             ctx = get_context("spawn")
             self.process = ctx.Process(
                 target=decider_process_worker,
-                args=(self.request_queue, self.response_queue, deciders),
+                args=(self.request_queue, self.response_queue),
                 daemon=True,
             )
             self.process.start()
 
-    async def get_decision(self, prompt: Prompt) -> Decision:
-        """Run a decider with the given prompt and optional decider key."""
+    async def get_decision(self, context: DeciderContext) -> Decision:
+        """Run a decider with the given context and optional decider key."""
         self._start_process()
 
         request: RunDeciderRequest = {
             "request_type": RequestType.RUN,
-            "prompt": prompt,
+            "context": context,
             "request_id": get_id(),
         }
 
