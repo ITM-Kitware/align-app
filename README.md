@@ -36,7 +36,7 @@ Example [Mistral-AI's](https://huggingface.co/mistralai/Mistral-7B-v0.3)
 export HF_TOKEN=<your token obtained from Hugging Face website>
 ```
 
-### Run the Application
+## Run the Application
 
 ```console
 poetry run align-app
@@ -49,23 +49,20 @@ download the model.
 
 ### Run with Custom ADM Configs
 
-You can load custom ADM configurations from align-system using the `--decider` flag. This supports both:
+You can load custom ADM configurations from align-system using the `--deciders` flag. This supports both:
 
 - **Composable ADM configs** (e.g., `adm/outlines_regression_aligned.yaml`)
 - **Full experiment configs** with `@package _global_` directive (e.g., `phase2_july_collab/pipeline_baseline.yaml`)
 
 ```console
 # Load a composable ADM config
-poetry run align-app --decider adm/phase2_pipeline_zeroshot_comparative_regression.yaml
+poetry run align-app --deciders adm/phase2_pipeline_zeroshot_comparative_regression.yaml
 
 # Load a full experiment config
-poetry run align-app --decider phase2_july_collab/pipeline_fewshot_comparative_regression_20icl_live_eval_test.yaml
+poetry run align-app --deciders phase2_july_collab/pipeline_fewshot_comparative_regression_20icl_live_eval_test.yaml
 
 # Load multiple configs
-poetry run align-app --decider adm/phase2_pipeline_zeroshot_comparative_regression.yaml phase2_july_collab/pipeline_baseline.yaml
-
-# Load configs using absolute paths
-poetry run align-app --decider /path/to/align-system/configs/adm/phase2_pipeline_zeroshot_comparative_regression.yaml
+poetry run align-app --deciders adm/phase2_pipeline_zeroshot_comparative_regression.yaml phase2_july_collab/pipeline_baseline.yaml
 ```
 
 ### Optionally Configure Network Port or Host
@@ -73,7 +70,7 @@ poetry run align-app --decider /path/to/align-system/configs/adm/phase2_pipeline
 The web server is from Trame. To configure the port, use the `--port` arg
 
 ```console
-poetry run align-app --port 8081
+poetry run align-app --port 8888
 ```
 
 To expose the server to the network run with the `--host` arg
@@ -81,6 +78,26 @@ To expose the server to the network run with the `--host` arg
 ```console
 poetry run align-app --host 0.0.0.0
 ```
+
+### Accessing Web Page via SSH Tunnel
+
+If you're running the app on a remote server, you can access it locally through an SSH tunnel:
+
+1. On the remote server, run the app with your desired port:
+
+```console
+poetry run align-app --port 8888
+```
+
+2. On your local machine, set up an SSH tunnel:
+
+```console
+ssh -N -f -L 8888:127.0.0.1:8888 your-remote-host
+```
+
+3. Access the app in your browser at `http://localhost:8888`
+
+The `-L` flag creates a local port forward, `-N` tells SSH not to execute a remote command, and `-f` runs SSH in the background.
 
 ## Development
 
@@ -95,3 +112,13 @@ pre-commit install
 ### Release
 
 Merge a PR to `main` with semantic commit messages.
+
+## Using Custom align-system Code
+
+To run align-app with your local development version of align-system:
+
+```console
+cd align-app
+poetry run pip install -e ../align-system
+poetry run align-app
+```
