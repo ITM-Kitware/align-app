@@ -643,13 +643,16 @@ class AlignLayout(SinglePageLayout):
                     with vuetify3.VBtn(icon=True, click=reload):
                         vuetify3.VIcon("mdi-refresh")
                 with vuetify3.VBtn(
-                    icon=True,
                     click="utils.download('align-app-runs.json', runs_json || '[]', 'application/json')",
                     disabled=("Object.keys(runs).length === 0",),
+                    prepend_icon="mdi-file-download",
                 ):
-                    vuetify3.VIcon("mdi-download")
-                with vuetify3.VBtn(icon=True, click=self.server.controller.reset_state):
-                    vuetify3.VIcon("mdi-undo")
+                    html.Span("Export Runs")
+                with vuetify3.VBtn(
+                    click=self.server.controller.reset_state,
+                    prepend_icon="mdi-delete-sweep",
+                ):
+                    html.Span("Clear Runs")
 
             with layout.content:
                 with vuetify3.VContainer(fluid=True, classes="overflow-y-auto"):
