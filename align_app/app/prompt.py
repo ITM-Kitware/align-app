@@ -112,16 +112,12 @@ class PromptController:
         self.server = server
         self.server.state.max_choices = MAX_CHOICES
         self.decider_api = create_decider_registry(config_paths or [])
-        self.server.state.change(
-            "alignment_attributes", "decider", "prompt_scenario_id"
-        )(
+        self.server.state.change("decider", "prompt_scenario_id")(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
                 self.compute_system_prompt
             )
         )
-        self.server.state.change(
-            "alignment_attributes", "decider", "prompt_scenario_id"
-        )(
+        self.server.state.change("decider", "prompt_scenario_id")(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
                 self.compute_alignment_descriptions
             )
@@ -182,6 +178,11 @@ class PromptController:
             first_scenario = scenarios[first_scenario_id]
             self._initialize_edited_fields(first_scenario)
 
+        # Initialize computed values
+        self.compute_possible_alignment_attributes()
+        self.compute_system_prompt()
+        self.compute_alignment_descriptions()
+
     def update_decider_message(self, add, message):
         """Update decider validation messages."""
         self.server.state.decider_messages = update_decider_messages(
@@ -237,6 +238,13 @@ class PromptController:
                 if i != index
             ]
 
+    def _update_after_attribute_change(self):
+        """Helper to update state after attribute changes (not score changes)."""
+        self.compute_possible_alignment_attributes()
+        self.validate_alignment_attribute()
+        self.compute_system_prompt()
+        self.compute_alignment_descriptions()
+
     @controller.add("add_alignment_attribute")
     def add_alignment_attribute(self):
         """Add a new alignment attribute."""
@@ -245,6 +253,7 @@ class PromptController:
             self.server.state.alignment_attributes = add_attribute_to_list(
                 self.server.state.alignment_attributes, item
             )
+            self._update_after_attribute_change()
 
     @controller.add("update_value_alignment_attribute")
     def update_value_alignment_attribute(self, alignment_attribute_id, value):
@@ -259,7 +268,7 @@ class PromptController:
         self.server.state.alignment_attributes = update_alignment_attribute_in_list(
             self.server.state.alignment_attributes, alignment_attribute_id, patch
         )
-        self.server.state.dirty("alignment_attributes")
+        self._update_after_attribute_change()
 
     @controller.add("update_score_alignment_attribute")
     def update_score_alignment_attribute(self, alignment_attribute_id, score):
@@ -269,7 +278,6 @@ class PromptController:
             alignment_attribute_id,
             {"score": score},
         )
-        self.server.state.dirty("alignment_attributes")
 
     @controller.add("delete_alignment_attribute")
     def delete_alignment_attribute(self, alignment_attribute_id):
@@ -277,6 +285,7 @@ class PromptController:
         self.server.state.alignment_attributes = remove_attribute_from_list(
             self.server.state.alignment_attributes, alignment_attribute_id
         )
+        self._update_after_attribute_change()
 
     @change("decider", "prompt_scenario_id")
     def update_max_alignment_attributes(self, **_):
@@ -296,8 +305,9 @@ class PromptController:
             self.server.state.alignment_attributes = (
                 self.server.state.alignment_attributes[:max_alignment_attributes]
             )
+            self._update_after_attribute_change()
 
-    @change("decider", "alignment_attributes", "prompt_scenario_id")
+    @change("decider", "prompt_scenario_id")
     def validate_alignment_attribute(self, **_):
         """Validate alignment attributes are present when required."""
         decider_configs = self.decider_api.get_dataset_decider_configs(
@@ -357,7 +367,7 @@ class PromptController:
             self.server.state.alignment_attributes, valid_attributes
         )
 
-    @change("alignment_attributes", "prompt_scenario_id", "decider")
+    @change("prompt_scenario_id", "decider")
     def compute_possible_alignment_attributes(self, **_):
         attrs = get_attributes(
             self.server.state.prompt_scenario_id,
