@@ -378,84 +378,10 @@ def get_all_deciders(config_paths=[]):
 decider_names = list(_BASE_DECIDERS.keys())
 
 
-datasets = {
-    "phase2": {
-        "scenarios": load_scenarios_dir(input_output_files / "phase2_july"),
-        "scenario_hydration_func": p2triage_hydrate_scenario_state,
-        "deciders": {
-            "phase2_pipeline_zeroshot_comparative_regression": {
-                "postures": {
-                    "aligned": {
-                        "inference_kwargs": {},
-                    },
-                },
-            },
-            "phase2_pipeline_fewshot_comparative_regression": {
-                "postures": {
-                    "aligned": {
-                        "inference_kwargs": {},
-                    },
-                },
-            },
-            "pipeline_random": {},
-            "pipeline_baseline": {},
-        },
-        "attributes": {
-            "medical": {"possible_scores": "continuous"},
-            "affiliation": {"possible_scores": "continuous"},
-            "merit": {"possible_scores": "continuous"},
-            "search": {"possible_scores": "continuous"},
-            "personal_safety": {"possible_scores": "continuous"},
-        },
-        "attribute_descriptions_dir": align_system_path
-        / "configs"
-        / "alignment_target",
-    },
-}
-
-
-# Create a flat dictionary of all scenarios from all datasets
-scenarios: dict[str, Scenario] = {}
-for dataset_name, dataset_info in datasets.items():
-    dataset_scenarios = dataset_info["scenarios"]
-    # Check for duplicate keys before merging
-    duplicate_keys = set(scenarios.keys()) & set(dataset_scenarios.keys())
-    if duplicate_keys:
-        raise ValueError(
-            f"Found duplicate scenario keys across datasets: {duplicate_keys}"
-        )
-    scenarios.update(dataset_scenarios)
-
-
-def get_dataset_name(scenario_id):
-    for name, dataset_info in datasets.items():
-        if scenario_id in dataset_info["scenarios"]:
-            return name
-    raise ValueError(f"Dataset name for scenario ID {scenario_id} not found.")
-
-
-def get_attributes(scenario_id, decider):
-    """Get the attributes for a dataset, checking for decider-specific overrides."""
-    dataset_name = get_dataset_name(scenario_id)
-    dataset_info = datasets[dataset_name]
-
-    decider_attrs = dataset_info.get("deciders", {}).get(decider, {}).get("attributes")
-    if decider_attrs:
-        return decider_attrs
-
-    general_attrs = dataset_info.get("attributes")
-    if general_attrs:
-        return general_attrs
-
-    raise ValueError(
-        f"Attributes not found for dataset {dataset_name} (decider: {decider})"
-    )
-
-
-def create_scenario_state(scenario):
+def create_scenario_state(scenario, datasets):
     """Create a scenario state from a scenario description"""
     scenario_id = scenario["scenario_id"]
-    dataset_name = get_dataset_name(scenario_id)
+    dataset_name = get_dataset_name_from_datasets(scenario_id, datasets)
     hydration_func = datasets[dataset_name]["scenario_hydration_func"]
     # Ensure scenario has required fields
     scenario_copy = scenario.copy()
@@ -483,40 +409,45 @@ def attributes_to_alignment_target_dict_conf(
     return OmegaConf.create(target)
 
 
-def get_prompt(
-    scenario_id: str,
-    llm_backbone="",
-    decider=decider_names[0],
-    attributes: List[Attribute] = [],
-) -> Prompt:
+def build_prompt_data(scenario, llm_backbone, decider, attributes):
+    """Build a prompt data structure from components."""
     return {
         "decider_params": DeciderParams(llm_backbone=llm_backbone, decider=decider),
         "alignment_target": attributes_to_alignment_target_dict_conf(attributes),
-        "scenario": scenarios[scenario_id],
+        "scenario": scenario,
     }
 
 
 def serialize_prompt(prompt: Prompt):
+    """Serialize a prompt for JSON/state storage, removing non-serializable fields."""
     p = {
         **prompt,
         "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
     }
+    # Remove non-serializable fields that are only needed internally
+    p.pop("datasets", None)
+    p.pop("all_deciders", None)
     return copy.deepcopy(p)
 
 
-def get_dataset_decider_configs(scenario_id, decider, all_deciders=None):
+def get_dataset_name_from_datasets(scenario_id, datasets_dict):
+    for name, dataset_info in datasets_dict.items():
+        if scenario_id in dataset_info["scenarios"]:
+            return name
+    raise ValueError(f"Dataset name for scenario ID {scenario_id} not found.")
+
+
+def get_dataset_decider_configs(scenario_id, decider, all_deciders, datasets):
     """
     Merges base decider config, common decider config, and dataset-specific
     decider config using the merge_dicts utility.
     """
-    dataset_name = get_dataset_name(scenario_id)
+    dataset_name = get_dataset_name_from_datasets(scenario_id, datasets)
     dataset_specific_config = copy.deepcopy(
         datasets[dataset_name].get("deciders", {}).get(decider, {})
     )
 
-    # Use provided deciders or fall back to base
-    deciders_to_use = all_deciders if all_deciders is not None else _BASE_DECIDERS
-    decider_cfg = deciders_to_use.get(decider)
+    decider_cfg = all_deciders.get(decider)
 
     if not decider_cfg:
         # Decider not found - return None to indicate it's not available
@@ -585,8 +516,10 @@ def get_dataset_decider_configs(scenario_id, decider, all_deciders=None):
     return decider_with_postures
 
 
-def get_base_decider_config(scenario_id, decider, baseline, all_deciders=None):
-    merged_configs = get_dataset_decider_configs(scenario_id, decider, all_deciders)
+def get_base_decider_config(scenario_id, decider, baseline, all_deciders, datasets):
+    merged_configs = get_dataset_decider_configs(
+        scenario_id, decider, all_deciders, datasets
+    )
     if merged_configs is None:
         return None
 
@@ -604,27 +537,30 @@ def get_base_decider_config(scenario_id, decider, baseline, all_deciders=None):
 
     resolved_config = OmegaConf.to_container(base_config)
 
-    deciders_to_use = all_deciders if all_deciders is not None else _BASE_DECIDERS
-    decider_info = deciders_to_use.get(decider, {})
+    decider_info = all_deciders.get(decider, {})
     if "model_path_keys" in decider_info:
         resolved_config["model_path_keys"] = decider_info["model_path_keys"]
 
     return resolved_config
 
 
-def resolve_decider_config(scenario_id, decider, alignment_target, all_deciders=None):
+def resolve_decider_config(
+    scenario_id, decider, alignment_target, all_deciders, datasets
+):
     """Resolve decider config based on alignment target."""
     baseline = len(alignment_target.kdma_values) == 0
-    return get_base_decider_config(scenario_id, decider, baseline, all_deciders)
+    return get_base_decider_config(
+        scenario_id, decider, baseline, all_deciders, datasets
+    )
 
 
-def prepare_context(scenario, decider, alignment_target, all_deciders=None):
-    state, actions = create_scenario_state(scenario)
+def prepare_context(scenario, decider, alignment_target, all_deciders, datasets):
+    state, actions = create_scenario_state(scenario, datasets)
     scenario_id = scenario["scenario_id"]
     config = resolve_decider_config(
-        scenario_id, decider, alignment_target, all_deciders
+        scenario_id, decider, alignment_target, all_deciders, datasets
     )
-    dataset_name = get_dataset_name(scenario_id)
+    dataset_name = get_dataset_name_from_datasets(scenario_id, datasets)
     return {
         "state": state,
         "actions": actions,
@@ -634,19 +570,22 @@ def prepare_context(scenario, decider, alignment_target, all_deciders=None):
     }
 
 
-def get_system_prompt(decider, attributes, scenario_id, all_deciders=None):
-    # Use provided deciders or fall back to base
-    deciders_to_use = all_deciders if all_deciders is not None else _BASE_DECIDERS
-    decider_main_config = deciders_to_use.get(decider)
+def get_system_prompt(decider, attributes, scenario_id, all_deciders, datasets):
+    decider_main_config = all_deciders.get(decider)
 
     generate_sys_prompt = decider_main_config.get("system_prompt_generator")
     if not generate_sys_prompt:
         return "Unknown"
 
-    scenario = scenarios.get(scenario_id)
+    # Get scenario from datasets
+    scenario = None
+    for dataset_info in datasets.values():
+        if scenario_id in dataset_info["scenarios"]:
+            scenario = dataset_info["scenarios"][scenario_id]
+            break
 
     alignment_target = attributes_to_alignment_target_dict_conf(attributes)
-    ctx = prepare_context(scenario, decider, alignment_target)
+    ctx = prepare_context(scenario, decider, alignment_target, all_deciders, datasets)
 
     if ctx.get("config") is None:
         # This implies that for the given decider and baseline/aligned posture,
@@ -661,9 +600,14 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     scenario_id = prompt["scenario"]["scenario_id"]
     decider = prompt["decider_params"]["decider"]
     all_deciders = prompt.get("all_deciders")
+    datasets = prompt.get("datasets")
 
     config = get_base_decider_config(
-        scenario_id, decider, baseline=False, all_deciders=all_deciders
+        scenario_id,
+        decider,
+        baseline=False,
+        all_deciders=all_deciders,
+        datasets=datasets,
     )
     if not config:
         return {}
@@ -694,7 +638,8 @@ def choose_action(model, prompt: Prompt):
     decider = prompt["decider_params"]["decider"]
     alignment_target = prompt["alignment_target"]
     all_deciders = prompt.get("all_deciders")
-    ctx = prepare_context(scenario, decider, alignment_target, all_deciders)
+    datasets = prompt.get("datasets")
+    ctx = prepare_context(scenario, decider, alignment_target, all_deciders, datasets)
     func = (
         model.instance.top_level_choose_action
         if hasattr(model.instance, "top_level_choose_action")
@@ -744,8 +689,5 @@ def instantiate_adm(decider_config, llm_backbone=""):
 
 def create_adm(decider_config, llm_backbone=""):
     """Create an ADM from a resolved config."""
-    if decider_config is None:
-        raise ValueError("decider_config is required")
-
     model, cleanup = instantiate_adm(decider_config, llm_backbone)
     return partial(choose_action, model), partial(cleanup, model)

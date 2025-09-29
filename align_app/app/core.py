@@ -21,9 +21,16 @@ class AlignApp:
             ),
         )
 
+        self.server.cli.add_argument(
+            "--scenarios",
+            help="Path to scenarios JSON file or directory of JSON files",
+        )
+
         args, _ = self.server.cli.parse_known_args()
 
-        self._promptController = PromptController(self.server, args.deciders)
+        self._promptController = PromptController(
+            self.server, args.deciders, args.scenarios
+        )
         if self.server.hot_reload:
             self.server.controller.on_server_reload.add(self._build_ui)
 

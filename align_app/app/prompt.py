@@ -1,11 +1,10 @@
 from typing import List, Dict
 from trame.decorators import TrameApp, change, controller
 from ..adm.adm_core import (
-    scenarios,
-    get_attributes,
     get_alignment_descriptions_map,
 )
 from ..adm.decider_registry import create_decider_registry
+from ..adm.scenario_registry import create_scenario_registry
 from .ui import readable_scenario, prep_for_state
 from ..utils.utils import get_id, readable, debounce
 from .prompt_logic import (
@@ -31,7 +30,7 @@ DECIDER_NOT_SUPPORTED_FOR_DATASET = (
 )
 
 
-# Data transformation functions
+# state transformation functions
 def readable_items(items: List) -> List[Dict]:
     """Transform items to readable format for UI."""
 
@@ -61,7 +60,7 @@ def build_scenario_items(scenarios: Dict) -> List[Dict]:
     ]
 
 
-# State manipulation helpers
+# state manipulation helpers
 def update_alignment_attribute_in_list(
     attributes: List[Dict], attribute_id: str, patch: Dict
 ) -> List[Dict]:
@@ -108,10 +107,13 @@ def update_edited_choices(choices: List[str], index: int, value: str) -> List[st
 
 @TrameApp()
 class PromptController:
-    def __init__(self, server, config_paths=None):
+    def __init__(self, server, config_paths=None, scenarios_path=None):
         self.server = server
         self.server.state.max_choices = MAX_CHOICES
-        self.decider_api = create_decider_registry(config_paths or [])
+        self.scenario_registry = create_scenario_registry(scenarios_path)
+        self.decider_api = create_decider_registry(
+            config_paths or [], self.scenario_registry
+        )
         self.server.state.change("decider", "prompt_scenario_id")(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
                 self.compute_system_prompt
@@ -126,7 +128,7 @@ class PromptController:
 
     def update_scenarios(self):
         """Update the scenarios list in state."""
-        items = build_scenario_items(scenarios)
+        items = build_scenario_items(self.scenario_registry.get_scenarios())
         self.server.state.scenarios = items
         if items:
             self.server.state.prompt_scenario_id = items[0]["value"]
@@ -175,7 +177,7 @@ class PromptController:
             self.server.state.llm_backbone = self.server.state.llm_backbones[0]
         if self.server.state.scenarios:
             first_scenario_id = self.server.state.scenarios[0]["value"]
-            first_scenario = scenarios[first_scenario_id]
+            first_scenario = self.scenario_registry.get_scenario(first_scenario_id)
             self._initialize_edited_fields(first_scenario)
 
         # Initialize computed values
@@ -191,7 +193,7 @@ class PromptController:
 
     @change("prompt_scenario_id")
     def on_scenario_change(self, prompt_scenario_id, **_):
-        s = scenarios[prompt_scenario_id]
+        s = self.scenario_registry.get_scenario(prompt_scenario_id)
         self.server.state.prompt_scenario = readable_scenario(s)
         self._initialize_edited_fields(s)
 
@@ -206,6 +208,7 @@ class PromptController:
             edited_text=self.server.state.edited_scenario_text,
             edited_choices=self.server.state.edited_choices,
             decider_registry=self.decider_api,
+            scenario_registry=self.scenario_registry,
         )
 
     @controller.add("add_choice")
@@ -360,7 +363,7 @@ class PromptController:
 
     @change("prompt_scenario_id", "decider")
     def limit_to_dataset_alignment_attributes(self, **_):
-        valid_attributes = get_attributes(
+        valid_attributes = self.scenario_registry.get_attributes(
             self.server.state.prompt_scenario_id, self.server.state.decider
         )
         self.server.state.alignment_attributes = filter_valid_attributes(
@@ -369,7 +372,7 @@ class PromptController:
 
     @change("prompt_scenario_id", "decider")
     def compute_possible_alignment_attributes(self, **_):
-        attrs = get_attributes(
+        attrs = self.scenario_registry.get_attributes(
             self.server.state.prompt_scenario_id,
             self.server.state.decider,
         )

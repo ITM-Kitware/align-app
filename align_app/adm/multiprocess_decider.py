@@ -68,12 +68,9 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
         if requested_decider_key != current_decider_key:
             cleanup_decider()
             try:
-                # Use the resolved config directly from the context
                 config = context["resolved_config"]
-
-                # Create ADM with just config and backbone
                 new_decider, new_decider_cleanup = create_adm(
-                    decider_config=config, llm_backbone=decider_params["llm_backbone"]
+                    config, decider_params["llm_backbone"]
                 )
                 decider = new_decider
                 decider_cleanup = new_decider_cleanup
