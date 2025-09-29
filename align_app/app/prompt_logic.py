@@ -2,7 +2,10 @@
 
 from typing import Dict, List, Any, cast
 import copy
-from ..adm.adm_core import get_prompt, Attribute
+from ..adm.adm_core import (
+    Attribute,
+    build_prompt_data,
+)
 
 
 def create_default_choice(index: int, text: str) -> Dict[str, Any]:
@@ -99,19 +102,15 @@ def build_prompt_context(
     edited_text: str,
     edited_choices: List[str],
     decider_registry,
+    scenario_registry,
 ) -> Dict:
     mapped_attributes: List[Attribute] = [
         Attribute(type=a["value"], score=a["score"]) for a in attributes
     ]
 
-    prompt_data = get_prompt(
-        scenario_id,
-        llm_backbone,
-        decider,
-        mapped_attributes,
-    )
+    scenario = scenario_registry.get_scenario(scenario_id)
 
-    scenario = prompt_data["scenario"]
+    prompt_data = build_prompt_data(scenario, llm_backbone, decider, mapped_attributes)
 
     resolved_config = decider_registry.resolve_decider_config(
         scenario["scenario_id"],
@@ -137,4 +136,6 @@ def build_prompt_context(
         "system_prompt": system_prompt,
         "resolved_config": resolved_config,
         "scenario": updated_scenario,
+        "all_deciders": decider_registry.get_all_deciders(),
+        "datasets": scenario_registry.get_datasets(),
     }
