@@ -97,22 +97,35 @@ ScenarioRegistry = namedtuple(
 )
 
 
-def create_scenario_registry(scenarios_path=DEFAULT_SCENARIOS_PATH):
+def create_scenario_registry(scenarios_paths=None):
     """
-    Creates a ScenarioRegistry with scenarios loaded from the specified path.
-    If no path provided, uses default location.
+    Creates a ScenarioRegistry with scenarios loaded from the specified paths.
+    If no paths provided, uses default location.
+    Can handle a single path or a list of paths.
     """
     align_system_path = Path(align_system.__file__).parent
     attribute_descriptions_dir = align_system_path / "configs" / "alignment_target"
 
-    scenarios_path = Path(scenarios_path)
+    if scenarios_paths is None:
+        scenarios_paths = DEFAULT_SCENARIOS_PATH
 
-    if scenarios_path.is_file():
-        scenarios = load_scenarios(scenarios_path)
-    elif scenarios_path.is_dir():
-        scenarios = load_scenarios_dir(scenarios_path)
-    else:
-        raise ValueError(f"Invalid scenarios path: {scenarios_path}")
+    if not isinstance(scenarios_paths, list):
+        scenarios_paths = [scenarios_paths]
+
+    def load_from_path(path):
+        path = Path(path)
+        if path.is_file():
+            return load_scenarios(path)
+        elif path.is_dir():
+            return load_scenarios_dir(path)
+        else:
+            raise ValueError(f"Invalid scenarios path: {path}")
+
+    scenarios = {
+        scenario_id: scenario
+        for path in scenarios_paths
+        for scenario_id, scenario in load_from_path(path).items()
+    }
 
     datasets = {
         "phase2": {

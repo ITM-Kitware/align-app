@@ -23,7 +23,8 @@ class AlignApp:
 
         self.server.cli.add_argument(
             "--scenarios",
-            help="Path to scenarios JSON file or directory of JSON files",
+            nargs="*",
+            help="Paths to scenarios JSON files or directories of JSON files (space-separated)",
         )
 
         args, _ = self.server.cli.parse_known_args()

@@ -65,9 +65,21 @@ poetry run align-app --deciders phase2_july_collab/pipeline_fewshot_comparative_
 poetry run align-app --deciders adm/phase2_pipeline_zeroshot_comparative_regression.yaml phase2_july_collab/pipeline_baseline.yaml
 ```
 
+### Load Custom Scenarios
+
+You can load scenarios from JSON files or directories using the `--scenarios` flag. This allows you to test the ADMs against specific evaluation datasets:
+
+```console
+# Load scenarios from a specific input_output.json file
+poetry run align-app --scenarios /data/shared/evaluation_outputs/Ph2-JulyCollab/rq2_eval_live/comp_reg_20icl/2025-08-08__10-04-24/input_output.json
+
+# Load scenarios from multiple files or directories (space-separated)
+poetry run align-app --scenarios /path/to/scenarios1.json /path/to/scenarios2.json /path/to/scenarios_dir
+```
+
 ### Optionally Configure Network Port or Host
 
-The web server is from Trame. To configure the port, use the `--port` arg
+The web server is from Trame. To configure the port, use the `--port` or `-p` arg
 
 ```console
 poetry run align-app --port 8888
