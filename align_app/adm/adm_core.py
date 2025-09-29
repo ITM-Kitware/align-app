@@ -1,7 +1,6 @@
 from pathlib import Path
 import copy
 from typing import TypedDict, List, NamedTuple, Dict, Any
-import json
 import gc
 import torch
 from functools import partial
@@ -152,72 +151,8 @@ class DeciderContext(Prompt):
     resolved_config: dict
 
 
-def list_json_files(dir_path: Path):
-    """Recursively find all JSON files in a directory and its subdirectories."""
-    return [str(path) for path in dir_path.rglob("*.json")]
-
-
-def load_scenarios(evaluation_file: str):
-    prefix = Path(evaluation_file).parent.name.split("_")[0]
-    with open(evaluation_file, "r") as f:
-        dataset = json.load(f)
-    next_id = 0
-    scenarios = {}
-    for record in dataset:
-        input = record["input"]
-        # ensure id is unique
-        scenario_id = f"{prefix}.{input['scenario_id']}.{next_id}"
-        next_id += 1
-        input["scenario_id"] = scenario_id
-
-        # Create a display_state field if full_state.unstructured exists
-        if (
-            "full_state" in input
-            and isinstance(input["full_state"], dict)
-            and "unstructured" in input["full_state"]
-        ):
-            input["display_state"] = input["full_state"]["unstructured"]
-
-        scenarios[scenario_id] = input
-    return scenarios
-
-
-def get_scenarios(files):
-    scenarios = {id: s for file in files for id, s in load_scenarios(file).items()}
-    return scenarios
-
-
 align_system_path = Path(align_system.__file__).parent
 base_align_system_config_dir = align_system_path / "configs"
-
-current_dir = Path(__file__).parent
-configs = current_dir / "configs"
-adm_configs = configs / "adm"
-input_output_files = current_dir / "input_output_files"
-
-
-def load_scenarios_dir(dir_path: Path):
-    files = list_json_files(dir_path)
-    return get_scenarios(files)
-
-
-def truncate_unstructured_text(scenarios):
-    """
-    Takes scenarios dict from load_scenarios_dir and truncates each scenario's
-    display_state string at the first newline character.
-    """
-    scenarios_copy = copy.deepcopy(scenarios)
-
-    # Process each scenario to truncate display_state at first newline
-    for scenario in scenarios_copy.values():
-        if "display_state" in scenario and isinstance(scenario["display_state"], str):
-            first_newline_pos = scenario["display_state"].find("\n")
-            if first_newline_pos != -1:
-                scenario["display_state"] = scenario["display_state"][
-                    :first_newline_pos
-                ]
-
-    return scenarios_copy
 
 
 def _generate_comparative_regression_pipeline_system_prompt(ctx, alignment):
