@@ -107,10 +107,10 @@ def update_edited_choices(choices: List[str], index: int, value: str) -> List[st
 
 @TrameApp()
 class PromptController:
-    def __init__(self, server, config_paths=None, scenarios_path=None):
+    def __init__(self, server, config_paths=None, scenarios_paths=None):
         self.server = server
         self.server.state.max_choices = MAX_CHOICES
-        self.scenario_registry = create_scenario_registry(scenarios_path)
+        self.scenario_registry = create_scenario_registry(scenarios_paths)
         self.decider_api = create_decider_registry(
             config_paths or [], self.scenario_registry
         )
