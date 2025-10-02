@@ -26,19 +26,17 @@ def create_decider_registry(config_paths, scenario_registry):
     all_deciders = adm_core.get_all_deciders(config_paths)
     datasets = scenario_registry.get_datasets()
 
-    def create_adm_wrapper(
-        llm_backbone="", decider=None, baseline=True, scenario_id=None
-    ):
+    def create_adm_wrapper(llm_backbone="", decider=None, baseline=True, probe_id=None):
         config = adm_core.get_base_decider_config(
-            scenario_id, decider, baseline, all_deciders, datasets
+            probe_id, decider, baseline, all_deciders, datasets
         )
         return adm_core.create_adm(config, llm_backbone)
 
     def instantiate_adm_wrapper(
-        llm_backbone="", decider=None, baseline=True, scenario_id=None
+        llm_backbone="", decider=None, baseline=True, probe_id=None
     ):
         config = adm_core.get_base_decider_config(
-            scenario_id, decider, baseline, all_deciders, datasets
+            probe_id, decider, baseline, all_deciders, datasets
         )
         return adm_core.instantiate_adm(config, llm_backbone)
 

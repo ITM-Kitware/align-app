@@ -57,7 +57,7 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
         nonlocal decider, decider_cleanup, decider_key
         decider_params = context["decider_params"]
         baseline = len(context["alignment_target"].kdma_values) == 0
-        dataset_name = context["scenario"]["scenario_id"].split(".")[0]
+        dataset_name = context["scenario"]["probe_id"].split(".")[0]
         requested_decider_key = (
             decider_params["llm_backbone"],
             decider_params["decider"],

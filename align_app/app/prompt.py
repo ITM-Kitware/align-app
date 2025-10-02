@@ -52,17 +52,17 @@ def readable_items(items: List) -> List[Dict]:
 def extract_base_scenarios(scenarios: Dict) -> List[Dict]:
     """Extract unique base scenario IDs from all scenarios."""
     unique_bases = sorted(
-        set(scenario["base_scenario_id"] for scenario in scenarios.values())
+        set(scenario["scenario_id"] for scenario in scenarios.values())
     )
     return [{"value": id, "title": readable(id)} for id in unique_bases]
 
 
-def get_scenes_for_base_scenario(scenarios: Dict, base_scenario_id: str) -> List[Dict]:
+def get_scenes_for_base_scenario(scenarios: Dict, scenario_id: str) -> List[Dict]:
     """Get all scene IDs for a given base scenario."""
     matching_scenarios = [
         (scenario["scene_id"], scenario.get("display_state", "").split("\n")[0])
         for scenario in scenarios.values()
-        if scenario["base_scenario_id"] == base_scenario_id
+        if scenario["scenario_id"] == scenario_id
     ]
 
     return [
@@ -142,12 +142,12 @@ class PromptController:
         self.decider_api = create_decider_registry(
             config_paths or [], self.scenario_registry
         )
-        self.server.state.change("decider", "prompt_scenario_id")(
+        self.server.state.change("decider", "prompt_probe_id")(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
                 self.compute_system_prompt
             )
         )
-        self.server.state.change("decider", "prompt_scenario_id")(
+        self.server.state.change("decider", "prompt_probe_id")(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
                 self.compute_alignment_descriptions
             )
@@ -164,17 +164,17 @@ class PromptController:
         self.server.state.base_scenarios = base_scenarios
 
         if base_scenarios:
-            self.server.state.base_scenario_id = base_scenarios[0]["value"]
+            self.server.state.scenario_id = base_scenarios[0]["value"]
             scene_items = get_scenes_for_base_scenario(
-                scenarios, self.server.state.base_scenario_id
+                scenarios, self.server.state.scenario_id
             )
             self.server.state.scene_items = scene_items
 
             if scene_items:
                 self.server.state.scene_id = scene_items[0]["value"]
-                self.server.state.prompt_scenario_id = find_scenario_by_base_and_scene(
+                self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
                     scenarios,
-                    self.server.state.base_scenario_id,
+                    self.server.state.scenario_id,
                     self.server.state.scene_id,
                 )
 
@@ -211,10 +211,10 @@ class PromptController:
         self.server.state.scenarios = []
         self.server.state.deciders = []
         self.server.state.llm_backbones = []
-        self.server.state.prompt_scenario_id = ""
+        self.server.state.prompt_probe_id = ""
         self.server.state.llm_backbone = ""
         self.server.state.base_scenarios = []
-        self.server.state.base_scenario_id = ""
+        self.server.state.scenario_id = ""
         self.server.state.scene_items = []
         self.server.state.scene_id = ""
 
@@ -225,8 +225,8 @@ class PromptController:
         if self.server.state.llm_backbones:
             self.server.state.llm_backbone = self.server.state.llm_backbones[0]
         if self.server.state.scenarios:
-            first_scenario_id = self.server.state.scenarios[0]["value"]
-            first_scenario = self.scenario_registry.get_scenario(first_scenario_id)
+            first_probe_id = self.server.state.scenarios[0]["value"]
+            first_scenario = self.scenario_registry.get_scenario(first_probe_id)
             self._initialize_edited_fields(first_scenario)
 
         # Initialize computed values
@@ -240,37 +240,37 @@ class PromptController:
             self.server.state.decider_messages, add, message
         )
 
-    @change("base_scenario_id")
-    def on_base_scenario_change(self, base_scenario_id, **_):
+    @change("scenario_id")
+    def on_base_scenario_change(self, scenario_id, **_):
         """Handle base scenario selection change."""
         scenarios = self.scenario_registry.get_scenarios()
-        scene_items = get_scenes_for_base_scenario(scenarios, base_scenario_id)
+        scene_items = get_scenes_for_base_scenario(scenarios, scenario_id)
         self.server.state.scene_items = scene_items
 
         if scene_items:
             self.server.state.scene_id = scene_items[0]["value"]
-            self.server.state.prompt_scenario_id = find_scenario_by_base_and_scene(
-                scenarios, base_scenario_id, self.server.state.scene_id
+            self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
+                scenarios, scenario_id, self.server.state.scene_id
             )
 
     @change("scene_id")
     def on_scene_change(self, scene_id, **_):
         """Handle scene selection change."""
         scenarios = self.scenario_registry.get_scenarios()
-        self.server.state.prompt_scenario_id = find_scenario_by_base_and_scene(
-            scenarios, self.server.state.base_scenario_id, scene_id
+        self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
+            scenarios, self.server.state.scenario_id, scene_id
         )
 
-    @change("prompt_scenario_id")
-    def on_scenario_change(self, prompt_scenario_id, **_):
-        s = self.scenario_registry.get_scenario(prompt_scenario_id)
+    @change("prompt_probe_id")
+    def on_scenario_change(self, prompt_probe_id, **_):
+        s = self.scenario_registry.get_scenario(prompt_probe_id)
         self.server.state.prompt_scenario = readable_scenario(s)
         self._initialize_edited_fields(s)
 
     def get_prompt(self):
         """Build complete prompt context with edited values."""
         return build_prompt_context(
-            scenario_id=self.server.state.prompt_scenario_id,
+            probe_id=self.server.state.prompt_probe_id,
             llm_backbone=self.server.state.llm_backbone,
             decider=self.server.state.decider,
             attributes=self.server.state.alignment_attributes,
@@ -360,11 +360,11 @@ class PromptController:
         )
         self._update_after_attribute_change()
 
-    @change("decider", "prompt_scenario_id")
+    @change("decider", "prompt_probe_id")
     def update_max_alignment_attributes(self, **_):
         """Update max alignment attributes from decider config."""
         decider_configs = self.decider_api.get_dataset_decider_configs(
-            self.server.state.prompt_scenario_id,
+            self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
         self.server.state.max_alignment_attributes = get_max_alignment_attributes(
@@ -380,11 +380,11 @@ class PromptController:
             )
             self._update_after_attribute_change()
 
-    @change("decider", "prompt_scenario_id")
+    @change("decider", "prompt_probe_id")
     def validate_alignment_attribute(self, **_):
         """Validate alignment attributes are present when required."""
         decider_configs = self.decider_api.get_dataset_decider_configs(
-            self.server.state.prompt_scenario_id,
+            self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
 
@@ -396,11 +396,11 @@ class PromptController:
 
         self.update_decider_message(needs_attributes, DECISION_ATTRIBUTE_ERROR)
 
-    @change("decider", "prompt_scenario_id")
+    @change("decider", "prompt_probe_id")
     def validate_decider_exists_for_dataset(self, **_):
         """Validate decider is supported for the dataset."""
         decider_configs = self.decider_api.get_dataset_decider_configs(
-            self.server.state.prompt_scenario_id,
+            self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
 
@@ -415,10 +415,10 @@ class PromptController:
             self.server.state.decider_messages
         )
 
-    @change("prompt_scenario_id", "decider")
+    @change("prompt_probe_id", "decider")
     def update_decider_params(self, **_):
         decider_configs = self.decider_api.get_dataset_decider_configs(
-            self.server.state.prompt_scenario_id,
+            self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
 
@@ -431,19 +431,19 @@ class PromptController:
                 else "N/A"
             )
 
-    @change("prompt_scenario_id", "decider")
+    @change("prompt_probe_id", "decider")
     def limit_to_dataset_alignment_attributes(self, **_):
         valid_attributes = self.scenario_registry.get_attributes(
-            self.server.state.prompt_scenario_id, self.server.state.decider
+            self.server.state.prompt_probe_id, self.server.state.decider
         )
         self.server.state.alignment_attributes = filter_valid_attributes(
             self.server.state.alignment_attributes, valid_attributes
         )
 
-    @change("prompt_scenario_id", "decider")
+    @change("prompt_probe_id", "decider")
     def compute_possible_alignment_attributes(self, **_):
         attrs = self.scenario_registry.get_attributes(
-            self.server.state.prompt_scenario_id,
+            self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
 
@@ -462,7 +462,7 @@ class PromptController:
         sys_prompt = self.decider_api.get_system_prompt(
             self.server.state.decider,
             mapped_attributes,
-            self.server.state.prompt_scenario_id,
+            self.server.state.prompt_probe_id,
         )
         self.server.state.system_prompt = sys_prompt
 
