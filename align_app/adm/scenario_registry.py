@@ -35,16 +35,27 @@ def load_scenarios(evaluation_file: str):
     if not is_valid_scenario_file(dataset):
         return {}
 
-    next_id = 0
     scenarios = {}
+    id_counter: dict[str, int] = {}
+
     for record in dataset:
         input = record["input"]
-        # ensure id is unique
-        scenario_id = f"{prefix}.{input['scenario_id']}.{next_id}"
-        next_id += 1
-        input["scenario_id"] = scenario_id
 
-        # Create a display_state field if full_state.unstructured exists
+        scene_id = input["full_state"]["meta_info"]["scene_id"]
+
+        input["scene_id"] = scene_id
+
+        scenario_id_base = f"{prefix}.{input['scenario_id']}.{scene_id}"
+
+        if scenario_id_base in id_counter:
+            id_counter[scenario_id_base] += 1
+            resolved_id = f"{prefix}.{input['scenario_id']}.{scene_id}.{id_counter[scenario_id_base]}"
+        else:
+            id_counter[scenario_id_base] = 0
+            resolved_id = scenario_id_base
+
+        input["scenario_id"] = resolved_id
+
         if (
             "full_state" in input
             and isinstance(input["full_state"], dict)
@@ -52,7 +63,7 @@ def load_scenarios(evaluation_file: str):
         ):
             input["display_state"] = input["full_state"]["unstructured"]
 
-        scenarios[scenario_id] = input
+        scenarios[resolved_id] = input
     return scenarios
 
 
