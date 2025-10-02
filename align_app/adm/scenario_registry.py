@@ -44,6 +44,7 @@ def load_scenarios(evaluation_file: str):
         scene_id = input["full_state"]["meta_info"]["scene_id"]
 
         input["scene_id"] = scene_id
+        input["base_scenario_id"] = input["scenario_id"]
 
         scenario_id_base = f"{prefix}.{input['scenario_id']}.{scene_id}"
 

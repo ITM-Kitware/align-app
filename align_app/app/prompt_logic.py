@@ -93,6 +93,18 @@ def get_llm_backbones_from_config(decider_configs: Dict) -> List[str]:
     return ["N/A"]
 
 
+def find_scenario_by_base_and_scene(
+    scenarios: Dict, base_id: str, scene_id: str
+) -> str:
+    """Find the full scenario_id given base and scene IDs."""
+    matches = [
+        scenario_id
+        for scenario_id, scenario in scenarios.items()
+        if scenario["base_scenario_id"] == base_id and scenario["scene_id"] == scene_id
+    ]
+    return matches[0] if matches else ""
+
+
 def build_prompt_context(
     scenario_id: str,
     llm_backbone: str,
