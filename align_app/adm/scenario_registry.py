@@ -44,18 +44,18 @@ def load_scenarios(evaluation_file: str):
         scene_id = input["full_state"]["meta_info"]["scene_id"]
 
         input["scene_id"] = scene_id
-        input["base_scenario_id"] = input["scenario_id"]
+        # scenario_id already contains the original value from JSON (e.g., "July2025-AF-train")
 
-        scenario_id_base = f"{prefix}.{input['scenario_id']}.{scene_id}"
+        probe_id_base = f"{prefix}.{input['scenario_id']}.{scene_id}"
 
-        if scenario_id_base in id_counter:
-            id_counter[scenario_id_base] += 1
-            resolved_id = f"{prefix}.{input['scenario_id']}.{scene_id}.{id_counter[scenario_id_base]}"
+        if probe_id_base in id_counter:
+            id_counter[probe_id_base] += 1
+            resolved_id = f"{prefix}.{input['scenario_id']}.{scene_id}.{id_counter[probe_id_base]}"
         else:
-            id_counter[scenario_id_base] = 0
-            resolved_id = scenario_id_base
+            id_counter[probe_id_base] = 0
+            resolved_id = probe_id_base
 
-        input["scenario_id"] = resolved_id
+        input["probe_id"] = resolved_id
 
         if (
             "full_state" in input
@@ -172,21 +172,21 @@ def create_scenario_registry(scenarios_paths=None):
         },
     }
 
-    def get_dataset_name(scenario_id):
+    def get_dataset_name(probe_id):
         for name, dataset_info in datasets.items():
-            if scenario_id in dataset_info["scenarios"]:
+            if probe_id in dataset_info["scenarios"]:
                 return name
-        raise ValueError(f"Dataset name for scenario ID {scenario_id} not found.")
+        raise ValueError(f"Dataset name for probe ID {probe_id} not found.")
 
-    def get_scenario(scenario_id):
+    def get_scenario(probe_id):
         for dataset_info in datasets.values():
-            if scenario_id in dataset_info["scenarios"]:
-                return dataset_info["scenarios"][scenario_id]
-        raise ValueError(f"Scenario ID {scenario_id} not found.")
+            if probe_id in dataset_info["scenarios"]:
+                return dataset_info["scenarios"][probe_id]
+        raise ValueError(f"Probe ID {probe_id} not found.")
 
-    def get_attributes(scenario_id, decider):
+    def get_attributes(probe_id, decider):
         """Get the attributes for a dataset, checking for decider-specific overrides."""
-        dataset_name = get_dataset_name(scenario_id)
+        dataset_name = get_dataset_name(probe_id)
         dataset_info = datasets[dataset_name]
 
         decider_config = dataset_info.get("deciders", {}).get(decider, {})

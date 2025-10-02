@@ -96,17 +96,17 @@ def get_llm_backbones_from_config(decider_configs: Dict) -> List[str]:
 def find_scenario_by_base_and_scene(
     scenarios: Dict, base_id: str, scene_id: str
 ) -> str:
-    """Find the full scenario_id given base and scene IDs."""
+    """Find the full probe_id given base and scene IDs."""
     matches = [
-        scenario_id
-        for scenario_id, scenario in scenarios.items()
-        if scenario["base_scenario_id"] == base_id and scenario["scene_id"] == scene_id
+        probe_id
+        for probe_id, scenario in scenarios.items()
+        if scenario["scenario_id"] == base_id and scenario["scene_id"] == scene_id
     ]
     return matches[0] if matches else ""
 
 
 def build_prompt_context(
-    scenario_id: str,
+    probe_id: str,
     llm_backbone: str,
     decider: str,
     attributes: List[Dict],
@@ -120,12 +120,12 @@ def build_prompt_context(
         Attribute(type=a["value"], score=a["score"]) for a in attributes
     ]
 
-    scenario = scenario_registry.get_scenario(scenario_id)
+    scenario = scenario_registry.get_scenario(probe_id)
 
     prompt_data = build_prompt_data(scenario, llm_backbone, decider, mapped_attributes)
 
     resolved_config = decider_registry.resolve_decider_config(
-        scenario["scenario_id"],
+        scenario["probe_id"],
         prompt_data["decider_params"]["decider"],
         prompt_data["alignment_target"],
     )
