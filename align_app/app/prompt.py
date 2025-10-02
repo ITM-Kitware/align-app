@@ -54,7 +54,7 @@ def extract_base_scenarios(scenarios: Dict) -> List[Dict]:
     unique_bases = sorted(
         set(scenario["scenario_id"] for scenario in scenarios.values())
     )
-    return [{"value": id, "title": readable(id)} for id in unique_bases]
+    return [{"value": id, "title": id} for id in unique_bases]
 
 
 def get_scenes_for_base_scenario(scenarios: Dict, scenario_id: str) -> List[Dict]:

@@ -25,7 +25,6 @@ def is_valid_scenario_file(data):
 
 
 def load_scenarios(evaluation_file: str):
-    prefix = Path(evaluation_file).parent.name.split("_")[0]
     try:
         with open(evaluation_file, "r") as f:
             dataset = json.load(f)
@@ -46,11 +45,13 @@ def load_scenarios(evaluation_file: str):
         input["scene_id"] = scene_id
         # scenario_id already contains the original value from JSON (e.g., "July2025-AF-train")
 
-        probe_id_base = f"{prefix}.{input['scenario_id']}.{scene_id}"
+        probe_id_base = f"{input['scenario_id']}.{scene_id}"
 
         if probe_id_base in id_counter:
             id_counter[probe_id_base] += 1
-            resolved_id = f"{prefix}.{input['scenario_id']}.{scene_id}.{id_counter[probe_id_base]}"
+            resolved_id = (
+                f"{input['scenario_id']}.{scene_id}.{id_counter[probe_id_base]}"
+            )
         else:
             id_counter[probe_id_base] = 0
             resolved_id = probe_id_base
@@ -107,6 +108,13 @@ ScenarioRegistry = namedtuple(
         "get_attributes",
     ],
 )
+
+
+def get_dataset_name_for_scenario(scenario):
+    """Get dataset name for a scenario. Currently all scenarios belong to 'phase2' dataset."""
+    # In the future, this could be determined from scenario metadata, tags, or other fields
+    # For now, all scenarios belong to the "phase2" dataset
+    return "phase2"
 
 
 def create_scenario_registry(scenarios_paths=None):

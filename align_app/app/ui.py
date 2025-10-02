@@ -485,7 +485,7 @@ class EditableScenarioPanel(vuetify3.VExpansionPanel):
             with vuetify3.VExpansionPanelTitle():
                 with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
                     html.Span(
-                        f"{{{{{scenario}.probe_id}}}} - "
+                        f"{{{{{scenario}.scene_id}}}} - "
                         f"{{{{{scenario}.full_state.unstructured}}}}",
                     )
             with vuetify3.VExpansionPanelText():
@@ -498,7 +498,7 @@ class PromptInput(html.Div):
         with self:
             with vuetify3.VCardText():
                 vuetify3.VSelect(
-                    label="Base Scenario",
+                    label="Scenario",
                     items=("base_scenarios",),
                     v_model=("scenario_id",),
                 )
