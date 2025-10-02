@@ -14,6 +14,7 @@ from .prompt_logic import (
     select_initial_decider,
     get_max_alignment_attributes,
     get_llm_backbones_from_config,
+    find_scenario_by_base_and_scene,
 )
 
 # Maximum number of choices allowed (limited by ADM code)
@@ -46,6 +47,33 @@ def readable_items(items: List) -> List[Dict]:
         return {"value": item, "title": readable(item)}
 
     return [_item(item) for item in items]
+
+
+def extract_base_scenarios(scenarios: Dict) -> List[Dict]:
+    """Extract unique base scenario IDs from all scenarios."""
+    unique_bases = sorted(
+        set(scenario["base_scenario_id"] for scenario in scenarios.values())
+    )
+    return [{"value": id, "title": readable(id)} for id in unique_bases]
+
+
+def get_scenes_for_base_scenario(scenarios: Dict, base_scenario_id: str) -> List[Dict]:
+    """Get all scene IDs for a given base scenario."""
+    matching_scenarios = [
+        (scenario["scene_id"], scenario.get("display_state", "").split("\n")[0])
+        for scenario in scenarios.values()
+        if scenario["base_scenario_id"] == base_scenario_id
+    ]
+
+    return [
+        {
+            "value": scene_id,
+            "title": f"{scene_id} - {text[:50]}..."
+            if len(text) > 50
+            else f"{scene_id} - {text}",
+        }
+        for scene_id, text in sorted(matching_scenarios)
+    ]
 
 
 def map_ui_to_align_attributes(attributes: List[Dict]) -> List[Dict]:
@@ -128,10 +156,27 @@ class PromptController:
 
     def update_scenarios(self):
         """Update the scenarios list in state."""
-        items = build_scenario_items(self.scenario_registry.get_scenarios())
+        scenarios = self.scenario_registry.get_scenarios()
+        items = build_scenario_items(scenarios)
         self.server.state.scenarios = items
-        if items:
-            self.server.state.prompt_scenario_id = items[0]["value"]
+
+        base_scenarios = extract_base_scenarios(scenarios)
+        self.server.state.base_scenarios = base_scenarios
+
+        if base_scenarios:
+            self.server.state.base_scenario_id = base_scenarios[0]["value"]
+            scene_items = get_scenes_for_base_scenario(
+                scenarios, self.server.state.base_scenario_id
+            )
+            self.server.state.scene_items = scene_items
+
+            if scene_items:
+                self.server.state.scene_id = scene_items[0]["value"]
+                self.server.state.prompt_scenario_id = find_scenario_by_base_and_scene(
+                    scenarios,
+                    self.server.state.base_scenario_id,
+                    self.server.state.scene_id,
+                )
 
     def _initialize_edited_fields(self, scenario):
         """Initialize edited fields from scenario."""
@@ -168,6 +213,10 @@ class PromptController:
         self.server.state.llm_backbones = []
         self.server.state.prompt_scenario_id = ""
         self.server.state.llm_backbone = ""
+        self.server.state.base_scenarios = []
+        self.server.state.base_scenario_id = ""
+        self.server.state.scene_items = []
+        self.server.state.scene_id = ""
 
         self.update_scenarios()
         self.update_deciders()
@@ -189,6 +238,27 @@ class PromptController:
         """Update decider validation messages."""
         self.server.state.decider_messages = update_decider_messages(
             self.server.state.decider_messages, add, message
+        )
+
+    @change("base_scenario_id")
+    def on_base_scenario_change(self, base_scenario_id, **_):
+        """Handle base scenario selection change."""
+        scenarios = self.scenario_registry.get_scenarios()
+        scene_items = get_scenes_for_base_scenario(scenarios, base_scenario_id)
+        self.server.state.scene_items = scene_items
+
+        if scene_items:
+            self.server.state.scene_id = scene_items[0]["value"]
+            self.server.state.prompt_scenario_id = find_scenario_by_base_and_scene(
+                scenarios, base_scenario_id, self.server.state.scene_id
+            )
+
+    @change("scene_id")
+    def on_scene_change(self, scene_id, **_):
+        """Handle scene selection change."""
+        scenarios = self.scenario_registry.get_scenarios()
+        self.server.state.prompt_scenario_id = find_scenario_by_base_and_scene(
+            scenarios, self.server.state.base_scenario_id, scene_id
         )
 
     @change("prompt_scenario_id")

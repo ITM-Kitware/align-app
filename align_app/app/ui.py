@@ -498,9 +498,15 @@ class PromptInput(html.Div):
         with self:
             with vuetify3.VCardText():
                 vuetify3.VSelect(
-                    label="Scenario",
-                    items=("scenarios",),
-                    v_model=("prompt_scenario_id",),
+                    label="Base Scenario",
+                    items=("base_scenarios",),
+                    v_model=("base_scenario_id",),
+                )
+                vuetify3.VSelect(
+                    label="Scene",
+                    items=("scene_items",),
+                    v_model=("scene_id",),
+                    classes="mt-4",
                 )
                 with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                     EditableScenarioPanel("prompt_scenario")
