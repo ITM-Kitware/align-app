@@ -115,7 +115,7 @@ class Choice(TypedDict):
 
 
 class Scenario(TypedDict):
-    scenario_id: str
+    probe_id: str
     choices: List[Choice]
 
 
@@ -315,8 +315,8 @@ decider_names = list(_BASE_DECIDERS.keys())
 
 def create_scenario_state(scenario, datasets):
     """Create a scenario state from a scenario description"""
-    scenario_id = scenario["scenario_id"]
-    dataset_name = get_dataset_name_from_datasets(scenario_id, datasets)
+    probe_id = scenario["probe_id"]
+    dataset_name = get_dataset_name_from_datasets(probe_id, datasets)
     hydration_func = datasets[dataset_name]["scenario_hydration_func"]
     # Ensure scenario has required fields
     scenario_copy = scenario.copy()
@@ -365,19 +365,19 @@ def serialize_prompt(prompt: Prompt):
     return copy.deepcopy(p)
 
 
-def get_dataset_name_from_datasets(scenario_id, datasets_dict):
+def get_dataset_name_from_datasets(probe_id, datasets_dict):
     for name, dataset_info in datasets_dict.items():
-        if scenario_id in dataset_info["scenarios"]:
+        if probe_id in dataset_info["scenarios"]:
             return name
-    raise ValueError(f"Dataset name for scenario ID {scenario_id} not found.")
+    raise ValueError(f"Dataset name for probe ID {probe_id} not found.")
 
 
-def get_dataset_decider_configs(scenario_id, decider, all_deciders, datasets):
+def get_dataset_decider_configs(probe_id, decider, all_deciders, datasets):
     """
     Merges base decider config, common decider config, and dataset-specific
     decider config using the merge_dicts utility.
     """
-    dataset_name = get_dataset_name_from_datasets(scenario_id, datasets)
+    dataset_name = get_dataset_name_from_datasets(probe_id, datasets)
     dataset_specific_config = copy.deepcopy(
         datasets[dataset_name].get("deciders", {}).get(decider, {})
     )
@@ -451,9 +451,9 @@ def get_dataset_decider_configs(scenario_id, decider, all_deciders, datasets):
     return decider_with_postures
 
 
-def get_base_decider_config(scenario_id, decider, baseline, all_deciders, datasets):
+def get_base_decider_config(probe_id, decider, baseline, all_deciders, datasets):
     merged_configs = get_dataset_decider_configs(
-        scenario_id, decider, all_deciders, datasets
+        probe_id, decider, all_deciders, datasets
     )
     if merged_configs is None:
         return None
@@ -479,33 +479,29 @@ def get_base_decider_config(scenario_id, decider, baseline, all_deciders, datase
     return resolved_config
 
 
-def resolve_decider_config(
-    scenario_id, decider, alignment_target, all_deciders, datasets
-):
+def resolve_decider_config(probe_id, decider, alignment_target, all_deciders, datasets):
     """Resolve decider config based on alignment target."""
     baseline = len(alignment_target.kdma_values) == 0
-    return get_base_decider_config(
-        scenario_id, decider, baseline, all_deciders, datasets
-    )
+    return get_base_decider_config(probe_id, decider, baseline, all_deciders, datasets)
 
 
 def prepare_context(scenario, decider, alignment_target, all_deciders, datasets):
     state, actions = create_scenario_state(scenario, datasets)
-    scenario_id = scenario["scenario_id"]
+    probe_id = scenario["probe_id"]
     config = resolve_decider_config(
-        scenario_id, decider, alignment_target, all_deciders, datasets
+        probe_id, decider, alignment_target, all_deciders, datasets
     )
-    dataset_name = get_dataset_name_from_datasets(scenario_id, datasets)
+    dataset_name = get_dataset_name_from_datasets(probe_id, datasets)
     return {
         "state": state,
         "actions": actions,
-        "scenario_id": scenario_id,
+        "scenario_id": probe_id,
         "dataset_name": dataset_name,
         "config": config,
     }
 
 
-def get_system_prompt(decider, attributes, scenario_id, all_deciders, datasets):
+def get_system_prompt(decider, attributes, probe_id, all_deciders, datasets):
     decider_main_config = all_deciders.get(decider)
 
     generate_sys_prompt = decider_main_config.get("system_prompt_generator")
@@ -515,8 +511,8 @@ def get_system_prompt(decider, attributes, scenario_id, all_deciders, datasets):
     # Get scenario from datasets
     scenario = None
     for dataset_info in datasets.values():
-        if scenario_id in dataset_info["scenarios"]:
-            scenario = dataset_info["scenarios"][scenario_id]
+        if probe_id in dataset_info["scenarios"]:
+            scenario = dataset_info["scenarios"][probe_id]
             break
 
     alignment_target = attributes_to_alignment_target_dict_conf(attributes)
@@ -532,13 +528,13 @@ def get_system_prompt(decider, attributes, scenario_id, all_deciders, datasets):
 
 
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
-    scenario_id = prompt["scenario"]["scenario_id"]
+    probe_id = prompt["scenario"]["probe_id"]
     decider = prompt["decider_params"]["decider"]
     all_deciders = prompt.get("all_deciders")
     datasets = prompt.get("datasets")
 
     config = get_base_decider_config(
-        scenario_id,
+        probe_id,
         decider,
         baseline=False,
         all_deciders=all_deciders,

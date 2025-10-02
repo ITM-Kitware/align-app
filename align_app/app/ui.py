@@ -346,7 +346,7 @@ class Scenario:
         def __init__(self):
             def run_content():
                 html.Span(
-                    "{{runs[id].prompt.scenario.scenario_id}} - "
+                    "{{runs[id].prompt.scenario.probe_id}} - "
                     "{{runs[id].prompt.scenario.full_state.unstructured}}",
                 )
 
@@ -471,7 +471,7 @@ class ScenarioPanel(vuetify3.VExpansionPanel):
             with vuetify3.VExpansionPanelTitle():
                 with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
                     html.Span(
-                        f"{{{{{scenario}.scenario_id}}}} - "
+                        f"{{{{{scenario}.probe_id}}}} - "
                         f"{{{{{scenario}.full_state.unstructured}}}}",
                     )
             with vuetify3.VExpansionPanelText():
@@ -485,7 +485,7 @@ class EditableScenarioPanel(vuetify3.VExpansionPanel):
             with vuetify3.VExpansionPanelTitle():
                 with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
                     html.Span(
-                        f"{{{{{scenario}.scenario_id}}}} - "
+                        f"{{{{{scenario}.scene_id}}}} - "
                         f"{{{{{scenario}.full_state.unstructured}}}}",
                     )
             with vuetify3.VExpansionPanelText():
@@ -499,8 +499,13 @@ class PromptInput(html.Div):
             with vuetify3.VCardText():
                 vuetify3.VSelect(
                     label="Scenario",
-                    items=("scenarios",),
-                    v_model=("prompt_scenario_id",),
+                    items=("base_scenarios",),
+                    v_model=("scenario_id",),
+                )
+                vuetify3.VSelect(
+                    label="Scene",
+                    items=("scene_items",),
+                    v_model=("scene_id",),
                 )
                 with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                     EditableScenarioPanel("prompt_scenario")
