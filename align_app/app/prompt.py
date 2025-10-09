@@ -33,20 +33,17 @@ DECIDER_NOT_SUPPORTED_FOR_DATASET = (
 
 # state transformation functions
 def readable_items(items: List) -> List[Dict]:
-    """Transform items to readable format for UI."""
-
-    def _item(item):
-        if isinstance(item, dict):
-            value = item["value"]
-            return {
-                "value": value,
-                "title": readable(value),
-                "possible_scores": item.get("possible_scores", []),
-                "description": item.get("description", ""),
-            }
-        return {"value": item, "title": readable(item)}
-
-    return [_item(item) for item in items]
+    return [
+        {
+            "value": item["value"],
+            "title": readable(item["value"]),
+            "possible_scores": item.get("possible_scores", []),
+            "description": item.get("description", ""),
+        }
+        if isinstance(item, dict)
+        else {"value": item, "title": readable(item)}
+        for item in items
+    ]
 
 
 def extract_base_scenarios(scenarios: Dict) -> List[Dict]:
@@ -58,7 +55,6 @@ def extract_base_scenarios(scenarios: Dict) -> List[Dict]:
 
 
 def get_scenes_for_base_scenario(scenarios: Dict, scenario_id: str) -> List[Dict]:
-    """Get all scene IDs for a given base scenario."""
     scene_map = {
         scenario["scene_id"]: scenario.get("display_state", "").split("\n")[0]
         for scenario in scenarios.values()
@@ -68,9 +64,7 @@ def get_scenes_for_base_scenario(scenarios: Dict, scenario_id: str) -> List[Dict
     return [
         {
             "value": scene_id,
-            "title": f"{scene_id} - {text[:50]}..."
-            if len(text) > 50
-            else f"{scene_id} - {text}",
+            "title": f"{scene_id} - {text[:50]}{'...' if len(text) > 50 else ''}",
         }
         for scene_id, text in scene_map.items()
     ]
@@ -92,15 +86,9 @@ def build_scenario_items(scenarios: Dict) -> List[Dict]:
 def update_alignment_attribute_in_list(
     attributes: List[Dict], attribute_id: str, patch: Dict
 ) -> List[Dict]:
-    """Update an attribute in the list with the given patch."""
-    updated = []
-    for attr in attributes:
-        if attr["id"] == attribute_id:
-            updated_attr = {**attr, **patch}
-            updated.append(updated_attr)
-        else:
-            updated.append(attr)
-    return updated
+    return [
+        {**attr, **patch} if attr["id"] == attribute_id else attr for attr in attributes
+    ]
 
 
 def remove_attribute_from_list(attributes: List[Dict], attribute_id: str) -> List[Dict]:
@@ -152,6 +140,7 @@ class PromptController:
                 self.compute_alignment_descriptions
             )
         )
+        self.search_controller = SearchController(server, self.scenario_registry)
         self.init_state()
 
     def update_scenarios(self):
@@ -248,7 +237,10 @@ class PromptController:
         self.server.state.scene_items = scene_items
 
         if scene_items:
-            self.server.state.scene_id = scene_items[0]["value"]
+            scene_ids = {item["value"] for item in scene_items}
+            if self.server.state.scene_id not in scene_ids:
+                self.server.state.scene_id = scene_items[0]["value"]
+
             self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
                 scenarios, scenario_id, self.server.state.scene_id
             )
@@ -471,3 +463,77 @@ class PromptController:
         self.server.state.attribute_targets = readable_prompt.get(
             "alignment_target", {}
         ).get("kdma_values", [])
+
+
+@TrameApp()
+class SearchController:
+    """Controller for search functionality with dropdown menu."""
+
+    def __init__(self, server, scenario_registry):
+        self.server = server
+        self.scenario_registry = scenario_registry
+        self.server.state.search_query = ""
+        self.server.state.search_results = []
+        self.server.state.search_menu_open = False
+        self.server.state.change("search_query")(
+            debounce(0.2, self.server.state)(self.update_search_results)
+        )
+
+    def _create_search_result(self, probe_id, scenario):
+        display_state = scenario.get("display_state", "")
+        display_text = display_state.split("\n")[0] if display_state else ""
+        display_text = f"{display_text[:60]}{'...' if len(display_text) > 60 else ''}"
+        return {
+            "id": probe_id,
+            "scenario_id": scenario.get("scenario_id", ""),
+            "scene_id": scenario.get("scene_id", ""),
+            "display_text": display_text,
+        }
+
+    def update_search_results(self, search_query, **_):
+        if not search_query or len(search_query.strip()) < 2:
+            self.server.state.search_results = []
+            self.server.state.search_menu_open = False
+            return
+
+        scenarios = self.scenario_registry.get_scenarios()
+        query_lower = search_query.lower().strip()
+
+        results = [
+            self._create_search_result(probe_id, scenario)
+            for probe_id, scenario in scenarios.items()
+            if query_lower in scenario.get("scenario_id", "").lower()
+            or query_lower in scenario.get("scene_id", "").lower()
+            or query_lower in scenario.get("display_state", "").lower()
+        ][:300]
+
+        self.server.state.search_results = results or [
+            {
+                "id": None,
+                "scenario_id": "",
+                "scene_id": "",
+                "display_text": "No results found",
+            }
+        ]
+        self.server.state.search_menu_open = True
+
+    @controller.add("select_search_result")
+    def select_search_result(self, index):
+        if 0 <= index < len(self.server.state.search_results):
+            result = self.server.state.search_results[index]
+            if result.get("id") is not None:
+                self.server.state.update(
+                    {
+                        "scenario_id": result.get("scenario_id"),
+                        "scene_id": result.get("scene_id"),
+                    }
+                )
+
+    @controller.add("clear_search")
+    def clear_search(self):
+        self.server.state.search_query = ""
+
+    @controller.add("on_search_focus")
+    def on_search_focus(self):
+        if self.server.state.search_results:
+            self.server.state.search_menu_open = True

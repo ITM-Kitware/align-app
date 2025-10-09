@@ -34,68 +34,45 @@ def load_scenarios(evaluation_file: str):
     if not is_valid_scenario_file(dataset):
         return {}
 
-    scenarios = {}
-    id_counter: dict[str, int] = {}
-
-    for record in dataset:
+    def _process_scenario(record):
         input = record["input"]
-
         scene_id = input["full_state"]["meta_info"]["scene_id"]
+        probe_id = f"{input['scenario_id']}.{scene_id}"
 
         input["scene_id"] = scene_id
-        # scenario_id already contains the original value from JSON (e.g., "July2025-AF-train")
+        input["probe_id"] = probe_id
 
-        probe_id_base = f"{input['scenario_id']}.{scene_id}"
-
-        if probe_id_base in id_counter:
-            id_counter[probe_id_base] += 1
-            resolved_id = (
-                f"{input['scenario_id']}.{scene_id}.{id_counter[probe_id_base]}"
-            )
-        else:
-            id_counter[probe_id_base] = 0
-            resolved_id = probe_id_base
-
-        input["probe_id"] = resolved_id
-
-        if (
-            "full_state" in input
-            and isinstance(input["full_state"], dict)
-            and "unstructured" in input["full_state"]
-        ):
+        if "unstructured" in input["full_state"]:
             input["display_state"] = input["full_state"]["unstructured"]
 
-        scenarios[resolved_id] = input
-    return scenarios
+        return probe_id, input
+
+    return dict(_process_scenario(record) for record in dataset)
 
 
 def get_scenarios(files):
-    scenarios = {id: s for file in files for id, s in load_scenarios(file).items()}
-    return scenarios
-
-
-def load_scenarios_dir(dir_path: Path):
-    files = list_json_files(dir_path)
-    return get_scenarios(files)
+    return {
+        probe_id: scenario
+        for file in files
+        for probe_id, scenario in load_scenarios(file).items()
+    }
 
 
 def truncate_unstructured_text(scenarios):
-    """
-    Takes scenarios dict from load_scenarios_dir and truncates each scenario's
-    display_state string at the first newline character.
-    """
-    scenarios_copy = copy.deepcopy(scenarios)
+    def _truncate_scenario(scenario):
+        scenario_copy = copy.deepcopy(scenario)
+        if "display_state" in scenario_copy and isinstance(
+            scenario_copy["display_state"], str
+        ):
+            scenario_copy["display_state"] = scenario_copy["display_state"].split("\n")[
+                0
+            ]
+        return scenario_copy
 
-    # Process each scenario to truncate display_state at first newline
-    for scenario in scenarios_copy.values():
-        if "display_state" in scenario and isinstance(scenario["display_state"], str):
-            first_newline_pos = scenario["display_state"].find("\n")
-            if first_newline_pos != -1:
-                scenario["display_state"] = scenario["display_state"][
-                    :first_newline_pos
-                ]
-
-    return scenarios_copy
+    return {
+        probe_id: _truncate_scenario(scenario)
+        for probe_id, scenario in scenarios.items()
+    }
 
 
 ScenarioRegistry = namedtuple(
@@ -111,9 +88,6 @@ ScenarioRegistry = namedtuple(
 
 
 def get_dataset_name_for_scenario(scenario):
-    """Get dataset name for a scenario. Currently all scenarios belong to 'phase2' dataset."""
-    # In the future, this could be determined from scenario metadata, tags, or other fields
-    # For now, all scenarios belong to the "phase2" dataset
     return "phase2"
 
 
@@ -132,20 +106,18 @@ def create_scenario_registry(scenarios_paths=None):
     if not isinstance(scenarios_paths, list):
         scenarios_paths = [scenarios_paths]
 
-    def load_from_path(path):
+    def _get_files_from_path(path):
         path = Path(path)
         if path.is_file():
-            return load_scenarios(path)
+            return [str(path)]
         elif path.is_dir():
-            return load_scenarios_dir(path)
-        else:
-            raise ValueError(f"Invalid scenarios path: {path}")
+            return list_json_files(path)
+        raise ValueError(f"Invalid scenarios path: {path}")
 
-    scenarios = {
-        scenario_id: scenario
-        for path in scenarios_paths
-        for scenario_id, scenario in load_from_path(path).items()
-    }
+    all_files = [
+        file for path in scenarios_paths for file in _get_files_from_path(path)
+    ]
+    scenarios = get_scenarios(all_files)
 
     datasets = {
         "phase2": {
