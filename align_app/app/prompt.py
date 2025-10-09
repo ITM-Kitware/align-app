@@ -59,11 +59,11 @@ def extract_base_scenarios(scenarios: Dict) -> List[Dict]:
 
 def get_scenes_for_base_scenario(scenarios: Dict, scenario_id: str) -> List[Dict]:
     """Get all scene IDs for a given base scenario."""
-    matching_scenarios = [
-        (scenario["scene_id"], scenario.get("display_state", "").split("\n")[0])
+    scene_map = {
+        scenario["scene_id"]: scenario.get("display_state", "").split("\n")[0]
         for scenario in scenarios.values()
         if scenario["scenario_id"] == scenario_id
-    ]
+    }
 
     return [
         {
@@ -72,7 +72,7 @@ def get_scenes_for_base_scenario(scenarios: Dict, scenario_id: str) -> List[Dict
             if len(text) > 50
             else f"{scene_id} - {text}",
         }
-        for scene_id, text in sorted(matching_scenarios)
+        for scene_id, text in scene_map.items()
     ]
 
 
