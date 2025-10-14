@@ -495,9 +495,8 @@ class EditableScenarioPanel(vuetify3.VExpansionPanel):
 class SearchField(html.Div):
     """Search field with dropdown results menu."""
 
-    def __init__(self, server, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.server = server
         with self:
             with vuetify3.VMenu(
                 v_model=("search_menu_open",),
@@ -512,8 +511,6 @@ class SearchField(html.Div):
                         prepend_inner_icon="mdi-magnify",
                         clearable=True,
                         hide_details="auto",
-                        clear_click=self.server.controller.clear_search,
-                        focus=(self.server.controller.on_search_focus,),
                         v_bind="props",
                     )
                 with vuetify3.VCard():
@@ -526,9 +523,7 @@ class SearchField(html.Div):
                                 "[index]",
                             ),
                             disabled=("result.id === null",),
-                            active=(
-                                "result.scenario_id === scenario_id && result.scene_id === scene_id",
-                            ),
+                            active=("result.id === prompt_probe_id",),
                         ):
                             with vuetify3.VListItemTitle():
                                 html.Span(
@@ -544,23 +539,20 @@ class SearchField(html.Div):
 
 
 class PromptInput(html.Div):
-    def __init__(self, server, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.server = server
         with self:
             with vuetify3.VCardText():
-                SearchField(server, classes="mb-4")
+                SearchField(classes="mb-4")
                 vuetify3.VSelect(
                     label="Scenario",
                     items=("base_scenarios",),
                     v_model=("scenario_id",),
-                    no_data_text="No matching scenarios",
                 )
                 vuetify3.VSelect(
                     label="Scene",
                     items=("scene_items",),
                     v_model=("scene_id",),
-                    no_data_text="No matching scenes",
                 )
                 with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                     EditableScenarioPanel("prompt_scenario")
@@ -720,4 +712,4 @@ class AlignLayout(SinglePageLayout):
                         with vuetify3.VCol(cols=8):
                             ResultsComparison()
                         with vuetify3.VCol(cols=4):
-                            PromptInput(server)
+                            PromptInput()
