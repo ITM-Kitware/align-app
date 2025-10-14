@@ -1,5 +1,6 @@
 from typing import List, Dict
 from trame.decorators import TrameApp, change, controller
+from rapidfuzz import fuzz, process, utils
 from ..adm.adm_core import (
     get_alignment_descriptions_map,
 )
@@ -235,15 +236,10 @@ class PromptController:
         scenarios = self.scenario_registry.get_scenarios()
         scene_items = get_scenes_for_base_scenario(scenarios, scenario_id)
         self.server.state.scene_items = scene_items
-
-        if scene_items:
-            scene_ids = {item["value"] for item in scene_items}
-            if self.server.state.scene_id not in scene_ids:
-                self.server.state.scene_id = scene_items[0]["value"]
-
-            self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
-                scenarios, scenario_id, self.server.state.scene_id
-            )
+        self.server.state.scene_id = scene_items[0]["value"]
+        self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
+            scenarios, scenario_id, self.server.state.scene_id
+        )
 
     @change("scene_id")
     def on_scene_change(self, scene_id, **_):
@@ -491,21 +487,36 @@ class SearchController:
         }
 
     def update_search_results(self, search_query, **_):
-        if not search_query or len(search_query.strip()) < 2:
+        if not search_query:
             self.server.state.search_results = []
             self.server.state.search_menu_open = False
             return
 
         scenarios = self.scenario_registry.get_scenarios()
-        query_lower = search_query.lower().strip()
+
+        searchable_items = {
+            probe_id: (
+                f"{scenario.get('scenario_id', '')} "
+                f"{scenario.get('scene_id', '')} "
+                f"{scenario.get('display_state', '')} "
+                f"{' '.join(choice.get('unstructured', '') for choice in scenario.get('choices', []))}"
+            )
+            for probe_id, scenario in scenarios.items()
+        }
+
+        matches = process.extract(
+            search_query,
+            searchable_items,
+            scorer=fuzz.token_set_ratio,
+            processor=utils.default_process,
+            limit=200,
+            score_cutoff=80,
+        )
 
         results = [
-            self._create_search_result(probe_id, scenario)
-            for probe_id, scenario in scenarios.items()
-            if query_lower in scenario.get("scenario_id", "").lower()
-            or query_lower in scenario.get("scene_id", "").lower()
-            or query_lower in scenario.get("display_state", "").lower()
-        ][:300]
+            self._create_search_result(probe_id, scenarios[probe_id])
+            for _, _, probe_id in matches
+        ]
 
         self.server.state.search_results = results or [
             {
@@ -528,12 +539,3 @@ class SearchController:
                         "scene_id": result.get("scene_id"),
                     }
                 )
-
-    @controller.add("clear_search")
-    def clear_search(self):
-        self.server.state.search_query = ""
-
-    @controller.add("on_search_focus")
-    def on_search_focus(self):
-        if self.server.state.search_results:
-            self.server.state.search_menu_open = True
