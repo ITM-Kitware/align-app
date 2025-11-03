@@ -4,6 +4,10 @@ import json
 import copy
 import align_system
 from align_system.utils.hydrate_state import p2triage_hydrate_scenario_state
+from align_utils.models import (
+    InputOutputFile,
+    InputOutputItem,
+)
 
 # Default scenarios directory
 DEFAULT_SCENARIOS_PATH = Path(__file__).parent / "input_output_files" / "phase2_july"
@@ -14,40 +18,30 @@ def list_json_files(dir_path: Path):
     return [str(path) for path in dir_path.rglob("*.json")]
 
 
-def is_valid_scenario_file(data):
-    """Check if data has the expected scenario file structure."""
-    if not isinstance(data, list):
-        return False
-    if len(data) == 0:
-        return True
-    first_item = data[0]
-    return isinstance(first_item, dict) and "input" in first_item
-
-
 def load_scenarios(evaluation_file: str):
     try:
-        with open(evaluation_file, "r") as f:
-            dataset = json.load(f)
-    except (json.JSONDecodeError, ValueError):
+        file_path = Path(evaluation_file)
+        input_output = InputOutputFile.load(file_path)
+    except (json.JSONDecodeError, ValueError, FileNotFoundError):
         return {}
 
-    if not is_valid_scenario_file(dataset):
+    if not input_output.data:
         return {}
 
-    def _process_scenario(record):
-        input = record["input"]
-        scene_id = input["full_state"]["meta_info"]["scene_id"]
-        probe_id = f"{input['scenario_id']}.{scene_id}"
+    def _process_scenario(item: InputOutputItem):
+        input_dict = item.input.model_dump()
+        scene_id = input_dict["full_state"]["meta_info"]["scene_id"]
+        probe_id = f"{input_dict['scenario_id']}.{scene_id}"
 
-        input["scene_id"] = scene_id
-        input["probe_id"] = probe_id
+        input_dict["scene_id"] = scene_id
+        input_dict["probe_id"] = probe_id
 
-        if "unstructured" in input["full_state"]:
-            input["display_state"] = input["full_state"]["unstructured"]
+        if "unstructured" in input_dict["full_state"]:
+            input_dict["display_state"] = input_dict["full_state"]["unstructured"]
 
-        return probe_id, input
+        return probe_id, input_dict
 
-    return dict(_process_scenario(record) for record in dataset)
+    return dict(_process_scenario(item) for item in input_output.data)
 
 
 def get_scenarios(files):

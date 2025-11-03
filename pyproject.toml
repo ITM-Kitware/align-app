@@ -39,6 +39,7 @@ hydra-core = "*"
 omegaconf = "*"
 align-system = {git = "https://github.com/ITM-Kitware/align-system.git", rev = "e9f3f3519d07b12fdc0396f573610fb509750bd5"}
 rapidfuzz = "^3.0.0"
+align-utils = "1.1.0"
 
 [tool.poetry.group.app.dependencies]
 pywebview = "*"
