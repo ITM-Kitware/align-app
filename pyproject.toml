@@ -37,7 +37,7 @@ trame = ">=3.7.1"
 trame-vuetify = "*"
 hydra-core = "*"
 omegaconf = "*"
-align-system = {git = "https://github.com/ITM-Kitware/align-system.git", rev = "e9f3f3519d07b12fdc0396f573610fb509750bd5"}
+align-system = {git = "https://github.com/ITM-Kitware/align-system.git", rev = "7705074498591c9d20a4c6d098a0a4f7d5747613"}
 rapidfuzz = "^3.0.0"
 align-utils = "1.1.0"
 
