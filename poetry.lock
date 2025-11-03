@@ -239,8 +239,8 @@ ubelt = "1.3.6"
 [package.source]
 type = "git"
 url = "https://github.com/ITM-Kitware/align-system.git"
-reference = "e9f3f3519d07b12fdc0396f573610fb509750bd5"
-resolved_reference = "e9f3f3519d07b12fdc0396f573610fb509750bd5"
+reference = "7705074498591c9d20a4c6d098a0a4f7d5747613"
+resolved_reference = "7705074498591c9d20a4c6d098a0a4f7d5747613"
 
 [[package]]
 name = "align-utils"
@@ -7308,4 +7308,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<3.13"
-content-hash = "7ce74d2bfa855eda2ba82388b2e87fd00e989c98c3c47149a741912ee67a5280"
+content-hash = "51fd6a948f0f97f8b9da408fc41e24de7267ede7284ff281dafd3ff165858d81"
