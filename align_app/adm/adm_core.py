@@ -25,6 +25,7 @@ from align_system.prompt_engineering.outlines_prompts import (
 # from .action_filtering import filter_actions
 from ..utils.utils import merge_dicts, create_nested_dict_from_path
 from .hydra_config_loader import load_adm_config
+from .probe import Probe
 
 
 def get_icl_data_paths():
@@ -44,28 +45,21 @@ def get_icl_data_paths():
     }
 
 
-def add_default_state_fields(scenario):
-    """Add default environment and supplies fields to scenario if missing.
-    Modifies scenario in place.
+def add_default_state_fields(full_state: Dict[str, Any]):
+    """Add default environment and supplies fields to full_state if missing.
+    Modifies full_state in place.
     """
-    # keep swagger_client validation happy for phase 2 JSON shape
-    if (
-        "environment" not in scenario["full_state"]
-        or not scenario["full_state"]["environment"]
-    ):
-        scenario["full_state"]["environment"] = {}
-    if (
-        "supplies" not in scenario["full_state"]
-        or not scenario["full_state"]["supplies"]
-    ):
-        scenario["full_state"]["supplies"] = {}
+    if "environment" not in full_state or not full_state["environment"]:
+        full_state["environment"] = {}
+    if "supplies" not in full_state or not full_state["supplies"]:
+        full_state["supplies"] = {}
 
 
 def p2triage_hydrate_scenario_state_with_defaults(record):
     """Add default fields if missing (needed for phase2 ICL data) then call original function"""
     record_copy = record.copy()
     record_copy["full_state"] = record_copy["full_state"].copy()
-    add_default_state_fields(record_copy)
+    add_default_state_fields(record_copy["full_state"])
     return p2triage_hydrate_scenario_state(record_copy)
 
 
@@ -114,11 +108,6 @@ class Choice(TypedDict):
     unstructured: str
 
 
-class Scenario(TypedDict):
-    probe_id: str
-    choices: List[Choice]
-
-
 class Attribute(TypedDict):
     type: str
     score: float
@@ -138,12 +127,12 @@ class AlignmentTarget(DictConfig):
     pass
 
 
-class ScenarioAndAlignment(TypedDict):
-    scenario: Scenario
+class ProbeAndAlignment(TypedDict):
+    probe: Probe
     alignment_target: AlignmentTarget
 
 
-class Prompt(ScenarioAndAlignment):
+class Prompt(ProbeAndAlignment):
     decider_params: DeciderParams
 
 
@@ -313,16 +302,26 @@ def get_all_deciders(config_paths=[]):
 decider_names = list(_BASE_DECIDERS.keys())
 
 
-def create_scenario_state(scenario, datasets):
-    """Create a scenario state from a scenario description"""
-    probe_id = scenario["probe_id"]
-    dataset_name = get_dataset_name_from_datasets(probe_id, datasets)
+def create_probe_state(probe: Probe, datasets):
+    """Create a probe state from a probe"""
+    dataset_name = get_dataset_name_from_datasets(probe.probe_id, datasets)
     hydration_func = datasets[dataset_name]["scenario_hydration_func"]
-    # Ensure scenario has required fields
-    scenario_copy = scenario.copy()
-    scenario_copy["full_state"] = scenario_copy.get("full_state", {}).copy()
-    add_default_state_fields(scenario_copy)
-    state, actions = hydration_func(scenario_copy)
+
+    full_state = (probe.full_state or {}).copy()
+    add_default_state_fields(full_state)
+
+    probe_dict = {
+        "probe_id": probe.probe_id,
+        "scene_id": probe.scene_id,
+        "scenario_id": probe.scenario_id,
+        "full_state": full_state,
+        "state": probe.state,
+        "choices": probe.choices,
+    }
+    if probe.display_state:
+        probe_dict["display_state"] = probe.display_state
+
+    state, actions = hydration_func(probe_dict)
     return state, actions
 
 
@@ -344,17 +343,27 @@ def attributes_to_alignment_target_dict_conf(
     return OmegaConf.create(target)
 
 
-def build_prompt_data(scenario, llm_backbone, decider, attributes):
-    """Build a prompt data structure from components."""
+def build_prompt_data(
+    probe: Probe, llm_backbone: str, decider: str, attributes: List[Attribute]
+) -> dict:
+    """Build a prompt data structure from components.
+
+    Returns a dict with probe as Probe model (internal representation).
+    """
     return {
         "decider_params": DeciderParams(llm_backbone=llm_backbone, decider=decider),
         "alignment_target": attributes_to_alignment_target_dict_conf(attributes),
-        "scenario": scenario,
+        "probe": probe,
     }
 
 
 def serialize_prompt(prompt: Prompt):
-    """Serialize a prompt for JSON/state storage, removing non-serializable fields."""
+    """Serialize a prompt for JSON/state storage, removing non-serializable fields.
+
+    This is THE serialization boundary - converts Probe to dict for UI state.
+    Input: prompt["probe"] is Probe model
+    Output: prompt["probe"] is dict
+    """
     p = {
         **prompt,
         "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
@@ -362,12 +371,25 @@ def serialize_prompt(prompt: Prompt):
     # Remove non-serializable fields that are only needed internally
     p.pop("datasets", None)
     p.pop("all_deciders", None)
+
+    # Convert Probe to dict for UI state
+    probe: Probe = p["probe"]  # type: ignore[assignment]
+    p["probe"] = {
+        "probe_id": probe.probe_id,
+        "scene_id": probe.scene_id,
+        "scenario_id": probe.scenario_id,
+        "display_state": probe.display_state,
+        "full_state": probe.full_state,
+        "choices": probe.choices,
+        "state": probe.state,
+    }
+
     return copy.deepcopy(p)
 
 
 def get_dataset_name_from_datasets(probe_id, datasets_dict):
     for name, dataset_info in datasets_dict.items():
-        if probe_id in dataset_info["scenarios"]:
+        if probe_id in dataset_info["probes"]:
             return name
     raise ValueError(f"Dataset name for probe ID {probe_id} not found.")
 
@@ -485,17 +507,16 @@ def resolve_decider_config(probe_id, decider, alignment_target, all_deciders, da
     return get_base_decider_config(probe_id, decider, baseline, all_deciders, datasets)
 
 
-def prepare_context(scenario, decider, alignment_target, all_deciders, datasets):
-    state, actions = create_scenario_state(scenario, datasets)
-    probe_id = scenario["probe_id"]
+def prepare_context(probe: Probe, decider, alignment_target, all_deciders, datasets):
+    state, actions = create_probe_state(probe, datasets)
     config = resolve_decider_config(
-        probe_id, decider, alignment_target, all_deciders, datasets
+        probe.probe_id, decider, alignment_target, all_deciders, datasets
     )
-    dataset_name = get_dataset_name_from_datasets(probe_id, datasets)
+    dataset_name = get_dataset_name_from_datasets(probe.probe_id, datasets)
     return {
         "state": state,
         "actions": actions,
-        "scenario_id": probe_id,
+        "scenario_id": probe.probe_id,
         "dataset_name": dataset_name,
         "config": config,
     }
@@ -508,15 +529,14 @@ def get_system_prompt(decider, attributes, probe_id, all_deciders, datasets):
     if not generate_sys_prompt:
         return "Unknown"
 
-    # Get scenario from datasets
-    scenario = None
+    probe = None
     for dataset_info in datasets.values():
-        if probe_id in dataset_info["scenarios"]:
-            scenario = dataset_info["scenarios"][probe_id]
+        if probe_id in dataset_info["probes"]:
+            probe = dataset_info["probes"][probe_id]
             break
 
     alignment_target = attributes_to_alignment_target_dict_conf(attributes)
-    ctx = prepare_context(scenario, decider, alignment_target, all_deciders, datasets)
+    ctx = prepare_context(probe, decider, alignment_target, all_deciders, datasets)
 
     if ctx.get("config") is None:
         # This implies that for the given decider and baseline/aligned posture,
@@ -528,7 +548,8 @@ def get_system_prompt(decider, attributes, probe_id, all_deciders, datasets):
 
 
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
-    probe_id = prompt["scenario"]["probe_id"]
+    probe = prompt["probe"]
+    probe_id = probe.probe_id if isinstance(probe, Probe) else probe["probe_id"]
     decider = prompt["decider_params"]["decider"]
     all_deciders = prompt.get("all_deciders")
     datasets = prompt.get("datasets")
@@ -564,13 +585,23 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     return attribute_map
 
 
-def choose_action(model, prompt: Prompt):
-    scenario = prompt["scenario"]
+def choose_action(model: Any, prompt: Prompt) -> ADMResult:
+    """Execute decision making with the ADM model.
+
+    Args:
+        model: The ADM model instance
+        prompt: Prompt with probe as Probe model (internal representation)
+
+    Returns:
+        ADMResult containing decision and choice_info
+    """
+    probe: Probe = prompt["probe"]
     decider = prompt["decider_params"]["decider"]
     alignment_target = prompt["alignment_target"]
     all_deciders = prompt.get("all_deciders")
     datasets = prompt.get("datasets")
-    ctx = prepare_context(scenario, decider, alignment_target, all_deciders, datasets)
+
+    ctx = prepare_context(probe, decider, alignment_target, all_deciders, datasets)
     func = (
         model.instance.top_level_choose_action
         if hasattr(model.instance, "top_level_choose_action")

@@ -2,7 +2,7 @@ from multiprocessing import Queue, get_context, Manager
 from typing import TypedDict, Any, Optional, Union, Literal, cast
 from enum import Enum
 from .adm_core import DeciderContext, create_adm
-from .scenario_registry import get_dataset_name_for_scenario
+from .probe_registry import get_dataset_name_for_probe
 from ..utils.utils import get_id
 import asyncio
 import gc
@@ -58,7 +58,7 @@ def decider_process_worker(request_queue: Queue, response_queue: Queue):
         nonlocal decider, decider_cleanup, decider_key
         decider_params = context["decider_params"]
         baseline = len(context["alignment_target"].kdma_values) == 0
-        dataset_name = get_dataset_name_for_scenario(context["scenario"])
+        dataset_name = get_dataset_name_for_probe(context["probe"])
         requested_decider_key = (
             decider_params["llm_backbone"],
             decider_params["decider"],
