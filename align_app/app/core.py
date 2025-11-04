@@ -76,10 +76,11 @@ class AlignApp:
 
         adm_result = await get_decision(prompt)
 
+        probe = prompt["probe"]
         choice_idx = next(
             (
                 i
-                for i, choice in enumerate(prompt["scenario"]["choices"])
+                for i, choice in enumerate(probe.choices)
                 if choice["unstructured"] == adm_result.decision["unstructured"]
             ),
             0,
@@ -127,18 +128,18 @@ class AlignApp:
 
             # Build input section
             input_data = {
-                "scenario_id": prompt["scenario"]["scenario_id"],
-                "full_state": prompt["scenario"]["full_state"],
-                "state": prompt["scenario"]["full_state"]["unstructured"],
-                "choices": prompt["scenario"]["choices"],
+                "scenario_id": prompt["probe"]["scenario_id"],
+                "full_state": prompt["probe"]["full_state"],
+                "state": prompt["probe"]["full_state"]["unstructured"],
+                "choices": prompt["probe"]["choices"],
             }
 
             # Build output section
             output_data = {"choice": choice_idx}
 
             # Add action data if available
-            if choice_idx < len(prompt["scenario"]["choices"]):
-                selected_choice = prompt["scenario"]["choices"][choice_idx]
+            if choice_idx < len(prompt["probe"]["choices"]):
+                selected_choice = prompt["probe"]["choices"][choice_idx]
                 output_data["action"] = {
                     "unstructured": selected_choice["unstructured"],
                     "justification": decision.get("justification", ""),

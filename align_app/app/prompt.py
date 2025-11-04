@@ -5,8 +5,9 @@ from ..adm.adm_core import (
     get_alignment_descriptions_map,
 )
 from ..adm.decider_registry import create_decider_registry
-from ..adm.scenario_registry import create_scenario_registry
-from .ui import readable_scenario, prep_for_state
+from ..adm.probe_registry import create_probe_registry
+from ..adm.probe import Probe
+from .ui import readable_probe, prep_for_state
 from ..utils.utils import get_id, readable, debounce
 from .prompt_logic import (
     build_prompt_context,
@@ -15,7 +16,7 @@ from .prompt_logic import (
     select_initial_decider,
     get_max_alignment_attributes,
     get_llm_backbones_from_config,
-    find_scenario_by_base_and_scene,
+    find_probe_by_base_and_scene,
 )
 
 # Maximum number of choices allowed (limited by ADM code)
@@ -47,19 +48,19 @@ def readable_items(items: List) -> List[Dict]:
     ]
 
 
-def extract_base_scenarios(scenarios: Dict) -> List[Dict]:
-    """Extract unique base scenario IDs from all scenarios."""
-    unique_bases = sorted(
-        set(scenario["scenario_id"] for scenario in scenarios.values())
-    )
+def extract_base_scenarios(probes: Dict[str, Probe]) -> List[Dict]:
+    """Extract unique base scenario IDs from all probes."""
+    unique_bases = sorted(set(probe.scenario_id for probe in probes.values()))
     return [{"value": id, "title": id} for id in unique_bases]
 
 
-def get_scenes_for_base_scenario(scenarios: Dict, scenario_id: str) -> List[Dict]:
+def get_scenes_for_base_scenario(
+    probes: Dict[str, Probe], scenario_id: str
+) -> List[Dict]:
     scene_map = {
-        scenario["scene_id"]: scenario.get("display_state", "").split("\n")[0]
-        for scenario in scenarios.values()
-        if scenario["scenario_id"] == scenario_id
+        probe.scene_id: (probe.display_state or "").split("\n")[0]
+        for probe in probes.values()
+        if probe.scenario_id == scenario_id
     }
 
     return [
@@ -76,11 +77,9 @@ def map_ui_to_align_attributes(attributes: List[Dict]) -> List[Dict]:
     return [{"type": a["value"], "score": a["score"]} for a in attributes]
 
 
-def build_scenario_items(scenarios: Dict) -> List[Dict]:
-    """Transform scenarios dict to UI items list."""
-    return [
-        {"value": id, "title": f"{id} - {s['state']}"} for id, s in scenarios.items()
-    ]
+def build_probe_items(probes: Dict) -> List[Dict]:
+    """Transform probes dict to UI items list."""
+    return [{"value": id, "title": f"{id} - {s['state']}"} for id, s in probes.items()]
 
 
 # state manipulation helpers
@@ -127,9 +126,9 @@ class PromptController:
     def __init__(self, server, config_paths=None, scenarios_paths=None):
         self.server = server
         self.server.state.max_choices = MAX_CHOICES
-        self.scenario_registry = create_scenario_registry(scenarios_paths)
+        self.probe_registry = create_probe_registry(scenarios_paths)
         self.decider_api = create_decider_registry(
-            config_paths or [], self.scenario_registry
+            config_paths or [], self.probe_registry
         )
         self.server.state.change("decider", "prompt_probe_id")(
             debounce(COMPUTE_SYSTEM_PROMPT_DEBOUNCE_TIME, self.server.state)(
@@ -141,38 +140,38 @@ class PromptController:
                 self.compute_alignment_descriptions
             )
         )
-        self.search_controller = SearchController(server, self.scenario_registry)
+        self.search_controller = SearchController(server, self.probe_registry)
         self.init_state()
 
     def update_scenarios(self):
         """Update the scenarios list in state."""
-        scenarios = self.scenario_registry.get_scenarios()
-        items = build_scenario_items(scenarios)
+        probes = self.probe_registry.get_probes()
+        items = build_probe_items(probes)
         self.server.state.scenarios = items
 
-        base_scenarios = extract_base_scenarios(scenarios)
+        base_scenarios = extract_base_scenarios(probes)
         self.server.state.base_scenarios = base_scenarios
 
         if base_scenarios:
             self.server.state.scenario_id = base_scenarios[0]["value"]
             scene_items = get_scenes_for_base_scenario(
-                scenarios, self.server.state.scenario_id
+                probes, self.server.state.scenario_id
             )
             self.server.state.scene_items = scene_items
 
             if scene_items:
                 self.server.state.scene_id = scene_items[0]["value"]
-                self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
-                    scenarios,
+                self.server.state.prompt_probe_id = find_probe_by_base_and_scene(
+                    probes,
                     self.server.state.scenario_id,
                     self.server.state.scene_id,
                 )
 
-    def _initialize_edited_fields(self, scenario):
-        """Initialize edited fields from scenario."""
-        self.server.state.edited_scenario_text = scenario.get("display_state", "")
+    def _initialize_edited_fields(self, probe: Probe):
+        """Initialize edited fields from probe."""
+        self.server.state.edited_scenario_text = probe.display_state or ""
         self.server.state.edited_choices = [
-            choice.get("unstructured", "") for choice in scenario.get("choices", [])
+            choice.get("unstructured", "") for choice in (probe.choices or [])
         ]
 
     def update_deciders(self):
@@ -194,7 +193,7 @@ class PromptController:
         self.server.state.send_button_disabled = False
         self.server.state.edited_scenario_text = ""
         self.server.state.edited_choices = []
-        self.server.state.prompt_scenario = {}
+        self.server.state.prompt_probe = {}
         self.server.state.attribute_targets = []
         self.server.state.possible_alignment_attributes = []
         self.server.state.max_alignment_attributes = 0
@@ -214,10 +213,11 @@ class PromptController:
 
         if self.server.state.llm_backbones:
             self.server.state.llm_backbone = self.server.state.llm_backbones[0]
-        if self.server.state.scenarios:
-            first_probe_id = self.server.state.scenarios[0]["value"]
-            first_scenario = self.scenario_registry.get_scenario(first_probe_id)
-            self._initialize_edited_fields(first_scenario)
+        if self.server.state.prompt_probe_id:
+            first_probe = self.probe_registry.get_probe(
+                self.server.state.prompt_probe_id
+            )
+            self._initialize_edited_fields(first_probe)
 
         # Initialize computed values
         self.compute_possible_alignment_attributes()
@@ -233,27 +233,27 @@ class PromptController:
     @change("scenario_id")
     def on_base_scenario_change(self, scenario_id, **_):
         """Handle base scenario selection change."""
-        scenarios = self.scenario_registry.get_scenarios()
-        scene_items = get_scenes_for_base_scenario(scenarios, scenario_id)
+        probes = self.probe_registry.get_probes()
+        scene_items = get_scenes_for_base_scenario(probes, scenario_id)
         self.server.state.scene_items = scene_items
         self.server.state.scene_id = scene_items[0]["value"]
-        self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
-            scenarios, scenario_id, self.server.state.scene_id
+        self.server.state.prompt_probe_id = find_probe_by_base_and_scene(
+            probes, scenario_id, self.server.state.scene_id
         )
 
     @change("scene_id")
     def on_scene_change(self, scene_id, **_):
         """Handle scene selection change."""
-        scenarios = self.scenario_registry.get_scenarios()
-        self.server.state.prompt_probe_id = find_scenario_by_base_and_scene(
-            scenarios, self.server.state.scenario_id, scene_id
+        probes = self.probe_registry.get_probes()
+        self.server.state.prompt_probe_id = find_probe_by_base_and_scene(
+            probes, self.server.state.scenario_id, scene_id
         )
 
     @change("prompt_probe_id")
     def on_scenario_change(self, prompt_probe_id, **_):
-        s = self.scenario_registry.get_scenario(prompt_probe_id)
-        self.server.state.prompt_scenario = readable_scenario(s)
-        self._initialize_edited_fields(s)
+        probe = self.probe_registry.get_probe(prompt_probe_id)
+        self.server.state.prompt_probe = readable_probe(probe)
+        self._initialize_edited_fields(probe)
 
     def get_prompt(self):
         """Build complete prompt context with edited values."""
@@ -266,7 +266,7 @@ class PromptController:
             edited_text=self.server.state.edited_scenario_text,
             edited_choices=self.server.state.edited_choices,
             decider_registry=self.decider_api,
-            scenario_registry=self.scenario_registry,
+            probe_registry=self.probe_registry,
         )
 
     @controller.add("add_choice")
@@ -421,7 +421,7 @@ class PromptController:
 
     @change("prompt_probe_id", "decider")
     def limit_to_dataset_alignment_attributes(self, **_):
-        valid_attributes = self.scenario_registry.get_attributes(
+        valid_attributes = self.probe_registry.get_attributes(
             self.server.state.prompt_probe_id, self.server.state.decider
         )
         self.server.state.alignment_attributes = filter_valid_attributes(
@@ -430,7 +430,7 @@ class PromptController:
 
     @change("prompt_probe_id", "decider")
     def compute_possible_alignment_attributes(self, **_):
-        attrs = self.scenario_registry.get_attributes(
+        attrs = self.probe_registry.get_attributes(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
@@ -465,9 +465,9 @@ class PromptController:
 class SearchController:
     """Controller for search functionality with dropdown menu."""
 
-    def __init__(self, server, scenario_registry):
+    def __init__(self, server, probe_registry):
         self.server = server
-        self.scenario_registry = scenario_registry
+        self.probe_registry = probe_registry
         self.server.state.search_query = ""
         self.server.state.search_results = []
         self.server.state.search_menu_open = False
@@ -475,14 +475,14 @@ class SearchController:
             debounce(0.2, self.server.state)(self.update_search_results)
         )
 
-    def _create_search_result(self, probe_id, scenario):
-        display_state = scenario.get("display_state", "")
+    def _create_search_result(self, probe_id, probe: Probe):
+        display_state = probe.display_state or ""
         display_text = display_state.split("\n")[0] if display_state else ""
         display_text = f"{display_text[:60]}{'...' if len(display_text) > 60 else ''}"
         return {
             "id": probe_id,
-            "scenario_id": scenario.get("scenario_id", ""),
-            "scene_id": scenario.get("scene_id", ""),
+            "scenario_id": probe.scenario_id,
+            "scene_id": probe.scene_id,
             "display_text": display_text,
         }
 
@@ -492,16 +492,16 @@ class SearchController:
             self.server.state.search_menu_open = False
             return
 
-        scenarios = self.scenario_registry.get_scenarios()
+        probes = self.probe_registry.get_probes()
 
         searchable_items = {
             probe_id: (
-                f"{scenario.get('scenario_id', '')} "
-                f"{scenario.get('scene_id', '')} "
-                f"{scenario.get('display_state', '')} "
-                f"{' '.join(choice.get('unstructured', '') for choice in scenario.get('choices', []))}"
+                f"{probe.scenario_id} "
+                f"{probe.scene_id} "
+                f"{probe.display_state or ''} "
+                f"{' '.join(choice.get('unstructured', '') for choice in (probe.choices or []))}"
             )
-            for probe_id, scenario in scenarios.items()
+            for probe_id, probe in probes.items()
         }
 
         matches = process.extract(
@@ -514,7 +514,7 @@ class SearchController:
         )
 
         results = [
-            self._create_search_result(probe_id, scenarios[probe_id])
+            self._create_search_result(probe_id, probes[probe_id])
             for _, _, probe_id in matches
         ]
 

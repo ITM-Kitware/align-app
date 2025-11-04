@@ -6,6 +6,7 @@ from ..adm.adm_core import (
     Attribute,
     build_prompt_data,
 )
+from ..adm.probe import Probe
 
 
 def create_default_choice(index: int, text: str) -> Dict[str, Any]:
@@ -93,14 +94,14 @@ def get_llm_backbones_from_config(decider_configs: Dict) -> List[str]:
     return ["N/A"]
 
 
-def find_scenario_by_base_and_scene(
-    scenarios: Dict, base_id: str, scene_id: str
+def find_probe_by_base_and_scene(
+    probes: Dict[str, Probe], base_id: str, scene_id: str
 ) -> str:
     """Find the full probe_id given base and scene IDs."""
     matches = [
         probe_id
-        for probe_id, scenario in scenarios.items()
-        if scenario["scenario_id"] == base_id and scenario["scene_id"] == scene_id
+        for probe_id, probe in probes.items()
+        if probe.scenario_id == base_id and probe.scene_id == scene_id
     ]
     return matches[0] if matches else ""
 
@@ -114,40 +115,42 @@ def build_prompt_context(
     edited_text: str,
     edited_choices: List[str],
     decider_registry,
-    scenario_registry,
+    probe_registry,
 ) -> Dict:
     mapped_attributes: List[Attribute] = [
         Attribute(type=a["value"], score=a["score"]) for a in attributes
     ]
 
-    scenario = scenario_registry.get_scenario(probe_id)
+    probe = probe_registry.get_probe(probe_id)
 
-    prompt_data = build_prompt_data(scenario, llm_backbone, decider, mapped_attributes)
+    prompt_data = build_prompt_data(probe, llm_backbone, decider, mapped_attributes)
 
     resolved_config = decider_registry.resolve_decider_config(
-        scenario["probe_id"],
+        probe.probe_id,
         prompt_data["decider_params"]["decider"],
         prompt_data["alignment_target"],
     )
 
-    original_choices = cast(List[Dict], scenario.get("choices", []))
+    original_choices = cast(List[Dict], probe.choices or [])
     edited_choices_list = build_choices_from_edited(edited_choices, original_choices)
 
-    updated_scenario = {
-        **scenario,
-        "display_state": edited_text,
-        "full_state": {
-            **cast(Dict, scenario.get("full_state", {})),
-            "unstructured": edited_text,
-        },
-        "choices": edited_choices_list,
-    }
+    updated_full_state = copy.deepcopy(probe.full_state) or {}
+    updated_full_state["unstructured"] = edited_text
+
+    updated_probe = probe.model_copy(
+        update={
+            "display_state": edited_text,
+        }
+    )
+
+    updated_probe.item.input.full_state = updated_full_state
+    updated_probe.item.input.choices = edited_choices_list
 
     return {
         **prompt_data,
         "system_prompt": system_prompt,
         "resolved_config": resolved_config,
-        "scenario": updated_scenario,
+        "probe": updated_probe,
         "all_deciders": decider_registry.get_all_deciders(),
-        "datasets": scenario_registry.get_datasets(),
+        "datasets": probe_registry.get_datasets(),
     }

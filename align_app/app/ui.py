@@ -22,17 +22,37 @@ CHOICE_INFO_DESCRIPTIONS = {
 }
 
 
-def readable_scenario(scenario):
-    characters = scenario["full_state"]["characters"]
-    readable_characters = [
-        {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
-        for c in characters
-    ]
+def readable_probe(probe):
+    from ..adm.probe import Probe
 
-    return {
-        **scenario,
-        "full_state": {**scenario["full_state"], "characters": readable_characters},
-    }
+    if isinstance(probe, Probe):
+        full_state = probe.full_state or {}
+        characters = full_state.get("characters", [])
+        readable_characters = [
+            {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
+            for c in characters
+        ]
+
+        return {
+            "probe_id": probe.probe_id,
+            "scene_id": probe.scene_id,
+            "scenario_id": probe.scenario_id,
+            "display_state": probe.display_state,
+            "full_state": {**full_state, "characters": readable_characters},
+            "choices": probe.choices,
+            "state": probe.state,
+        }
+    else:
+        characters = probe["full_state"]["characters"]
+        readable_characters = [
+            {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
+            for c in characters
+        ]
+
+        return {
+            **probe,
+            "full_state": {**probe["full_state"], "characters": readable_characters},
+        }
 
 
 def readable_attribute(kdma_value, descriptions):
@@ -58,7 +78,7 @@ def prep_for_state(prompt: Prompt):
         ],
     }
     p["decider_params"]["decider"] = readable(p["decider_params"]["decider"])
-    p["scenario"] = readable_scenario(p["scenario"])
+    p["probe"] = readable_probe(p["probe"])
     return p
 
 
@@ -276,16 +296,16 @@ class SystemPrompt:
             RowWithLabel(run_content=run_content)
 
 
-class ScenarioLayout:
-    def __init__(self, scenario):
+class ProbeLayout:
+    def __init__(self, probe):
         html.Div("Situation", classes="text-h6")
-        html.P(f"{{{{{scenario}.display_state}}}}", style="white-space: pre-wrap;")
+        html.P(f"{{{{{probe}.display_state}}}}", style="white-space: pre-wrap;")
         html.Div("Choices", classes="text-h6 pt-4")
         with html.Ol(classes="ml-8", type="A"):
-            html.Li("{{choice.unstructured}}", v_for=(f"choice in {scenario}.choices"))
+            html.Li("{{choice.unstructured}}", v_for=(f"choice in {probe}.choices"))
 
 
-class EditableScenarioLayout(html.Div):
+class EditableProbeLayout(html.Div):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self:
@@ -341,13 +361,13 @@ class EditableScenarioLayout(html.Div):
                 )
 
 
-class Scenario:
+class Probe:
     class Title:
         def __init__(self):
             def run_content():
                 html.Span(
-                    "{{runs[id].prompt.scenario.probe_id}} - "
-                    "{{runs[id].prompt.scenario.full_state.unstructured}}",
+                    "{{runs[id].prompt.probe.probe_id}} - "
+                    "{{runs[id].prompt.probe.full_state.unstructured}}",
                 )
 
             RowWithLabel(run_content=run_content, label="Scenario")
@@ -355,7 +375,7 @@ class Scenario:
     class Text:
         def __init__(self):
             def run_content():
-                ScenarioLayout("runs[id].prompt.scenario")
+                ProbeLayout("runs[id].prompt.probe")
 
             RowWithLabel(run_content=run_content)
 
@@ -455,7 +475,7 @@ class ResultsComparison(html.Div):
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                 PanelSection(child=RunNumber)
-                PanelSection(child=Scenario)
+                PanelSection(child=Probe)
                 PanelSection(child=Decider)
                 PanelSection(child=Alignment)
                 PanelSection(child=SystemPrompt)
@@ -464,32 +484,32 @@ class ResultsComparison(html.Div):
                 PanelSection(child=ChoiceInfo)
 
 
-class ScenarioPanel(vuetify3.VExpansionPanel):
-    def __init__(self, scenario, **kwargs):
+class ProbePanel(vuetify3.VExpansionPanel):
+    def __init__(self, probe, **kwargs):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VExpansionPanelTitle():
                 with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
                     html.Span(
-                        f"{{{{{scenario}.probe_id}}}} - "
-                        f"{{{{{scenario}.full_state.unstructured}}}}",
+                        f"{{{{{probe}.probe_id}}}} - "
+                        f"{{{{{probe}.full_state.unstructured}}}}",
                     )
             with vuetify3.VExpansionPanelText():
-                ScenarioLayout(scenario)
+                ProbeLayout(probe)
 
 
-class EditableScenarioPanel(vuetify3.VExpansionPanel):
-    def __init__(self, scenario, **kwargs):
+class EditableProbePanel(vuetify3.VExpansionPanel):
+    def __init__(self, probe, **kwargs):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VExpansionPanelTitle():
                 with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
                     html.Span(
-                        f"{{{{{scenario}.scene_id}}}} - "
-                        f"{{{{{scenario}.full_state.unstructured}}}}",
+                        f"{{{{{probe}.scene_id}}}} - "
+                        f"{{{{{probe}.full_state.unstructured}}}}",
                     )
             with vuetify3.VExpansionPanelText():
-                EditableScenarioLayout()
+                EditableProbeLayout()
 
 
 class SearchField(html.Div):
@@ -555,7 +575,7 @@ class PromptInput(html.Div):
                     v_model=("scene_id",),
                 )
                 with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                    EditableScenarioPanel("prompt_scenario")
+                    EditableProbePanel("prompt_probe")
 
                 vuetify3.VSelect(
                     classes="mt-6",
