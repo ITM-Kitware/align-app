@@ -2,7 +2,6 @@ from collections import namedtuple
 from pathlib import Path
 import json
 import align_system
-from align_system.utils.hydrate_state import p2triage_hydrate_scenario_state
 from align_utils.models import (
     InputOutputFile,
     InputOutputItem,
@@ -99,7 +98,6 @@ def create_probe_registry(scenarios_paths=None):
     datasets = {
         "phase2": {
             "probes": probes,
-            "scenario_hydration_func": p2triage_hydrate_scenario_state,
             "attributes": {
                 "medical": {"possible_scores": "continuous"},
                 "affiliation": {"possible_scores": "continuous"},

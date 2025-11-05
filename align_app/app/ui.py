@@ -75,36 +75,22 @@ class AlignmentInfoRenderer(html.Ul):
 
 
 def readable_probe(probe):
-    from ..adm.probe import Probe
+    full_state = probe.full_state or {}
+    characters = full_state.get("characters", [])
+    readable_characters = [
+        {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
+        for c in characters
+    ]
 
-    if isinstance(probe, Probe):
-        full_state = probe.full_state or {}
-        characters = full_state.get("characters", [])
-        readable_characters = [
-            {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
-            for c in characters
-        ]
-
-        return {
-            "probe_id": probe.probe_id,
-            "scene_id": probe.scene_id,
-            "scenario_id": probe.scenario_id,
-            "display_state": probe.display_state,
-            "full_state": {**full_state, "characters": readable_characters},
-            "choices": probe.choices,
-            "state": probe.state,
-        }
-    else:
-        characters = probe["full_state"]["characters"]
-        readable_characters = [
-            {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
-            for c in characters
-        ]
-
-        return {
-            **probe,
-            "full_state": {**probe["full_state"], "characters": readable_characters},
-        }
+    return {
+        "probe_id": probe.probe_id,
+        "scene_id": probe.scene_id,
+        "scenario_id": probe.scenario_id,
+        "display_state": probe.display_state,
+        "full_state": {**full_state, "characters": readable_characters},
+        "choices": probe.choices,
+        "state": probe.state,
+    }
 
 
 def readable_attribute(kdma_value, descriptions):
@@ -135,7 +121,7 @@ def prep_for_state(prompt: Prompt):
             **p["decider_params"],
             "decider": readable(p["decider_params"]["decider"]),
         },
-        "probe": readable_probe(p["probe"]),
+        "probe": readable_probe(prompt["probe"]),
     }
     return result
 

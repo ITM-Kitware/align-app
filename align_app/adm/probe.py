@@ -83,35 +83,3 @@ class Probe(BaseModel):
     def choices(self) -> Optional[list]:
         """Convenience property to access choices from the input."""
         return self.item.input.choices
-
-    def __getitem__(self, key: str) -> Any:
-        """
-        Support dictionary-style access for backward compatibility during migration.
-
-        This allows both probe.field and probe["field"] syntax to work.
-        """
-        if key == "probe_id":
-            return self.probe_id
-        elif key == "scene_id":
-            return self.scene_id
-        elif key == "display_state":
-            return self.display_state
-        elif key == "scenario_id":
-            return self.scenario_id
-        elif key == "full_state":
-            return self.full_state
-        elif key == "state":
-            return self.state
-        elif key == "choices":
-            return self.choices
-        else:
-            raise KeyError(f"Key '{key}' not found in Probe")
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """
-        Support dict.get() pattern for backward compatibility.
-        """
-        try:
-            return self[key]
-        except KeyError:
-            return default

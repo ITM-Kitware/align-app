@@ -108,68 +108,55 @@ class TestProbeProperties:
         assert probe.choices[0]["unstructured"] == "Choice 1"
 
 
-class TestProbeDictStyleAccess:
-    def test_getitem_probe_id(self):
+class TestProbeAttributeAccess:
+    def test_attribute_probe_id(self):
         item = create_test_input_output_item()
         probe = Probe.from_input_output_item(item)
 
-        assert probe["probe_id"] == "test-scenario.scene-1"
+        assert probe.probe_id == "test-scenario.scene-1"
 
-    def test_getitem_scene_id(self):
+    def test_attribute_scene_id(self):
         item = create_test_input_output_item(scene_id="custom-scene")
         probe = Probe.from_input_output_item(item)
 
-        assert probe["scene_id"] == "custom-scene"
+        assert probe.scene_id == "custom-scene"
 
-    def test_getitem_scenario_id(self):
+    def test_attribute_scenario_id(self):
         item = create_test_input_output_item(scenario_id="custom-scenario")
         probe = Probe.from_input_output_item(item)
 
-        assert probe["scenario_id"] == "custom-scenario"
+        assert probe.scenario_id == "custom-scenario"
 
-    def test_getitem_display_state(self):
+    def test_attribute_display_state(self):
         item = create_test_input_output_item()
         probe = Probe.from_input_output_item(item)
 
-        assert probe["display_state"] == "Test scenario description"
+        assert probe.display_state == "Test scenario description"
 
-    def test_getitem_full_state(self):
+    def test_attribute_full_state(self):
         item = create_test_input_output_item()
         probe = Probe.from_input_output_item(item)
 
-        assert probe["full_state"]["meta_info"]["scene_id"] == "scene-1"
+        assert probe.full_state["meta_info"]["scene_id"] == "scene-1"
 
-    def test_getitem_state(self):
+    def test_attribute_state(self):
         item = create_test_input_output_item()
         probe = Probe.from_input_output_item(item)
 
-        assert probe["state"] == "Test state"
+        assert probe.state == "Test state"
 
-    def test_getitem_choices(self):
+    def test_attribute_choices(self):
         item = create_test_input_output_item()
         probe = Probe.from_input_output_item(item)
 
-        assert len(probe["choices"]) == 2
+        assert len(probe.choices) == 2
 
-    def test_getitem_invalid_key(self):
+    def test_attribute_invalid_key(self):
         item = create_test_input_output_item()
         probe = Probe.from_input_output_item(item)
 
-        with pytest.raises(KeyError, match="Key 'invalid' not found"):
-            _ = probe["invalid"]
-
-    def test_get_with_valid_key(self):
-        item = create_test_input_output_item()
-        probe = Probe.from_input_output_item(item)
-
-        assert probe.get("probe_id") == "test-scenario.scene-1"
-
-    def test_get_with_invalid_key_returns_default(self):
-        item = create_test_input_output_item()
-        probe = Probe.from_input_output_item(item)
-
-        assert probe.get("invalid") is None
-        assert probe.get("invalid", "default") == "default"
+        with pytest.raises(AttributeError):
+            _ = probe.invalid
 
 
 class TestProbeValidation:

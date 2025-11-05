@@ -330,15 +330,12 @@ def probe_to_dict(probe: Probe) -> Dict[str, Any]:
     }
 
 
-def create_probe_state(probe: Probe, datasets: Dict[str, Any]):
+def create_probe_state(probe: Probe):
     """Create a probe state from a probe"""
-    dataset_name = get_dataset_name_from_datasets(probe.probe_id, datasets)
-    hydration_func = datasets[dataset_name]["scenario_hydration_func"]
-
     probe_dict = probe_to_dict(probe)
     probe_dict["full_state"] = add_default_state_fields(probe.full_state or {})
 
-    state, actions = hydration_func(probe_dict)
+    state, actions = p2triage_hydrate_scenario_state(probe_dict)
     return state, actions
 
 
@@ -534,16 +531,14 @@ def prepare_context(
     all_deciders: Dict[str, Any],
     datasets: Dict[str, Any],
 ) -> Dict[str, Any]:
-    state, actions = create_probe_state(probe, datasets)
+    state, actions = create_probe_state(probe)
     config = resolve_decider_config(
         probe.probe_id, decider, alignment_target, all_deciders, datasets
     )
-    dataset_name = get_dataset_name_from_datasets(probe.probe_id, datasets)
     return {
         "state": state,
         "actions": actions,
         "scenario_id": probe.probe_id,
-        "dataset_name": dataset_name,
         "config": config,
     }
 
