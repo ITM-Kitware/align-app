@@ -199,8 +199,8 @@ class PanelSection(vuetify3.VExpansionPanel):
 class RowWithLabel:
     def __init__(self, run_content=noop, label="", no_runs=None):
         title = bool(label)
-        with vuetify3.VRow(style="max-width: 100%;"):
-            with vuetify3.VCol(cols=2, classes="align-self-center"):
+        with vuetify3.VRow(no_gutters=False, classes="flex-nowrap overflow-hidden"):
+            with vuetify3.VCol(cols=2, classes="align-self-center flex-shrink-0"):
                 html.Span(label, classes="text-h6")
             with vuetify3.VCol(
                 v_for=("(id, column) in runs_to_compare",),
@@ -209,7 +209,7 @@ class RowWithLabel:
                 classes=(
                     "text-subtitle-1 text-no-wrap text-truncate align-self-center"
                     if title
-                    else ""
+                    else "align-self-start text-break"
                 ),
             ):
                 run_content()
