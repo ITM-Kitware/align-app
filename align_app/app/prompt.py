@@ -79,7 +79,7 @@ def map_ui_to_align_attributes(attributes: List[Dict]) -> List[Dict]:
 
 def build_probe_items(probes: Dict) -> List[Dict]:
     """Transform probes dict to UI items list."""
-    return [{"value": id, "title": f"{id} - {s['state']}"} for id, s in probes.items()]
+    return [{"value": id, "title": f"{id} - {s.state}"} for id, s in probes.items()]
 
 
 # state manipulation helpers
