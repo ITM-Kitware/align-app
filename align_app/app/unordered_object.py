@@ -49,6 +49,13 @@ class ArrayValue(html.Span):
                 html.Span(f"{{{{{array_expr}.join(', ')}}}}")
 
 
+class PlainValue(html.Span):
+    def __init__(self, value_expr, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            html.Span(f"{{{{{value_expr}}}}}")
+
+
 class SimpleValue(html.Span):
     def __init__(self, value_expr, **kwargs):
         super().__init__(**kwargs)
@@ -94,4 +101,53 @@ class UnorderedObject(html.Ul):
             ):
                 html.Span("{{key}}: ")
                 ObjectProperty("value")
+            html.Div("No Object", v_else=True)
+
+
+class PlainNestedObjectRenderer(html.Ul):
+    def __init__(self, obj_expr, **kwargs):
+        super().__init__(classes="ml-4", **kwargs)
+        with self:
+            with html.Li(v_for=(f"[k, v] in Object.entries({obj_expr})",)):
+                html.Span("{{k.charAt(0).toUpperCase() + k.slice(1)}}: ")
+                PlainValue("v")
+
+
+class PlainObjectProperty(html.Span):
+    def __init__(self, value_expr, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with html.Template(
+                v_if=(
+                    f"typeof {value_expr} === 'object' && {value_expr} !== null && !Array.isArray({value_expr})",
+                )
+            ):
+                PlainNestedObjectRenderer(value_expr)
+            with html.Template(
+                v_else_if=(
+                    f"typeof {value_expr} === 'string' && "
+                    f"({value_expr}.trim()[0] === '{{' || {value_expr}.trim()[0] === '[')",
+                )
+            ):
+                with html.Template(
+                    v_if=(
+                        f"(() => {{ try {{ JSON.parse({value_expr}); return true; }} catch {{ return false; }} }})()",
+                    )
+                ):
+                    PlainNestedObjectRenderer(f"JSON.parse({value_expr})")
+                with html.Template(v_else=True):
+                    PlainValue(value_expr)
+            with html.Template(v_else=True):
+                PlainValue(value_expr)
+
+
+class PlainUnorderedObject(html.Ul):
+    def __init__(self, obj, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with html.Li(
+                v_if=f"{obj}", v_for=(f"[key, value] in Object.entries({obj})",)
+            ):
+                html.Span("{{key}}: ")
+                PlainObjectProperty("value")
             html.Div("No Object", v_else=True)

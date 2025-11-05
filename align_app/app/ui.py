@@ -2,7 +2,13 @@ from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
 from ..adm.adm_core import serialize_prompt, Prompt, get_alignment_descriptions_map
 from ..utils.utils import noop, readable, readable_sentence, sentence_lines
-from .unordered_object import UnorderedObject, ValueWithProgressBar
+from .unordered_object import (
+    UnorderedObject,
+    ValueWithProgressBar,
+    PlainUnorderedObject,
+    PlainNestedObjectRenderer,
+    PlainObjectProperty,
+)
 
 
 def reload(m=None):
@@ -19,7 +25,52 @@ CHOICE_INFO_DESCRIPTIONS = {
     ),
     "True KDMA values": "Ground-truth KDMA scores from annotations in the training dataset",
     "True relevance": "Ground-truth relevance labels indicating how much a KDMA applies to the scenario",
+    "Alignment info": (
+        "Intermediate calculations from alignment functions showing "
+        "per-KDMA midpoints, relevance weights, and voting decisions"
+    ),
+    "Per step timing stats": "Seconds each step in the pipeline ADM took to execute",
 }
+
+
+class PerKDMARenderer(html.Ul):
+    def __init__(self, per_kdma_expr, **kwargs):
+        super().__init__(classes="ml-4", **kwargs)
+        with self:
+            with html.Li(v_for=(f"[kdma, data] in Object.entries({per_kdma_expr})",)):
+                html.Span("{{kdma}}: ")
+                with html.Template(
+                    v_if=("typeof data === 'string' && data.trim()[0] === '{'")
+                ):
+                    with html.Template(
+                        v_if=(
+                            "(() => { try { JSON.parse(data); return true; } catch { return false; } })()"
+                        )
+                    ):
+                        PlainNestedObjectRenderer("JSON.parse(data)")
+                    with html.Template(v_else=True):
+                        html.Span("{{data}}")
+                with html.Template(
+                    v_else_if=("typeof data === 'object' && data !== null",)
+                ):
+                    PlainNestedObjectRenderer("data")
+                with html.Template(v_else=True):
+                    html.Span("{{data}}")
+
+
+class AlignmentInfoRenderer(html.Ul):
+    def __init__(self, alignment_info_expr, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with html.Li(
+                v_for=(f"[key, value] in Object.entries({alignment_info_expr})",),
+                key=("key",),
+            ):
+                html.Span("{{key}}: ")
+                with html.Template(v_if=("key.toLowerCase() === 'per kdma'",)):
+                    PerKDMARenderer("value")
+                with html.Template(v_else=True):
+                    PlainObjectProperty("value")
 
 
 def readable_probe(probe):
@@ -441,6 +492,12 @@ class ChoiceInfo:
                                 v_if=("key === 'ICL example responses'",)
                             ):
                                 IclExampleListRenderer("value")
+                            with html.Template(v_else_if=("key === 'Alignment info'",)):
+                                AlignmentInfoRenderer("value")
+                            with html.Template(
+                                v_else_if=("key === 'Per step timing stats'",)
+                            ):
+                                PlainUnorderedObject("value")
                             with html.Template(v_else=True):
                                 UnorderedObject("value")
 
