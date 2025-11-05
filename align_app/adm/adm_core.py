@@ -45,21 +45,21 @@ def get_icl_data_paths():
     }
 
 
-def add_default_state_fields(full_state: Dict[str, Any]):
+def add_default_state_fields(full_state: Dict[str, Any]) -> Dict[str, Any]:
     """Add default environment and supplies fields to full_state if missing.
-    Modifies full_state in place.
+    Returns a new dict with defaults applied.
     """
-    if "environment" not in full_state or not full_state["environment"]:
-        full_state["environment"] = {}
-    if "supplies" not in full_state or not full_state["supplies"]:
-        full_state["supplies"] = {}
+    return {
+        **full_state,
+        "environment": full_state.get("environment") or {},
+        "supplies": full_state.get("supplies") or {},
+    }
 
 
 def p2triage_hydrate_scenario_state_with_defaults(record):
     """Add default fields if missing (needed for phase2 ICL data) then call original function"""
     record_copy = record.copy()
-    record_copy["full_state"] = record_copy["full_state"].copy()
-    add_default_state_fields(record_copy["full_state"])
+    record_copy["full_state"] = add_default_state_fields(record_copy["full_state"])
     return p2triage_hydrate_scenario_state(record_copy)
 
 
@@ -134,6 +134,16 @@ class ProbeAndAlignment(TypedDict):
 
 class Prompt(ProbeAndAlignment):
     decider_params: DeciderParams
+
+
+class SerializedProbeAndAlignment(TypedDict):
+    probe: dict
+    alignment_target: AlignmentTarget
+
+
+class SerializedPrompt(SerializedProbeAndAlignment):
+    decider_params: DeciderParams
+    system_prompt: str
 
 
 class DeciderContext(Prompt):
@@ -302,24 +312,31 @@ def get_all_deciders(config_paths=[]):
 decider_names = list(_BASE_DECIDERS.keys())
 
 
-def create_probe_state(probe: Probe, datasets):
+def probe_to_dict(probe: Probe) -> Dict[str, Any]:
+    """
+    Convert Probe to dictionary representation for serialization.
+
+    Returns a dict with all probe fields suitable for JSON serialization
+    or passing to hydration functions.
+    """
+    return {
+        "probe_id": probe.probe_id,
+        "scene_id": probe.scene_id,
+        "scenario_id": probe.scenario_id,
+        "display_state": probe.display_state,
+        "full_state": probe.full_state,
+        "state": probe.state,
+        "choices": probe.choices,
+    }
+
+
+def create_probe_state(probe: Probe, datasets: Dict[str, Any]):
     """Create a probe state from a probe"""
     dataset_name = get_dataset_name_from_datasets(probe.probe_id, datasets)
     hydration_func = datasets[dataset_name]["scenario_hydration_func"]
 
-    full_state = (probe.full_state or {}).copy()
-    add_default_state_fields(full_state)
-
-    probe_dict = {
-        "probe_id": probe.probe_id,
-        "scene_id": probe.scene_id,
-        "scenario_id": probe.scenario_id,
-        "full_state": full_state,
-        "state": probe.state,
-        "choices": probe.choices,
-    }
-    if probe.display_state:
-        probe_dict["display_state"] = probe.display_state
+    probe_dict = probe_to_dict(probe)
+    probe_dict["full_state"] = add_default_state_fields(probe.full_state or {})
 
     state, actions = hydration_func(probe_dict)
     return state, actions
@@ -357,44 +374,47 @@ def build_prompt_data(
     }
 
 
-def serialize_prompt(prompt: Prompt):
+def serialize_prompt(prompt: Prompt) -> SerializedPrompt:
     """Serialize a prompt for JSON/state storage, removing non-serializable fields.
 
     This is THE serialization boundary - converts Probe to dict for UI state.
     Input: prompt["probe"] is Probe model
     Output: prompt["probe"] is dict
     """
-    p = {
-        **prompt,
-        "alignment_target": OmegaConf.to_container(prompt["alignment_target"]),
-    }
-    # Remove non-serializable fields that are only needed internally
-    p.pop("datasets", None)
-    p.pop("all_deciders", None)
+    probe: Probe = prompt["probe"]
+    alignment_target = OmegaConf.to_container(prompt["alignment_target"])
 
-    # Convert Probe to dict for UI state
-    probe: Probe = p["probe"]  # type: ignore[assignment]
-    p["probe"] = {
-        "probe_id": probe.probe_id,
-        "scene_id": probe.scene_id,
-        "scenario_id": probe.scenario_id,
-        "display_state": probe.display_state,
-        "full_state": probe.full_state,
-        "choices": probe.choices,
-        "state": probe.state,
+    system_prompt: str = prompt.get("system_prompt", "")  # type: ignore[assignment]
+    result: SerializedPrompt = {
+        "probe": probe_to_dict(probe),
+        "alignment_target": alignment_target,  # type: ignore[typeddict-item]
+        "decider_params": prompt["decider_params"],
+        "system_prompt": system_prompt,
     }
 
-    return copy.deepcopy(p)
+    return copy.deepcopy(result)
 
 
-def get_dataset_name_from_datasets(probe_id, datasets_dict):
+def get_dataset_name_from_datasets(probe_id: str, datasets_dict: Dict[str, Any]) -> str:
     for name, dataset_info in datasets_dict.items():
         if probe_id in dataset_info["probes"]:
             return name
     raise ValueError(f"Dataset name for probe ID {probe_id} not found.")
 
 
-def get_dataset_decider_configs(probe_id, decider, all_deciders, datasets):
+def get_probe_from_datasets(probe_id: str, datasets: Dict[str, Any]) -> Probe:
+    for dataset_info in datasets.values():
+        if probe_id in dataset_info["probes"]:
+            return dataset_info["probes"][probe_id]
+    raise ValueError(f"Probe '{probe_id}' not found in datasets configuration")
+
+
+def get_dataset_decider_configs(
+    probe_id: str,
+    decider: str,
+    all_deciders: Dict[str, Any],
+    datasets: Dict[str, Any],
+):
     """
     Merges base decider config, common decider config, and dataset-specific
     decider config using the merge_dicts utility.
@@ -507,7 +527,13 @@ def resolve_decider_config(probe_id, decider, alignment_target, all_deciders, da
     return get_base_decider_config(probe_id, decider, baseline, all_deciders, datasets)
 
 
-def prepare_context(probe: Probe, decider, alignment_target, all_deciders, datasets):
+def prepare_context(
+    probe: Probe,
+    decider: str,
+    alignment_target: AlignmentTarget,
+    all_deciders: Dict[str, Any],
+    datasets: Dict[str, Any],
+) -> Dict[str, Any]:
     state, actions = create_probe_state(probe, datasets)
     config = resolve_decider_config(
         probe.probe_id, decider, alignment_target, all_deciders, datasets
@@ -522,19 +548,22 @@ def prepare_context(probe: Probe, decider, alignment_target, all_deciders, datas
     }
 
 
-def get_system_prompt(decider, attributes, probe_id, all_deciders, datasets):
+def get_system_prompt(
+    decider: str,
+    attributes: List[Attribute],
+    probe_id: str,
+    all_deciders: Dict[str, Any],
+    datasets: Dict[str, Any],
+) -> str:
     decider_main_config = all_deciders.get(decider)
+    if not decider_main_config:
+        raise ValueError(f"Decider '{decider}' not found in all_deciders configuration")
 
     generate_sys_prompt = decider_main_config.get("system_prompt_generator")
     if not generate_sys_prompt:
         return "Unknown"
 
-    probe = None
-    for dataset_info in datasets.values():
-        if probe_id in dataset_info["probes"]:
-            probe = dataset_info["probes"][probe_id]
-            break
-
+    probe = get_probe_from_datasets(probe_id, datasets)
     alignment_target = attributes_to_alignment_target_dict_conf(attributes)
     ctx = prepare_context(probe, decider, alignment_target, all_deciders, datasets)
 
@@ -548,8 +577,8 @@ def get_system_prompt(decider, attributes, probe_id, all_deciders, datasets):
 
 
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
-    probe = prompt["probe"]
-    probe_id = probe.probe_id if isinstance(probe, Probe) else probe["probe_id"]
+    probe: Probe = prompt["probe"]
+    probe_id = probe.probe_id
     decider = prompt["decider_params"]["decider"]
     all_deciders = prompt.get("all_deciders")
     datasets = prompt.get("datasets")
@@ -598,8 +627,8 @@ def choose_action(model: Any, prompt: Prompt) -> ADMResult:
     probe: Probe = prompt["probe"]
     decider = prompt["decider_params"]["decider"]
     alignment_target = prompt["alignment_target"]
-    all_deciders = prompt.get("all_deciders")
-    datasets = prompt.get("datasets")
+    all_deciders: Dict[str, Any] = prompt.get("all_deciders", {})  # type: ignore[assignment]
+    datasets: Dict[str, Any] = prompt.get("datasets", {})  # type: ignore[assignment]
 
     ctx = prepare_context(probe, decider, alignment_target, all_deciders, datasets)
     func = (

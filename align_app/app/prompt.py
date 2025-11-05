@@ -169,7 +169,7 @@ class PromptController:
 
     def _initialize_edited_fields(self, probe: Probe):
         """Initialize edited fields from probe."""
-        self.server.state.edited_scenario_text = probe.display_state or ""
+        self.server.state.edited_probe_text = probe.display_state or ""
         self.server.state.edited_choices = [
             choice.get("unstructured", "") for choice in (probe.choices or [])
         ]
@@ -191,7 +191,7 @@ class PromptController:
         self.server.state.alignment_attributes = []
         self.server.state.system_prompt = ""
         self.server.state.send_button_disabled = False
-        self.server.state.edited_scenario_text = ""
+        self.server.state.edited_probe_text = ""
         self.server.state.edited_choices = []
         self.server.state.prompt_probe = {}
         self.server.state.attribute_targets = []
@@ -263,7 +263,7 @@ class PromptController:
             decider=self.server.state.decider,
             attributes=self.server.state.alignment_attributes,
             system_prompt=self.server.state.system_prompt,
-            edited_text=self.server.state.edited_scenario_text,
+            edited_text=self.server.state.edited_probe_text,
             edited_choices=self.server.state.edited_choices,
             decider_registry=self.decider_api,
             probe_registry=self.probe_registry,

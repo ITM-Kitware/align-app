@@ -39,10 +39,16 @@ class Probe(BaseModel):
             Probe instance with derived fields populated
 
         Raises:
-            KeyError: If required fields are missing from the input data
+            ValueError: If required fields are missing from the input data
         """
         if not item.input or not item.input.full_state:
             raise ValueError("InputOutputItem must have input and full_state")
+
+        if (
+            "meta_info" not in item.input.full_state
+            or "scene_id" not in item.input.full_state["meta_info"]
+        ):
+            raise ValueError("InputOutputItem missing required meta_info.scene_id")
 
         scene_id = item.input.full_state["meta_info"]["scene_id"]
         probe_id = f"{item.input.scenario_id}.{scene_id}"

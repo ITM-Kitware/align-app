@@ -1,3 +1,4 @@
+from typing import Any, Dict
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
 from ..adm.adm_core import serialize_prompt, Prompt, get_alignment_descriptions_map
@@ -29,7 +30,7 @@ CHOICE_INFO_DESCRIPTIONS = {
         "Intermediate calculations from alignment functions showing "
         "per-KDMA midpoints, relevance weights, and voting decisions"
     ),
-    "Per step timing stats": "Seconds each step in the pipeline ADM took to execute",
+    "Per step timing stats": "Seconds each pipeline ADM step in the took to execute",
 }
 
 
@@ -121,16 +122,22 @@ def readable_attribute(kdma_value, descriptions):
 def prep_for_state(prompt: Prompt):
     descriptions = get_alignment_descriptions_map(prompt)
     p = serialize_prompt(prompt)
-    p["alignment_target"] = {
-        **p["alignment_target"],
-        "kdma_values": [
-            readable_attribute(a, descriptions)
-            for a in p["alignment_target"]["kdma_values"]
-        ],
+    result: Dict[str, Any] = {
+        **p,
+        "alignment_target": {
+            **p["alignment_target"],
+            "kdma_values": [
+                readable_attribute(a, descriptions)
+                for a in p["alignment_target"]["kdma_values"]
+            ],
+        },
+        "decider_params": {
+            **p["decider_params"],
+            "decider": readable(p["decider_params"]["decider"]),
+        },
+        "probe": readable_probe(p["probe"]),
     }
-    p["decider_params"]["decider"] = readable(p["decider_params"]["decider"])
-    p["probe"] = readable_probe(p["probe"])
-    return p
+    return result
 
 
 def make_keys_readable(obj, max_depth=2, current_depth=0):
@@ -362,7 +369,7 @@ class EditableProbeLayout(html.Div):
         with self:
             html.Div("Situation", classes="text-h6")
             vuetify3.VTextarea(
-                v_model=("edited_scenario_text",),
+                v_model=("edited_probe_text",),
                 auto_grow=True,
                 rows=3,
                 hide_details="auto",
