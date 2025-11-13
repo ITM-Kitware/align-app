@@ -1,7 +1,7 @@
 from trame.app import get_server, asynchronous
 from trame.decorators import TrameApp, controller, change
 from . import ui
-from ..adm.decider import get_decision
+from ..adm.decider import get_decision, DeciderParams
 from .prompt import PromptController
 from ..utils.utils import get_id
 import json
@@ -74,25 +74,32 @@ class AlignApp:
 
         await self.server.network_completion  # let spinner be shown
 
-        adm_result = await get_decision(prompt)
+        params = DeciderParams(
+            scenario_input=prompt["probe"].item.input,
+            alignment_target=prompt["alignment_target"],
+            resolved_config=prompt["resolved_config"],
+        )
+        adm_result = await get_decision(params)
 
         probe = prompt["probe"]
         choice_idx = next(
             (
                 i
                 for i, choice in enumerate(probe.choices)
-                if choice["unstructured"] == adm_result.decision["unstructured"]
+                if choice["unstructured"] == adm_result.decision.unstructured
             ),
             0,
         )
         choice_letter = chr(choice_idx + ord("A"))
 
         # Create decision with choice letter prefix
-        decision_data = adm_result.decision.copy()
+        decision_data = adm_result.decision.model_dump()
         decision_data["unstructured"] = (
             f"{choice_letter}. " + decision_data["unstructured"]
         )
-        decision_data["choice_info"] = adm_result.choice_info
+        decision_data["choice_info"] = adm_result.choice_info.model_dump(
+            exclude_none=True
+        )
 
         # Format for UI display
         formatted_decision = ui.prep_decision_for_state(decision_data)

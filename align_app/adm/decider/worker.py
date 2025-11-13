@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import traceback
 from typing import Dict, Tuple, Callable, Any
 from .executor import instantiate_adm
@@ -23,6 +24,9 @@ def extract_cache_key(resolved_config: Dict[str, Any]) -> str:
 
 
 def decider_process_worker(request_queue, response_queue):
+    root_logger = logging.getLogger()
+    root_logger.setLevel("WARNING")
+
     model_cache: Dict[str, Tuple[Callable, Callable]] = {}
 
     while True:
