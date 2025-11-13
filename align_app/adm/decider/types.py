@@ -1,8 +1,13 @@
-from typing import Dict, Any, Optional, Union, Literal
+from typing import Dict, Any, Optional, Union, Literal, List
 from enum import Enum
 from pydantic import BaseModel, ConfigDict
 from omegaconf import DictConfig
 from align_utils.models import InputData
+
+
+KDMAValue = Union[float, List[float]]
+KDMAChoiceValues = Dict[str, KDMAValue]
+KDMANestedValues = Dict[str, KDMAChoiceValues]
 
 
 class Attribute(BaseModel):
@@ -24,7 +29,7 @@ class ChoiceInfo(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    predicted_kdma_values: Optional[Dict[str, Dict[str, float]]] = None
+    predicted_kdma_values: Optional[KDMANestedValues] = None
     true_kdma_values: Optional[Dict[str, Dict[str, float]]] = None
     true_relevance: Optional[Dict[str, float]] = None
     icl_example_responses: Optional[Dict[str, Any]] = None

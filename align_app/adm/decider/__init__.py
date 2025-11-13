@@ -1,4 +1,5 @@
 from .decider import MultiprocessDecider
+from .client import get_decision
 from .types import (
     RequestType,
     DeciderParams,
@@ -13,6 +14,7 @@ from .types import (
 
 __all__ = [
     "MultiprocessDecider",
+    "get_decision",
     "RequestType",
     "DeciderParams",
     "ADMResult",
