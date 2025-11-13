@@ -3,8 +3,9 @@ import json
 import logging
 import traceback
 from typing import Dict, Tuple, Callable, Any
+from multiprocessing import Queue
 from .executor import instantiate_adm
-from .types import DeciderRequest, DeciderResponse, RequestType
+from .types import DeciderParams, ADMResult
 
 
 def extract_cache_key(resolved_config: Dict[str, Any]) -> str:
@@ -23,48 +24,37 @@ def extract_cache_key(resolved_config: Dict[str, Any]) -> str:
     return "_".join(cache_parts)
 
 
-def decider_process_worker(request_queue, response_queue):
+def decider_worker_func(task_queue: Queue, result_queue: Queue):
     root_logger = logging.getLogger()
     root_logger.setLevel("WARNING")
 
     model_cache: Dict[str, Tuple[Callable, Callable]] = {}
 
-    while True:
-        request = None
-        try:
-            request: DeciderRequest = request_queue.get()
+    try:
+        for task in iter(task_queue.get, None):
+            try:
+                params: DeciderParams = task
+                cache_key = extract_cache_key(params.resolved_config)
 
-            if request.request_type == RequestType.SHUTDOWN:
-                for _, (_, cleanup_func) in model_cache.items():
-                    try:
-                        cleanup_func()
-                    except Exception:
-                        pass
+                if cache_key not in model_cache:
+                    choose_action_func, cleanup_func = instantiate_adm(
+                        params.resolved_config
+                    )
+                    model_cache[cache_key] = (choose_action_func, cleanup_func)
+                else:
+                    choose_action_func, _ = model_cache[cache_key]
+
+                result: ADMResult = choose_action_func(params)
+                result_queue.put(result)
+
+            except (KeyboardInterrupt, SystemExit):
                 break
-
-            params = request.params
-            cache_key = extract_cache_key(params.resolved_config)
-
-            if cache_key not in model_cache:
-                choose_action_func, cleanup_func = instantiate_adm(
-                    params.resolved_config
-                )
-                model_cache[cache_key] = (choose_action_func, cleanup_func)
-            else:
-                choose_action_func, _ = model_cache[cache_key]
-
-            result = choose_action_func(params)
-
-            response = DeciderResponse(
-                request_id=request.request_id, result=result, success=True
-            )
-            response_queue.put(response)
-
-        except Exception as e:
-            error_msg = f"{str(e)}\n{traceback.format_exc()}"
-            response = DeciderResponse(
-                request_id=request.request_id if request else "unknown",
-                error=error_msg,
-                success=False,
-            )
-            response_queue.put(response)
+            except Exception as e:
+                error_msg = f"{str(e)}\n{traceback.format_exc()}"
+                result_queue.put(Exception(error_msg))
+    finally:
+        for _, (_, cleanup_func) in model_cache.items():
+            try:
+                cleanup_func()
+            except Exception:
+                pass
