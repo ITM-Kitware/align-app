@@ -1,9 +1,6 @@
 from pathlib import Path
 import copy
-from typing import TypedDict, List, NamedTuple, Dict, Any
-import gc
-import torch
-from functools import partial
+from typing import TypedDict, List, Dict, Any
 
 import hydra
 from omegaconf import OmegaConf, DictConfig
@@ -14,7 +11,6 @@ from align_system.utils.hydrate_state import (
 )
 from align_system.utils import logging, call_with_coerced_args
 from align_system.utils.alignment_utils import attributes_in_alignment_target
-from align_system.utils.hydra_utils import initialize_with_custom_references
 
 # Import prompt classes at module level to avoid 6.7s delay on first use
 from align_system.prompt_engineering.outlines_prompts import (
@@ -23,9 +19,8 @@ from align_system.prompt_engineering.outlines_prompts import (
 )
 
 # from .action_filtering import filter_actions
-from ..utils.utils import merge_dicts, create_nested_dict_from_path
-from .hydra_config_loader import load_adm_config
 from .probe import Probe
+from .config import resolve_decider_config, get_base_decider_config
 
 
 def get_icl_data_paths():
@@ -67,32 +62,6 @@ def p2triage_hydrate_scenario_state_with_defaults(record):
 align_system.utils.hydrate_state.p2triage_hydrate_scenario_state = (
     p2triage_hydrate_scenario_state_with_defaults
 )
-
-
-class ChoiceInfo(TypedDict, total=False):
-    """Choice info structure - all keys are optional and ADM-dependent"""
-
-    # Known possible keys (all optional)
-    predicted_kdma_values: Dict[str, Dict[str, float]]  # Choice -> KDMA -> score
-    true_kdma_values: Dict[str, Dict[str, float]]  # Choice -> KDMA -> score
-    true_relevance: Dict[str, float]  # KDMA -> relevance
-    icl_example_responses: Dict[str, Any]  # In-context learning examples
-    # Allow any other arbitrary keys that different ADMs might provide
-    # Note: TypedDict with total=False makes all keys optional
-
-
-class Decision(TypedDict):
-    """Decision structure containing only fields used by the app"""
-
-    unstructured: str
-    justification: str
-
-
-class ADMResult(NamedTuple):
-    """Result from ADM containing decision and choice_info"""
-
-    decision: Decision
-    choice_info: ChoiceInfo
 
 
 root_logger = logging.getLogger()
@@ -392,136 +361,11 @@ def serialize_prompt(prompt: Prompt) -> SerializedPrompt:
     return copy.deepcopy(result)
 
 
-def get_dataset_name_from_datasets(probe_id: str, datasets_dict: Dict[str, Any]) -> str:
-    for name, dataset_info in datasets_dict.items():
-        if probe_id in dataset_info["probes"]:
-            return name
-    raise ValueError(f"Dataset name for probe ID {probe_id} not found.")
-
-
 def get_probe_from_datasets(probe_id: str, datasets: Dict[str, Any]) -> Probe:
     for dataset_info in datasets.values():
         if probe_id in dataset_info["probes"]:
             return dataset_info["probes"][probe_id]
     raise ValueError(f"Probe '{probe_id}' not found in datasets configuration")
-
-
-def get_dataset_decider_configs(
-    probe_id: str,
-    decider: str,
-    all_deciders: Dict[str, Any],
-    datasets: Dict[str, Any],
-):
-    """
-    Merges base decider config, common decider config, and dataset-specific
-    decider config using the merge_dicts utility.
-    """
-    dataset_name = get_dataset_name_from_datasets(probe_id, datasets)
-    dataset_specific_config = copy.deepcopy(
-        datasets[dataset_name].get("deciders", {}).get(decider, {})
-    )
-
-    decider_cfg = all_deciders.get(decider)
-
-    if not decider_cfg:
-        # Decider not found - return None to indicate it's not available
-        return None
-
-    # Runtime configs are valid for all datasets
-    # Only check dataset compatibility for non-runtime configs
-    if not decider_cfg.get("runtime_config"):
-        if not dataset_specific_config:
-            if decider not in datasets[dataset_name].get("deciders", {}):
-                return None
-
-    config_path = decider_cfg["config_path"]
-
-    full_cfg = load_adm_config(
-        config_path,
-        str(base_align_system_config_dir),
-    )
-
-    decider_base = full_cfg.get("adm", {})
-
-    common_config = copy.deepcopy(decider_cfg)
-    #  Not needed in the merged config
-    if "config_path" in common_config:
-        del common_config["config_path"]
-
-    # Merge non-posture configurations
-    common_config_no_postures = {
-        k: v for k, v in common_config.items() if k != "postures"
-    }
-    dataset_config_no_postures = {
-        k: v for k, v in dataset_specific_config.items() if k != "postures"
-    }
-    decider_with_postures = merge_dicts(
-        common_config_no_postures, dataset_config_no_postures
-    )
-
-    # Merge postures: Base YAML <- Common Posture Overrides <- Dataset Posture Overrides
-    merged_postures = {}
-    common_postures = common_config.get("postures", {})
-    dataset_postures = dataset_specific_config.get("postures", {})
-
-    posture_keys = set(common_postures.keys()) | set(dataset_postures.keys())
-    for posture in posture_keys:
-        posturing_decider = copy.deepcopy(decider_base)
-
-        common_posture_override = common_postures.get(posture, {})
-        posturing_decider = merge_dicts(posturing_decider, common_posture_override)
-        dataset_posture_override = dataset_postures.get(posture, {})
-        posturing_decider = merge_dicts(posturing_decider, dataset_posture_override)
-
-        merged_postures[posture] = posturing_decider
-
-    decider_with_postures["postures"] = merged_postures
-
-    # Set default max_alignment_attributes for aligned postures
-    if "aligned" in decider_with_postures["postures"]:
-        if (
-            "max_alignment_attributes"
-            not in decider_with_postures["postures"]["aligned"]
-        ):
-            decider_with_postures["postures"]["aligned"]["max_alignment_attributes"] = (
-                10
-            )
-
-    return decider_with_postures
-
-
-def get_base_decider_config(probe_id, decider, baseline, all_deciders, datasets):
-    merged_configs = get_dataset_decider_configs(
-        probe_id, decider, all_deciders, datasets
-    )
-    if merged_configs is None:
-        return None
-
-    alignment = "baseline" if baseline else "aligned"
-    if alignment not in merged_configs["postures"]:
-        return None
-
-    config = merged_configs["postures"][alignment]
-
-    base_config = OmegaConf.create(config)
-
-    if "config_overrides" in merged_configs:
-        overrides = OmegaConf.create(merged_configs["config_overrides"])
-        base_config = OmegaConf.merge(base_config, overrides)
-
-    resolved_config = OmegaConf.to_container(base_config)
-
-    decider_info = all_deciders.get(decider, {})
-    if "model_path_keys" in decider_info:
-        resolved_config["model_path_keys"] = decider_info["model_path_keys"]
-
-    return resolved_config
-
-
-def resolve_decider_config(probe_id, decider, alignment_target, all_deciders, datasets):
-    """Resolve decider config based on alignment target."""
-    baseline = len(alignment_target.kdma_values) == 0
-    return get_base_decider_config(probe_id, decider, baseline, all_deciders, datasets)
 
 
 def prepare_context(
@@ -609,71 +453,3 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     return attribute_map
 
 
-def choose_action(model: Any, prompt: Prompt) -> ADMResult:
-    """Execute decision making with the ADM model.
-
-    Args:
-        model: The ADM model instance
-        prompt: Prompt with probe as Probe model (internal representation)
-
-    Returns:
-        ADMResult containing decision and choice_info
-    """
-    probe: Probe = prompt["probe"]
-    decider = prompt["decider_params"]["decider"]
-    alignment_target = prompt["alignment_target"]
-    all_deciders: Dict[str, Any] = prompt.get("all_deciders", {})  # type: ignore[assignment]
-    datasets: Dict[str, Any] = prompt.get("datasets", {})  # type: ignore[assignment]
-
-    ctx = prepare_context(probe, decider, alignment_target, all_deciders, datasets)
-    func = (
-        model.instance.top_level_choose_action
-        if hasattr(model.instance, "top_level_choose_action")
-        else model.instance.choose_action
-    )
-    result = func(
-        scenario_state=ctx["state"],
-        available_actions=ctx["actions"],
-        alignment_target=alignment_target,
-        **model.get("inference_kwargs", {}),
-        reasoning_max_length=-1,
-        max_generator_tokens=-1,
-        generator_seed=2,
-    )
-    raw_decision = result[0]
-    choice_info = result[1]["choice_info"]
-
-    decision_dict: Decision = {
-        "unstructured": raw_decision.unstructured,
-        "justification": raw_decision.justification,
-    }
-
-    return ADMResult(decision=decision_dict, choice_info=choice_info)
-
-
-def cleanup_generic_adm(_):
-    gc.collect()
-    torch.cuda.empty_cache()
-
-
-def instantiate_adm(decider_config, llm_backbone=""):
-    """Instantiate an ADM from a resolved config."""
-    if decider_config is None:
-        raise ValueError("decider_config is required")
-
-    config = decider_config
-
-    if config.get("model_path_keys") and llm_backbone:
-        model_config = create_nested_dict_from_path(
-            config["model_path_keys"], llm_backbone
-        )
-        config = merge_dicts(config, model_config)
-
-    adm = initialize_with_custom_references({"adm": config})["adm"]
-    return adm, cleanup_generic_adm
-
-
-def create_adm(decider_config, llm_backbone=""):
-    """Create an ADM from a resolved config."""
-    model, cleanup = instantiate_adm(decider_config, llm_backbone)
-    return partial(choose_action, model), partial(cleanup, model)
