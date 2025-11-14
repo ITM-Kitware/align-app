@@ -3,8 +3,7 @@ import copy
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
 from ..adm.types import Prompt, SerializedPrompt, SerializedAlignmentTarget
-from ..adm.state_builder import probe_to_dict
-from ..adm.probe import Probe
+from ..adm.probe import Probe as ProbeModel
 from ..utils.utils import noop, readable, readable_sentence, sentence_lines
 from .prompt_logic import get_alignment_descriptions_map
 from .unordered_object import (
@@ -23,14 +22,14 @@ def serialize_prompt(prompt: Prompt) -> SerializedPrompt:
     Input: prompt["probe"] is Probe model
     Output: prompt["probe"] is dict
     """
-    probe: Probe = prompt["probe"]
+    probe: ProbeModel = prompt["probe"]
     alignment_target = cast(
         SerializedAlignmentTarget, prompt["alignment_target"].model_dump()
     )
 
     system_prompt: str = prompt.get("system_prompt", "")  # type: ignore[assignment]
     result: SerializedPrompt = {
-        "probe": probe_to_dict(probe),
+        "probe": probe.to_dict(),
         "alignment_target": alignment_target,
         "decider_params": prompt["decider_params"],
         "system_prompt": system_prompt,

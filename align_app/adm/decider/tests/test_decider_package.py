@@ -1,56 +1,13 @@
 import pytest
-from omegaconf import OmegaConf
-from align_app.adm.probe_registry import create_probe_registry
-from align_app.adm.decider_definitions import get_all_deciders
-from align_app.adm.config import get_decider_config
 from align_app.adm.decider import MultiprocessDecider, DeciderParams
 
 
 @pytest.fixture
-def probe_registry():
-    return create_probe_registry()
-
-
-@pytest.fixture
-def sample_probe(probe_registry):
-    probes = probe_registry.get_probes()
-    return list(probes.values())[0]
-
-
-@pytest.fixture
-def datasets(probe_registry):
-    return probe_registry.get_datasets()
-
-
-@pytest.fixture
-def all_deciders():
-    return get_all_deciders()
-
-
-@pytest.fixture
-def alignment_target_baseline():
-    return OmegaConf.create(
-        {
-            "_target_": "swagger_client.models.AlignmentTarget",
-            "id": "baseline",
-            "kdma_values": [],
-        }
-    )
-
-
-@pytest.fixture
-def decider_params(sample_probe, alignment_target_baseline, all_deciders, datasets):
-    resolved_config = get_decider_config(
-        sample_probe.probe_id,
-        all_deciders,
-        datasets,
-        "pipeline_random",
-    )
-
+def decider_params(scenario_input, alignment_target_baseline, resolved_random_config):
     return DeciderParams(
-        scenario_input=sample_probe.item.input,
+        scenario_input=scenario_input,
         alignment_target=alignment_target_baseline,
-        resolved_config=resolved_config,
+        resolved_config=resolved_random_config,
     )
 
 

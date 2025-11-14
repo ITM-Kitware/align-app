@@ -1,6 +1,7 @@
 """Type definitions for ADM system."""
 
-from typing import TypedDict, List, Any
+from typing import Dict, TypedDict, List, Any
+from align_utils.models import AlignmentTarget, KDMAValue
 
 
 class DeciderParams(TypedDict):
@@ -24,6 +25,8 @@ class ProbeAndAlignment(TypedDict):
 
 class Prompt(ProbeAndAlignment):
     decider_params: DeciderParams
+    all_deciders: Dict[str, Any]
+    datasets: Dict[str, Any]
 
 
 class SerializedKDMAValue(TypedDict):
@@ -49,3 +52,20 @@ class SerializedPrompt(SerializedProbeAndAlignment):
 
 class DeciderContext(Prompt):
     resolved_config: dict
+
+
+def attributes_to_alignment_target(
+    attributes: List[Attribute],
+) -> AlignmentTarget:
+    """Create AlignmentTarget Pydantic model from attributes."""
+    return AlignmentTarget(
+        id="ad_hoc",
+        kdma_values=[
+            KDMAValue(
+                kdma=a["type"],
+                value=a["score"],
+                kdes=None,
+            )
+            for a in attributes
+        ],
+    )

@@ -2,7 +2,6 @@ from functools import partial
 from collections import namedtuple
 from typing import Dict, Any
 from .decider_definitions import get_all_deciders, get_system_prompt
-from .state_builder import prepare_context
 from .config import get_decider_config, _get_dataset_name
 
 
@@ -11,7 +10,7 @@ def _get_decider_options(
     decider: str,
     all_deciders: Dict[str, Any],
     datasets: Dict[str, Any],
-) -> Dict[str, Any]:
+) -> Dict[str, Any] | None:
     """
     Get available options for a decider without loading full Hydra config.
 
@@ -53,7 +52,6 @@ DeciderRegistry = namedtuple(
         "get_decider_config",
         "get_decider_options",
         "get_system_prompt",
-        "prepare_context",
         "get_all_deciders",
     ],
 )
@@ -80,11 +78,6 @@ def create_decider_registry(config_paths, scenario_registry):
         ),
         get_system_prompt=partial(
             get_system_prompt,
-            all_deciders=all_deciders,
-            datasets=datasets,
-        ),
-        prepare_context=partial(
-            prepare_context,
             all_deciders=all_deciders,
             datasets=datasets,
         ),

@@ -22,7 +22,7 @@ def get_decider_config(
     all_deciders: Dict[str, Any],
     datasets: Dict[str, Any],
     decider: str,
-    llm_backbone: str = None,
+    llm_backbone: str | None = None,
 ):
     """
     Merges base decider config with app-level overrides.
