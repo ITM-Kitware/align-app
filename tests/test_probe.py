@@ -1,6 +1,6 @@
 import pytest
 from align_app.adm.probe import Probe
-from align_app.adm.adm_core import probe_to_dict
+from align_app.adm.state_builder import probe_to_dict
 from align_utils.models import InputOutputItem, InputData
 
 

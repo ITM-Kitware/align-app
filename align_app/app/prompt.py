@@ -1,9 +1,6 @@
 from typing import List, Dict
 from trame.decorators import TrameApp, change, controller
 from rapidfuzz import fuzz, process, utils
-from ..adm.adm_core import (
-    get_alignment_descriptions_map,
-)
 from ..adm.decider_registry import create_decider_registry
 from ..adm.probe_registry import create_probe_registry
 from ..adm.probe import Probe
@@ -17,6 +14,7 @@ from .prompt_logic import (
     get_max_alignment_attributes,
     get_llm_backbones_from_config,
     find_probe_by_base_and_scene,
+    get_alignment_descriptions_map,
 )
 
 # Maximum number of choices allowed (limited by ADM code)
@@ -351,7 +349,7 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def update_max_alignment_attributes(self, **_):
         """Update max alignment attributes from decider config."""
-        metadata = self.decider_api.get_decider_metadata(
+        metadata = self.decider_api.get_decider_options(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
@@ -371,7 +369,7 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def validate_alignment_attribute(self, **_):
         """Validate alignment attributes are present when required."""
-        metadata = self.decider_api.get_decider_metadata(
+        metadata = self.decider_api.get_decider_options(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
@@ -392,7 +390,7 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def validate_decider_exists_for_dataset(self, **_):
         """Validate decider is supported for the dataset."""
-        metadata = self.decider_api.get_decider_metadata(
+        metadata = self.decider_api.get_decider_options(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
@@ -408,7 +406,7 @@ class PromptController:
 
     @change("prompt_probe_id", "decider")
     def update_decider_params(self, **_):
-        metadata = self.decider_api.get_decider_metadata(
+        metadata = self.decider_api.get_decider_options(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )

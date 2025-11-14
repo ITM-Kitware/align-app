@@ -2,11 +2,11 @@
 
 from typing import Dict, List, Any, cast
 import copy
-from ..adm.adm_core import (
-    Attribute,
-    build_prompt_data,
-)
+from omegaconf import OmegaConf
+from ..adm.types import Attribute, DeciderParams, Prompt
+from ..adm.state_builder import attributes_to_alignment_target
 from ..adm.probe import Probe
+from ..adm.config import get_decider_config
 
 
 def create_default_choice(index: int, text: str) -> Dict[str, Any]:
@@ -103,6 +103,20 @@ def find_probe_by_base_and_scene(
     return matches[0] if matches else ""
 
 
+def create_prompt_base(
+    probe: Probe, llm_backbone: str, decider: str, attributes: List[Attribute]
+) -> dict:
+    """Build base prompt structure from components.
+
+    Returns a dict with probe as Probe model (internal representation).
+    """
+    return {
+        "decider_params": DeciderParams(llm_backbone=llm_backbone, decider=decider),
+        "alignment_target": attributes_to_alignment_target(attributes),
+        "probe": probe,
+    }
+
+
 def build_prompt_context(
     probe_id: str,
     llm_backbone: str,
@@ -120,7 +134,7 @@ def build_prompt_context(
 
     probe = probe_registry.get_probe(probe_id)
 
-    prompt_data = build_prompt_data(probe, llm_backbone, decider, mapped_attributes)
+    prompt_data = create_prompt_base(probe, llm_backbone, decider, mapped_attributes)
 
     resolved_config = decider_registry.get_decider_config(
         probe.probe_id,
@@ -151,3 +165,35 @@ def build_prompt_context(
         "all_deciders": decider_registry.get_all_deciders(),
         "datasets": probe_registry.get_datasets(),
     }
+
+
+def get_alignment_descriptions_map(prompt: Prompt) -> dict:
+    """Get attribute descriptions for alignment targets from ADM config."""
+    probe: Probe = prompt["probe"]
+    probe_id = probe.probe_id
+    decider = prompt["decider_params"]["decider"]
+    all_deciders = prompt["all_deciders"]
+    datasets = prompt["datasets"]
+
+    config = get_decider_config(probe_id, all_deciders, datasets, decider)
+    if not config:
+        return {}
+
+    config.pop("instance", None)
+    config.pop("step_definitions", None)
+
+    attributes_resolved = OmegaConf.to_container(
+        OmegaConf.create({"adm": config}),
+        resolve=True,
+    )
+
+    if not isinstance(attributes_resolved, dict):
+        return {}
+
+    adm_section = attributes_resolved.get("adm", {})
+    if not isinstance(adm_section, dict):
+        return {}
+
+    attribute_map = adm_section.get("attribute_definitions", {})
+
+    return attribute_map
