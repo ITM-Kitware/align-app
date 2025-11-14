@@ -121,6 +121,23 @@ poetry install --with dev
 pre-commit install
 ```
 
+### Running E2E Tests
+
+The project includes end-to-end tests using Playwright:
+
+```console
+# Install Playwright browsers (first time only)
+poetry run playwright install chromium
+
+# Run E2E tests
+poetry run pytest tests/e2e/
+
+# Run with verbose output
+poetry run pytest tests/e2e/ -v
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more testing options.
+
 ### Release
 
 Merge a PR to `main` with semantic commit messages.
