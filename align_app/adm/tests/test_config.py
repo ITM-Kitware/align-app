@@ -48,12 +48,78 @@ def alignment_target_baseline():
     )
 
 
+class TestGetDeciderMetadata:
+    def test_returns_metadata_for_valid_decider(
+        self, sample_probe, all_deciders, datasets
+    ):
+        from align_app.adm.config import get_decider_metadata
+
+        result = get_decider_metadata(
+            sample_probe.probe_id,
+            "pipeline_baseline",
+            all_deciders,
+            datasets,
+        )
+
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "llm_backbones" in result
+        assert "max_alignment_attributes" in result
+        assert "model_path_keys" in result
+        assert result["exists"] is True
+
+    def test_returns_none_for_invalid_decider(
+        self, sample_probe, all_deciders, datasets
+    ):
+        from align_app.adm.config import get_decider_metadata
+
+        result = get_decider_metadata(
+            sample_probe.probe_id,
+            "nonexistent_decider",
+            all_deciders,
+            datasets,
+        )
+
+        assert result is None
+
+    def test_extracts_llm_backbones(self, sample_probe, all_deciders, datasets):
+        from align_app.adm.config import get_decider_metadata
+
+        result = get_decider_metadata(
+            sample_probe.probe_id,
+            "pipeline_baseline",
+            all_deciders,
+            datasets,
+        )
+
+        assert "llm_backbones" in result
+        assert isinstance(result["llm_backbones"], list)
+
+    def test_extracts_max_alignment_attributes(
+        self, sample_probe, all_deciders, datasets
+    ):
+        from align_app.adm.config import get_decider_metadata
+
+        result = get_decider_metadata(
+            sample_probe.probe_id,
+            "pipeline_baseline",
+            all_deciders,
+            datasets,
+        )
+
+        assert "max_alignment_attributes" in result
+        assert isinstance(result["max_alignment_attributes"], int)
+
+
 class TestGetDeciderConfig:
     def test_returns_merged_config_for_valid_decider(
         self, sample_probe, all_deciders, datasets
     ):
         result = get_decider_config(
-            sample_probe.probe_id, "pipeline_baseline", all_deciders, datasets
+            sample_probe.probe_id,
+            all_deciders,
+            datasets,
+            decider="pipeline_baseline",
         )
 
         assert result is not None
@@ -63,7 +129,10 @@ class TestGetDeciderConfig:
         self, sample_probe, all_deciders, datasets
     ):
         result = get_decider_config(
-            sample_probe.probe_id, "nonexistent_decider", all_deciders, datasets
+            sample_probe.probe_id,
+            all_deciders,
+            datasets,
+            decider="nonexistent_decider",
         )
 
         assert result is None
@@ -71,9 +140,9 @@ class TestGetDeciderConfig:
     def test_merges_config_overrides(self, sample_probe, all_deciders, datasets):
         result = get_decider_config(
             sample_probe.probe_id,
-            "phase2_pipeline_zeroshot_comparative_regression",
             all_deciders,
             datasets,
+            decider="phase2_pipeline_zeroshot_comparative_regression",
         )
 
         assert result is not None
@@ -88,9 +157,9 @@ class TestInstantiateAdm:
 
         config = get_decider_config(
             sample_probe.probe_id,
-            "pipeline_baseline",
             all_deciders,
             datasets,
+            decider="pipeline_baseline",
         )
 
         model, cleanup = instantiate_adm(config)
@@ -106,9 +175,9 @@ class TestInstantiateAdm:
 
         config = get_decider_config(
             sample_probe.probe_id,
-            "pipeline_baseline",
             all_deciders,
             datasets,
+            decider="pipeline_baseline",
         )
 
         model, cleanup = instantiate_adm(config)
