@@ -371,7 +371,7 @@ def prepare_context(
     datasets: Dict[str, Any],
 ) -> Dict[str, Any]:
     state, actions = create_probe_state(probe)
-    config = get_decider_config(probe.probe_id, decider, all_deciders, datasets)
+    config = get_decider_config(probe.probe_id, all_deciders, datasets, decider)
     return {
         "state": state,
         "actions": actions,
@@ -412,15 +412,10 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     probe: Probe = prompt["probe"]
     probe_id = probe.probe_id
     decider = prompt["decider_params"]["decider"]
-    all_deciders = prompt.get("all_deciders")
-    datasets = prompt.get("datasets")
+    all_deciders = prompt["all_deciders"]
+    datasets = prompt["datasets"]
 
-    config = get_decider_config(
-        probe_id,
-        decider,
-        all_deciders=all_deciders,
-        datasets=datasets,
-    )
+    config = get_decider_config(probe_id, all_deciders, datasets, decider)
     if not config:
         return {}
 

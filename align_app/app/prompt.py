@@ -351,12 +351,12 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def update_max_alignment_attributes(self, **_):
         """Update max alignment attributes from decider config."""
-        decider_configs = self.decider_api.get_decider_config(
+        metadata = self.decider_api.get_decider_metadata(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
         self.server.state.max_alignment_attributes = get_max_alignment_attributes(
-            decider_configs
+            metadata
         )
 
     @change("max_alignment_attributes")
@@ -371,7 +371,7 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def validate_alignment_attribute(self, **_):
         """Validate alignment attributes are present when required."""
-        decider_configs = self.decider_api.get_decider_config(
+        metadata = self.decider_api.get_decider_metadata(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
@@ -382,7 +382,7 @@ class PromptController:
             "pipeline_random",
         ]
         needs_attributes = (
-            decider_configs
+            metadata
             and decider_needs_alignment
             and len(self.server.state.alignment_attributes) == 0
         )
@@ -392,14 +392,12 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def validate_decider_exists_for_dataset(self, **_):
         """Validate decider is supported for the dataset."""
-        decider_configs = self.decider_api.get_decider_config(
+        metadata = self.decider_api.get_decider_metadata(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
 
-        self.update_decider_message(
-            not decider_configs, DECIDER_NOT_SUPPORTED_FOR_DATASET
-        )
+        self.update_decider_message(not metadata, DECIDER_NOT_SUPPORTED_FOR_DATASET)
 
     @change("decider_messages")
     def gate_send_button(self, **_):
@@ -410,12 +408,12 @@ class PromptController:
 
     @change("prompt_probe_id", "decider")
     def update_decider_params(self, **_):
-        decider_configs = self.decider_api.get_decider_config(
+        metadata = self.decider_api.get_decider_metadata(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
 
-        self.server.state.llm_backbones = get_llm_backbones_from_config(decider_configs)
+        self.server.state.llm_backbones = get_llm_backbones_from_config(metadata)
 
         if self.server.state.llm_backbone not in self.server.state.llm_backbones:
             self.server.state.llm_backbone = (

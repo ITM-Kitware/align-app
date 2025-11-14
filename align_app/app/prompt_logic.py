@@ -124,7 +124,8 @@ def build_prompt_context(
 
     resolved_config = decider_registry.get_decider_config(
         probe.probe_id,
-        prompt_data["decider_params"]["decider"],
+        decider=decider,
+        llm_backbone=llm_backbone,
     )
 
     original_choices = cast(List[Dict], probe.choices or [])
