@@ -4,7 +4,7 @@ from .worker import decider_worker_func
 from .multiprocess_worker import (
     WorkerHandle,
     create_worker,
-    send_and_await,
+    send,
     close_worker,
 )
 
@@ -14,7 +14,7 @@ class MultiprocessDecider:
         self.worker: WorkerHandle = create_worker(decider_worker_func)
 
     async def get_decision(self, params: DeciderParams) -> ADMResult:
-        self.worker, result = await send_and_await(self.worker, params)
+        self.worker, result = await send(self.worker, params)
 
         if result is None:
             raise RuntimeError("Worker process died unexpectedly")

@@ -11,7 +11,7 @@ import sys
 import time
 from multiprocessing import Queue
 
-from . import create_worker, send_task, await_result, close_worker
+from . import create_worker, send, close_worker
 
 
 def video_metadata_simulation_worker(task_queue: Queue, result_queue: Queue):
@@ -81,12 +81,10 @@ async def test_ctrl_c_during_processing():
 
     try:
         # Send the metadata extraction task
-        worker = send_task(worker, "extract_metadata")
-
         # This should return None when the worker process dies from KeyboardInterrupt
         # Previously this would hang forever
         start_time = time.time()
-        worker, result = await await_result(worker, timeout=0.1)
+        worker, result = await send(worker, "extract_metadata", timeout=0.1)
         end_time = time.time()
 
         # Should return None quickly when process dies
@@ -124,15 +122,12 @@ async def test_initialization_interrupt():
     worker = create_worker(slow_initialization_worker)
 
     try:
-        # Send task immediately (while worker is still initializing)
-        worker = send_task(worker, {"command": "interrupt_me"})
-
         # Kill the process while it's initializing
         time.sleep(0.5)  # Let it start initializing
         worker.process.terminate()
 
         # Should return None when process dies
-        worker, result = await await_result(worker, timeout=0.1)
+        worker, result = await send(worker, {"command": "interrupt_me"}, timeout=0.1)
         assert result is None
 
         print("✓ Initialization interrupt handled correctly")
@@ -153,8 +148,7 @@ async def test_multiple_interrupts():
             print(f"  Testing interrupt {i + 1}/3...")
 
             # Each task will be interrupted
-            worker = send_task(worker, "extract_metadata")
-            worker, result = await await_result(worker, timeout=0.1)
+            worker, result = await send(worker, "extract_metadata", timeout=0.1)
 
             # Should handle each interrupt gracefully
             assert result is None
@@ -191,18 +185,15 @@ async def test_normal_operation_after_interrupt():
 
     try:
         # First, do normal work
-        worker = send_task(worker, "normal_task")
-        worker, result = await await_result(worker)
+        worker, result = await send(worker, "normal_task")
         assert result == "normal_result"
 
         # Then get interrupted
-        worker = send_task(worker, "interrupt_task")
-        worker, result = await await_result(worker)
+        worker, result = await send(worker, "interrupt_task")
         assert result is None  # Process died
 
         # Then do normal work again (should auto-restart)
-        worker = send_task(worker, "normal_task")
-        worker, result = await await_result(worker)
+        worker, result = await send(worker, "normal_task")
         assert result == "normal_result"
 
         print("✓ Recovery after interrupt works correctly")
@@ -242,8 +233,7 @@ async def test_timing_critical_scenario():
     try:
         start_time = time.time()
 
-        worker = send_task(worker, "timing_test")
-        worker, result = await await_result(worker, timeout=0.1)
+        worker, result = await send(worker, "timing_test", timeout=0.1)
 
         end_time = time.time()
 
