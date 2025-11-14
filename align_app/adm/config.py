@@ -17,47 +17,6 @@ def _get_dataset_name(probe_id: str, datasets: Dict[str, Any]) -> str:
     raise ValueError(f"Dataset name for probe ID {probe_id} not found.")
 
 
-def get_decider_metadata(
-    probe_id: str,
-    decider: str,
-    all_deciders: Dict[str, Any],
-    datasets: Dict[str, Any],
-) -> Dict[str, Any]:
-    """
-    Get lightweight metadata for a decider without loading full Hydra config.
-
-    Used by UI to get available options (llm_backbones, max_alignment_attributes).
-    Much faster than get_decider_config() as it skips Hydra config loading.
-
-    Returns:
-        Dict with metadata fields, or None if decider doesn't exist for probe's dataset
-    """
-    try:
-        dataset_name = _get_dataset_name(probe_id, datasets)
-    except ValueError:
-        return None
-
-    decider_cfg = all_deciders.get(decider)
-    if not decider_cfg:
-        return None
-
-    config_overrides = decider_cfg.get("config_overrides", {})
-    dataset_overrides = decider_cfg.get("dataset_overrides", {}).get(dataset_name, {})
-
-    metadata = {
-        "llm_backbones": decider_cfg.get("llm_backbones", []),
-        "model_path_keys": decider_cfg.get("model_path_keys", []),
-        "max_alignment_attributes": config_overrides.get(
-            "max_alignment_attributes",
-            dataset_overrides.get("max_alignment_attributes", 0),
-        ),
-        "config_path": decider_cfg.get("config_path"),
-        "exists": True,
-    }
-
-    return metadata
-
-
 def get_decider_config(
     probe_id: str,
     all_deciders: Dict[str, Any],

@@ -1,14 +1,57 @@
 from functools import partial
 from collections import namedtuple
-from . import adm_core
-from .config import get_decider_config, get_decider_metadata
+from typing import Dict, Any
+from .decider_definitions import get_all_deciders, get_system_prompt
+from .state_builder import prepare_context
+from .config import get_decider_config, _get_dataset_name
+
+
+def _get_decider_options(
+    probe_id: str,
+    decider: str,
+    all_deciders: Dict[str, Any],
+    datasets: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Get available options for a decider without loading full Hydra config.
+
+    Used by UI to get available options (llm_backbones, max_alignment_attributes).
+    Much faster than get_decider_config() as it skips Hydra config loading.
+
+    Returns:
+        Dict with option fields, or None if decider doesn't exist for probe's dataset
+    """
+    try:
+        dataset_name = _get_dataset_name(probe_id, datasets)
+    except ValueError:
+        return None
+
+    decider_cfg = all_deciders.get(decider)
+    if not decider_cfg:
+        return None
+
+    config_overrides = decider_cfg.get("config_overrides", {})
+    dataset_overrides = decider_cfg.get("dataset_overrides", {}).get(dataset_name, {})
+
+    metadata = {
+        "llm_backbones": decider_cfg.get("llm_backbones", []),
+        "model_path_keys": decider_cfg.get("model_path_keys", []),
+        "max_alignment_attributes": config_overrides.get(
+            "max_alignment_attributes",
+            dataset_overrides.get("max_alignment_attributes", 0),
+        ),
+        "config_path": decider_cfg.get("config_path"),
+        "exists": True,
+    }
+
+    return metadata
 
 
 DeciderRegistry = namedtuple(
     "DeciderRegistry",
     [
         "get_decider_config",
-        "get_decider_metadata",
+        "get_decider_options",
         "get_system_prompt",
         "prepare_context",
         "get_all_deciders",
@@ -21,7 +64,7 @@ def create_decider_registry(config_paths, scenario_registry):
     Takes config paths and scenario_registry, returns a DeciderRegistry namedtuple
     with all_deciders and datasets pre-bound using partial application.
     """
-    all_deciders = adm_core.get_all_deciders(config_paths)
+    all_deciders = get_all_deciders(config_paths)
     datasets = scenario_registry.get_datasets()
 
     return DeciderRegistry(
@@ -30,18 +73,18 @@ def create_decider_registry(config_paths, scenario_registry):
             all_deciders=all_deciders,
             datasets=datasets,
         ),
-        get_decider_metadata=partial(
-            get_decider_metadata,
+        get_decider_options=partial(
+            _get_decider_options,
             all_deciders=all_deciders,
             datasets=datasets,
         ),
         get_system_prompt=partial(
-            adm_core.get_system_prompt,
+            get_system_prompt,
             all_deciders=all_deciders,
             datasets=datasets,
         ),
         prepare_context=partial(
-            adm_core.prepare_context,
+            prepare_context,
             all_deciders=all_deciders,
             datasets=datasets,
         ),

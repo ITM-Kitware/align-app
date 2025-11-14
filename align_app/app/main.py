@@ -1,4 +1,8 @@
+import logging
+
 from .core import AlignApp
+
+logging.getLogger().setLevel(logging.WARNING)
 
 
 def main(server=None, **kwargs):

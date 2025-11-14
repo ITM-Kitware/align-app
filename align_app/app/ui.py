@@ -1,8 +1,12 @@
-from typing import Any, Dict
+from typing import Any, Dict, cast
+import copy
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
-from ..adm.adm_core import serialize_prompt, Prompt, get_alignment_descriptions_map
+from ..adm.types import Prompt, SerializedPrompt, SerializedAlignmentTarget
+from ..adm.state_builder import probe_to_dict
+from ..adm.probe import Probe
 from ..utils.utils import noop, readable, readable_sentence, sentence_lines
+from .prompt_logic import get_alignment_descriptions_map
 from .unordered_object import (
     UnorderedObject,
     ValueWithProgressBar,
@@ -10,6 +14,29 @@ from .unordered_object import (
     PlainNestedObjectRenderer,
     PlainObjectProperty,
 )
+
+
+def serialize_prompt(prompt: Prompt) -> SerializedPrompt:
+    """Serialize a prompt for JSON/state storage, removing non-serializable fields.
+
+    This is THE serialization boundary - converts Probe to dict for UI state.
+    Input: prompt["probe"] is Probe model
+    Output: prompt["probe"] is dict
+    """
+    probe: Probe = prompt["probe"]
+    alignment_target = cast(
+        SerializedAlignmentTarget, prompt["alignment_target"].model_dump()
+    )
+
+    system_prompt: str = prompt.get("system_prompt", "")  # type: ignore[assignment]
+    result: SerializedPrompt = {
+        "probe": probe_to_dict(probe),
+        "alignment_target": alignment_target,
+        "decider_params": prompt["decider_params"],
+        "system_prompt": system_prompt,
+    }
+
+    return copy.deepcopy(result)
 
 
 def reload(m=None):
