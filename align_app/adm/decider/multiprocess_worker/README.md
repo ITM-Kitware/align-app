@@ -1,11 +1,11 @@
 # Functional Multiprocess Worker
 
-Pure functional multiprocess utility for long-running tasks in async applications, with proper Ctrl+C handling.
+Pure functional multiprocess utility for long-running tasks in async applications, with proper Ctrl+C handling and concurrent request support.
 
 ## API
 
 ```python
-from burn_out.multiprocess_worker import create_worker, send_and_await, close_worker
+from align_app.adm.decider.multiprocess_worker import create_worker, send, close_worker
 
 def my_worker(task_queue, result_queue):
     while True:
@@ -16,31 +16,43 @@ def my_worker(task_queue, result_queue):
             result = process(task)
             result_queue.put(result)
         except (KeyboardInterrupt, SystemExit):
-            break  # Critical for Ctrl+C handling
+            break
         except Exception as e:
-            result_queue.put(f"error: {e}")
+            result_queue.put(Exception(str(e)))
 
-# Create and use worker
+# Create worker
 worker = create_worker(my_worker)
-worker, result = await send_and_await(worker, "some task")
+
+# Send tasks and get results (safe for concurrent calls)
+worker, result = await send(worker, "task 1")
+worker, result = await send(worker, "task 2")
+
+# Or send many tasks concurrently (like Promise.all)
+import asyncio
+results = await asyncio.gather(
+    send(worker, "task 1"),
+    send(worker, "task 2"),
+    send(worker, "task 3"),
+)
+
+# Cleanup
 close_worker(worker)
 ```
 
 ## Core Functions
 
 - `create_worker(worker_func)` → `WorkerHandle`
-- `send_task(worker, task)` → `WorkerHandle`
-- `await_result(worker, timeout=None)` → `(WorkerHandle, result)`
-- `send_and_await(worker, task, timeout=None)` → `(WorkerHandle, result)`
+- `send(worker, task, timeout=None)` → `(WorkerHandle, result)` - Safe for concurrent calls
 - `close_worker(worker)` → `None`
 - `cancel_worker(worker)` → `WorkerHandle`
 
 ## Key Features
 
+- **Concurrent Safe**: Multiple `send()` calls work correctly, each gets its own result
 - **Pure Functional**: Immutable handles, no side effects
 - **Ctrl+C Safe**: Won't hang when child process is interrupted
 - **Auto-restart**: Restarts dead workers automatically
-- **Async Integration**: Works with asyncio event loops
+- **Async Integration**: Works with asyncio event loops and `asyncio.gather()`
 - **Graceful Shutdown**: Proper cleanup and termination
 
 ## Testing
@@ -48,14 +60,12 @@ close_worker(worker)
 Run the comprehensive test suite:
 
 ```bash
-# From the burnoutweb root directory
-source .venv/bin/activate
-cd app/burn_out/multiprocess_worker
-pytest -v
+poetry run pytest align_app/adm/decider/multiprocess_worker/ -v
 ```
 
 The tests validate:
 
+- Concurrent request handling with `asyncio.gather()`
 - Basic functionality and error handling
 - Critical Ctrl+C interrupt scenarios
 - Process lifecycle and auto-restart
