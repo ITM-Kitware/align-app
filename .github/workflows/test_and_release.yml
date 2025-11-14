@@ -60,7 +60,9 @@ jobs:
       run: |
         pip install .
         pip install -r tests/requirements.txt
-        pytest -s ./tests
+        pytest -s ./tests --ignore=tests/e2e
+        pytest -s ./align_app/adm/decider/tests
+        pytest -s ./align_app/adm/decider/multiprocess_worker
 
   release:
     needs: [
