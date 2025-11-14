@@ -1,6 +1,5 @@
 import pytest
 from align_app.adm.probe import Probe
-from align_app.adm.state_builder import probe_to_dict
 from align_utils.models import InputOutputItem, InputData
 
 
@@ -184,7 +183,7 @@ class TestProbeToDictFunction:
         item = create_test_input_output_item()
         probe = Probe.from_input_output_item(item)
 
-        probe_dict = probe_to_dict(probe)
+        probe_dict = probe.to_dict()
 
         assert probe_dict["probe_id"] == "test-scenario.scene-1"
         assert probe_dict["scene_id"] == "scene-1"
@@ -198,7 +197,7 @@ class TestProbeToDictFunction:
         item = create_test_input_output_item(include_unstructured=False)
         probe = Probe.from_input_output_item(item)
 
-        probe_dict = probe_to_dict(probe)
+        probe_dict = probe.to_dict()
 
         assert "display_state" in probe_dict
         assert probe_dict["display_state"] is None

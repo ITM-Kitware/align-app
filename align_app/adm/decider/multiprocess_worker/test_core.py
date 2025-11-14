@@ -9,6 +9,7 @@ import pytest
 import sys
 import time
 from multiprocessing import Queue
+from typing import Any
 
 from . import create_worker, send, close_worker
 
@@ -56,7 +57,7 @@ def error_prone_worker(task_queue: Queue, result_queue: Queue):
 
 def stateful_worker(task_queue: Queue, result_queue: Queue):
     """Worker that maintains state between tasks."""
-    state = {"counter": 0, "data": {}}
+    state: dict[str, Any] = {"counter": 0, "data": {}}
 
     for task in iter(task_queue.get, None):
         try:

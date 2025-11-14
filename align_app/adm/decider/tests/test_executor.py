@@ -1,5 +1,6 @@
 import pytest
 from align_app.adm.decider.executor import instantiate_adm
+from align_app.adm.decider.types import DeciderParams
 
 
 @pytest.fixture
@@ -17,8 +18,6 @@ class TestExecuteAdmDecision:
         alignment_target_baseline,
         resolved_random_config,
     ):
-        from align_app.adm.decider.types import DeciderParams
-
         params = DeciderParams(
             scenario_input=scenario_input,
             alignment_target=alignment_target_baseline,
@@ -40,8 +39,6 @@ class TestExecuteAdmDecision:
         alignment_target_baseline,
         resolved_random_config,
     ):
-        from align_app.adm.decider.types import DeciderParams
-
         params = DeciderParams(
             scenario_input=scenario_input,
             alignment_target=alignment_target_baseline,

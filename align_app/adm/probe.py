@@ -83,3 +83,20 @@ class Probe(BaseModel):
     def choices(self) -> Optional[list]:
         """Convenience property to access choices from the input."""
         return self.item.input.choices
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert Probe to dictionary representation for serialization.
+
+        Returns a dict with all probe fields suitable for JSON serialization
+        or passing to hydration functions.
+        """
+        return {
+            "probe_id": self.probe_id,
+            "scene_id": self.scene_id,
+            "scenario_id": self.scenario_id,
+            "display_state": self.display_state,
+            "full_state": self.full_state,
+            "state": self.state,
+            "choices": self.choices,
+        }

@@ -11,8 +11,8 @@ Concurrent Request Handling:
 import asyncio
 import atexit
 import signal
-import sys
 import uuid
+from collections import deque
 from dataclasses import dataclass
 from multiprocessing import Process, Queue
 from typing import Any, Callable, Dict, NamedTuple, Optional, Set, Tuple
@@ -41,19 +41,22 @@ _buffer_lock = asyncio.Lock()
 
 
 def _cleanup_all_workers():
-    """Terminate all active workers."""
+    """Terminate all active workers gracefully."""
     for process in list(_active_workers):
         if process.is_alive():
-            process.terminate()
             process.join(timeout=0.5)
+
             if process.is_alive():
-                process.kill()
+                process.terminate()
+                process.join(timeout=0.5)
+
+                if process.is_alive():
+                    process.kill()
 
 
 def _signal_handler(_signum, _frame):
     """Handle Ctrl+C by terminating all workers."""
     _cleanup_all_workers()
-    sys.exit(1)
 
 
 def _ensure_signal_handler_registered():
@@ -73,11 +76,9 @@ def _worker_wrapper(
     Tasks are processed serially by the worker, so we use a FIFO queue of request IDs
     to match results back to requests.
     """
-    from collections import deque
-
-    unwrapped_task_queue = Queue()
-    unwrapped_result_queue = Queue()
-    request_id_queue = deque()
+    unwrapped_task_queue: Queue[Any] = Queue()
+    unwrapped_result_queue: Queue[Any] = Queue()
+    request_id_queue: deque[str] = deque()
 
     import threading
 
@@ -141,8 +142,8 @@ def create_worker(worker_func: Callable[[Queue, Queue], None]) -> WorkerHandle:
     """
     _ensure_signal_handler_registered()
 
-    task_queue = Queue()
-    result_queue = Queue()
+    task_queue: Queue[Any] = Queue()
+    result_queue: Queue[Any] = Queue()
     process = Process(
         target=_worker_wrapper,
         args=(worker_func, task_queue, result_queue),

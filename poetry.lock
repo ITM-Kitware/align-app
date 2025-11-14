@@ -244,14 +244,14 @@ resolved_reference = "7705074498591c9d20a4c6d098a0a4f7d5747613"
 
 [[package]]
 name = "align-utils"
-version = "1.1.1"
+version = "1.2.0"
 description = "Utilities for parsing and processing align-system experiment data"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "align_utils-1.1.1-py3-none-any.whl", hash = "sha256:de949ccc6d6fa6bfc7c413b86cb8e40a214378a70439a83c0bd0617312d6a7a9"},
-    {file = "align_utils-1.1.1.tar.gz", hash = "sha256:892d52ed744c2c386d8ad885f582c252b01bdbd56968e109eb2aaa0046cba623"},
+    {file = "align_utils-1.2.0-py3-none-any.whl", hash = "sha256:dcf74e75a9a70d03c5ae96035450b49ceb7190ef7587e5a00f0a922fc4180bd2"},
+    {file = "align_utils-1.2.0.tar.gz", hash = "sha256:341da5e068a6fccb8c02a8f79dd86273f53a3442fe694e9189dfd04b445eae0e"},
 ]
 
 [package.dependencies]
@@ -7308,4 +7308,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<3.13"
-content-hash = "cc153ba7e634b2f6c15d8f75ff77eaeff41ede651f0424341555c0115217e429"
+content-hash = "0434c701498efb1c29641bdea0dd9f5790c1832cd3e2dd1c85ce1227c45929fa"

@@ -3,8 +3,7 @@
 from typing import Dict, List, Any, cast
 import copy
 from omegaconf import OmegaConf
-from ..adm.types import Attribute, DeciderParams, Prompt
-from ..adm.state_builder import attributes_to_alignment_target
+from ..adm.types import Attribute, DeciderParams, Prompt, attributes_to_alignment_target
 from ..adm.probe import Probe
 from ..adm.config import get_decider_config
 

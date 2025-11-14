@@ -11,12 +11,8 @@ from align_system.prompt_engineering.outlines_prompts import (
 )
 from align_system.utils import call_with_coerced_args
 from align_system.utils.alignment_utils import attributes_in_alignment_target
-from .types import Attribute
-from .state_builder import (
-    attributes_to_alignment_target,
-    prepare_context,
-    get_probe_from_datasets,
-)
+from .types import Attribute, attributes_to_alignment_target
+from .config import get_decider_config
 
 
 def get_icl_data_paths():
@@ -44,10 +40,8 @@ LLM_BACKBONES = [
 ]
 
 
-def _generate_comparative_regression_pipeline_system_prompt(ctx, alignment):
-    adm_config = ctx["config"]
-
-    system_prompt_template_config = adm_config["step_definitions"][
+def _generate_comparative_regression_pipeline_system_prompt(config, alignment):
+    system_prompt_template_config = config["step_definitions"][
         "comparative_regression"
     ]["system_prompt_template"]
 
@@ -68,7 +62,7 @@ def _generate_comparative_regression_pipeline_system_prompt(ctx, alignment):
 
     # To resolve references like `${adm.mu}`, we need to provide the 'adm' context to hydra.
     # We can wrap the config and then instantiate the 'attribute_definitions' part.
-    config_for_instantiation = OmegaConf.create({"adm": adm_config})
+    config_for_instantiation = OmegaConf.create({"adm": config})
     all_attributes = hydra.utils.instantiate(
         config_for_instantiation.adm.attribute_definitions
     )
@@ -82,7 +76,7 @@ def _generate_comparative_regression_pipeline_system_prompt(ctx, alignment):
     return "\n\n".join(attribute_prompts)
 
 
-def _generate_baseline_pipeline_system_prompt(ctx, alignment):
+def _generate_baseline_pipeline_system_prompt(config, alignment):
     """Generate system prompt for pipeline_baseline ADM.
 
     The baseline ADM always uses the same prompt regardless of alignment,
@@ -203,14 +197,20 @@ def get_system_prompt(
     if not generate_sys_prompt:
         return "Unknown"
 
-    probe = get_probe_from_datasets(probe_id, datasets)
-    alignment_target = attributes_to_alignment_target(attributes)
-    ctx = prepare_context(probe, decider, alignment_target, all_deciders, datasets)
+    probe = None
+    for dataset_info in datasets.values():
+        if probe_id in dataset_info["probes"]:
+            probe = dataset_info["probes"][probe_id]
+            break
+    if probe is None:
+        raise ValueError(f"Probe '{probe_id}' not found in datasets configuration")
 
-    if ctx.get("config") is None:
-        # This implies that for the given decider and baseline/aligned posture,
-        # a valid configuration was not found (e.g., kaleido needs an alignment and has no baseline posture).
+    alignment_target = attributes_to_alignment_target(attributes)
+    config = get_decider_config(probe.probe_id, all_deciders, datasets, decider)
+
+    if config is None:
+        # This implies that for the given decider,
+        # a valid configuration was not found (e.g., kaleido needs an alignment).
         return ""
 
-    alignment = attributes_to_alignment_target(attributes)
-    return generate_sys_prompt(ctx, alignment.model_dump())
+    return generate_sys_prompt(config, alignment_target.model_dump())
