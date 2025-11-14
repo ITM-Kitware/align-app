@@ -1,0 +1,59 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install Poetry
+      run: |
+        pip install poetry
+        poetry config virtualenvs.create true
+        poetry config virtualenvs.in-project true
+
+    - name: Cache Poetry dependencies
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+
+    - name: Install dependencies
+      run: |
+        poetry install --with dev
+
+    - name: Install Playwright browsers
+      run: |
+        poetry run playwright install chromium
+        poetry run playwright install-deps chromium
+
+    - name: Run E2E tests
+      run: |
+        poetry run pytest tests/e2e/ -v
+
+    - name: Upload test artifacts on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-test-results
+        path: |
+          test-results/
+          screenshots/
+        retention-days: 7

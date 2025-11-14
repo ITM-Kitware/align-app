@@ -7,6 +7,49 @@
 5.  Create a fork of the repository on GitHub
 6.  Push your branch to your fork, and open a pull request
 
+## Running E2E Tests
+
+The project includes end-to-end tests using Playwright to test the full application workflow.
+
+### Setup
+
+1. Install development dependencies including Playwright:
+   ```bash
+   poetry install --with dev
+   ```
+
+2. Install Playwright browsers:
+   ```bash
+   poetry run playwright install chromium
+   ```
+
+### Running Tests Locally
+
+Run all E2E tests:
+```bash
+poetry run pytest tests/e2e/
+```
+
+Run with verbose output:
+```bash
+poetry run pytest tests/e2e/ -v
+```
+
+Run in headed mode (visible browser):
+```bash
+poetry run pytest tests/e2e/ --headed
+```
+
+### Test Structure
+
+- `tests/e2e/conftest.py` - Test fixtures for app server and browser configuration
+- `tests/e2e/page_objects/` - Page object models for UI interactions
+- `tests/e2e/test_*.py` - Test files
+
+### CI/CD
+
+E2E tests run automatically on pull requests and pushes to main via GitHub Actions (`.github/workflows/e2e-tests.yml`). Tests run in headless mode on Ubuntu with Chromium.
+
 ## Tips
 
 - When first creating a new project, it is helpful to run `pre-commit run --all-files` to ensure all files pass the pre-commit checks.
