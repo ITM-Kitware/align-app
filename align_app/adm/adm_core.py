@@ -1,9 +1,9 @@
 from pathlib import Path
 import copy
-from typing import TypedDict, List, Dict, Any
+from typing import TypedDict, List, Dict, Any, cast
 
 import hydra
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf
 import align_system
 import align_system.utils.hydrate_state
 from align_system.utils.hydrate_state import (
@@ -11,6 +11,7 @@ from align_system.utils.hydrate_state import (
 )
 from align_system.utils import logging, call_with_coerced_args
 from align_system.utils.alignment_utils import attributes_in_alignment_target
+from align_utils.models import AlignmentTarget, KDMAValue
 
 # Import prompt classes at module level to avoid 6.7s delay on first use
 from align_system.prompt_engineering.outlines_prompts import (
@@ -82,20 +83,6 @@ class Attribute(TypedDict):
     score: float
 
 
-class AlignmentTarget(DictConfig):
-    """
-    example of an alignment target:
-    _target_: swagger_client.models.AlignmentTarget
-
-    id: ADEPT-DryRun-Ingroup Bias-0.0
-    kdma_values:
-        - kdma: Ingroup Bias
-          value: 0.0
-    """
-
-    pass
-
-
 class ProbeAndAlignment(TypedDict):
     probe: Probe
     alignment_target: AlignmentTarget
@@ -105,9 +92,20 @@ class Prompt(ProbeAndAlignment):
     decider_params: DeciderParams
 
 
+class SerializedKDMAValue(TypedDict):
+    kdma: str
+    value: float
+    kdes: Any | None
+
+
+class SerializedAlignmentTarget(TypedDict):
+    id: str
+    kdma_values: List[SerializedKDMAValue]
+
+
 class SerializedProbeAndAlignment(TypedDict):
     probe: dict
-    alignment_target: AlignmentTarget
+    alignment_target: SerializedAlignmentTarget
 
 
 class SerializedPrompt(SerializedProbeAndAlignment):
@@ -308,22 +306,21 @@ def create_probe_state(probe: Probe):
     return state, actions
 
 
-def attributes_to_alignment_target_dict_conf(
+def attributes_to_alignment_target(
     attributes: List[Attribute],
-):
-    target = {
-        "_target_": "swagger_client.models.AlignmentTarget",
-        "id": "ad_hoc",
-        "kdma_values": [
-            {
-                "kdes": None,
-                "kdma": a["type"],
-                "value": a["score"],
-            }
+) -> AlignmentTarget:
+    """Create AlignmentTarget Pydantic model from attributes."""
+    return AlignmentTarget(
+        id="ad_hoc",
+        kdma_values=[
+            KDMAValue(
+                kdma=a["type"],
+                value=a["score"],
+                kdes=None,
+            )
             for a in attributes
         ],
-    }
-    return OmegaConf.create(target)
+    )
 
 
 def build_prompt_data(
@@ -335,7 +332,7 @@ def build_prompt_data(
     """
     return {
         "decider_params": DeciderParams(llm_backbone=llm_backbone, decider=decider),
-        "alignment_target": attributes_to_alignment_target_dict_conf(attributes),
+        "alignment_target": attributes_to_alignment_target(attributes),
         "probe": probe,
     }
 
@@ -348,12 +345,14 @@ def serialize_prompt(prompt: Prompt) -> SerializedPrompt:
     Output: prompt["probe"] is dict
     """
     probe: Probe = prompt["probe"]
-    alignment_target = OmegaConf.to_container(prompt["alignment_target"])
+    alignment_target = cast(
+        SerializedAlignmentTarget, prompt["alignment_target"].model_dump()
+    )
 
     system_prompt: str = prompt.get("system_prompt", "")  # type: ignore[assignment]
     result: SerializedPrompt = {
         "probe": probe_to_dict(probe),
-        "alignment_target": alignment_target,  # type: ignore[typeddict-item]
+        "alignment_target": alignment_target,
         "decider_params": prompt["decider_params"],
         "system_prompt": system_prompt,
     }
@@ -403,7 +402,7 @@ def get_system_prompt(
         return "Unknown"
 
     probe = get_probe_from_datasets(probe_id, datasets)
-    alignment_target = attributes_to_alignment_target_dict_conf(attributes)
+    alignment_target = attributes_to_alignment_target(attributes)
     ctx = prepare_context(probe, decider, alignment_target, all_deciders, datasets)
 
     if ctx.get("config") is None:
@@ -411,8 +410,8 @@ def get_system_prompt(
         # a valid configuration was not found (e.g., kaleido needs an alignment and has no baseline posture).
         return ""
 
-    alignment = attributes_to_alignment_target_dict_conf(attributes)
-    return generate_sys_prompt(ctx, alignment)
+    alignment = attributes_to_alignment_target(attributes)
+    return generate_sys_prompt(ctx, alignment.model_dump())
 
 
 def get_alignment_descriptions_map(prompt: Prompt) -> dict:
@@ -451,5 +450,3 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     attribute_map = adm_section.get("attribute_definitions", {})
 
     return attribute_map
-
-

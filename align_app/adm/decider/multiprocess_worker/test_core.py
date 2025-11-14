@@ -89,7 +89,7 @@ def stateful_worker(task_queue: Queue, result_queue: Queue):
 class TestWorker:
     """Test suite for functional multiprocess worker."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_send_and_await(self):
         """Test send_and_await convenience function."""
         worker = create_worker(simple_echo_worker)
@@ -100,7 +100,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_separate_operations(self):
         """Test separate send_task and await_result operations."""
         worker = create_worker(simple_echo_worker)
@@ -112,7 +112,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_multiple_tasks(self):
         """Test processing multiple tasks sequentially."""
         worker = create_worker(simple_echo_worker)
@@ -130,7 +130,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_stateful_worker(self):
         """Test worker that maintains state between tasks."""
         worker = create_worker(stateful_worker)
@@ -158,7 +158,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_worker_error_handling(self):
         """Test how worker handles various types of errors."""
         worker = create_worker(error_prone_worker)
@@ -175,7 +175,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_worker_crash_recovery(self):
         """Test that worker handles process crashes gracefully."""
         worker = create_worker(stateful_worker)
@@ -202,7 +202,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_keyboard_interrupt_handling(self):
         """Test critical Ctrl+C scenario - worker dies, main process detects."""
         worker = create_worker(error_prone_worker)
@@ -221,7 +221,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_timeout_behavior(self):
         """Test timeout behavior with custom timeout values."""
         worker = create_worker(slow_worker)
@@ -236,7 +236,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_process_lifecycle(self):
         """Test process startup, shutdown, and restart behavior."""
         worker = create_worker(simple_echo_worker)
@@ -268,7 +268,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_graceful_shutdown(self):
         """Test graceful shutdown behavior."""
         worker = create_worker(simple_echo_worker)
@@ -288,7 +288,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_concurrent_operations(self):
         """Test multiple concurrent await_result calls."""
         worker = create_worker(simple_echo_worker)
@@ -311,7 +311,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_no_result_timeout(self):
         """Test behavior when no result is available."""
         worker = create_worker(simple_echo_worker)
@@ -340,7 +340,7 @@ class TestWorker:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_worker_restart_after_death(self):
         """Test that worker automatically restarts when process dies."""
         worker = create_worker(stateful_worker)
@@ -368,7 +368,7 @@ class TestWorker:
 class TestWorkerPerformance:
     """Performance and stress tests."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_rapid_task_processing(self):
         """Test processing many tasks rapidly."""
         worker = create_worker(simple_echo_worker)
@@ -401,7 +401,7 @@ class TestWorkerPerformance:
         finally:
             close_worker(worker)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_memory_cleanup(self):
         """Test that resources are properly cleaned up."""
         # This test is more about ensuring no memory leaks

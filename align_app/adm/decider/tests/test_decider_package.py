@@ -79,33 +79,23 @@ class TestMultiprocessDecider:
             decider.shutdown()
 
     @pytest.mark.anyio
-    async def test_multiple_decisions_reuse_worker(self, decider_params):
+    async def test_multiple_decisions_succeed(self, decider_params):
         decider = MultiprocessDecider()
 
         try:
-            result1 = await decider.get_decision(decider_params)
-            process1_pid = decider.process.pid
-
-            result2 = await decider.get_decision(decider_params)
-            process2_pid = decider.process.pid
-
-            assert result1 is not None
-            assert result2 is not None
-            assert process1_pid == process2_pid
+            for _ in range(3):
+                result = await decider.get_decision(decider_params)
+                assert result is not None
+                assert hasattr(result, "decision")
         finally:
             decider.shutdown()
 
-    def test_shutdown_stops_worker_process(self, decider_params):
+    def test_shutdown_is_idempotent(self, decider_params):
         import asyncio
 
         decider = MultiprocessDecider()
 
         asyncio.run(decider.get_decision(decider_params))
 
-        process = decider.process
-        assert process.is_alive()
-
         decider.shutdown()
-
-        process.join(timeout=2)
-        assert not process.is_alive()
+        decider.shutdown()

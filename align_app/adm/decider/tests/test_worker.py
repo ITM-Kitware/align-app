@@ -1,4 +1,3 @@
-import pytest
 import multiprocessing as mp
 from align_app.adm.decider.types import DeciderParams
 

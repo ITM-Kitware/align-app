@@ -72,7 +72,7 @@ def slow_initialization_worker(task_queue: Queue, result_queue: Queue):
         print("Worker interrupted during initialization", file=sys.stderr)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_ctrl_c_during_processing():
     """Test the exact scenario that was causing hangs."""
     print("Testing Ctrl+C during video metadata processing...")
@@ -116,7 +116,7 @@ async def test_ctrl_c_during_processing():
         close_worker(worker)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_initialization_interrupt():
     """Test interrupting during worker initialization."""
     print("Testing interrupt during worker initialization...")
@@ -141,7 +141,7 @@ async def test_initialization_interrupt():
         close_worker(worker)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_multiple_interrupts():
     """Test multiple interrupted tasks in sequence."""
     print("Testing multiple interrupted operations...")
@@ -168,7 +168,7 @@ async def test_multiple_interrupts():
         close_worker(worker)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_normal_operation_after_interrupt():
     """Test that worker can recover and do normal work after being interrupted."""
     print("Testing normal operation after interrupt...")
@@ -211,7 +211,7 @@ async def test_normal_operation_after_interrupt():
         close_worker(worker)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_timing_critical_scenario():
     """Test the exact timing scenario that was problematic."""
     print("Testing timing-critical interrupt scenario...")

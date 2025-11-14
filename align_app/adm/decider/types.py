@@ -1,45 +1,7 @@
-from typing import Dict, Any, Optional, Union, Literal, List
+from typing import Dict, Any, Optional, Union, Literal
 from enum import Enum
 from pydantic import BaseModel, ConfigDict
-from omegaconf import DictConfig
-from align_utils.models import InputData
-
-
-KDMAValue = Union[float, List[float]]
-KDMAChoiceValues = Dict[str, KDMAValue]
-KDMANestedValues = Dict[str, KDMAChoiceValues]
-
-
-class Attribute(BaseModel):
-    """Alignment attribute"""
-
-    type: str
-    score: float
-
-
-class Decision(BaseModel):
-    """Decision result"""
-
-    unstructured: str
-    justification: str
-
-
-class ChoiceInfo(BaseModel):
-    """ADM-specific metadata - all fields optional, allows extra fields"""
-
-    model_config = ConfigDict(extra="allow")
-
-    predicted_kdma_values: Optional[KDMANestedValues] = None
-    true_kdma_values: Optional[Dict[str, Dict[str, float]]] = None
-    true_relevance: Optional[Dict[str, float]] = None
-    icl_example_responses: Optional[Dict[str, Any]] = None
-
-
-class ADMResult(BaseModel):
-    """Result from ADM execution"""
-
-    decision: Decision
-    choice_info: ChoiceInfo
+from align_utils.models import InputData, AlignmentTarget
 
 
 class DeciderParams(BaseModel):
@@ -56,7 +18,7 @@ class DeciderParams(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     scenario_input: InputData
-    alignment_target: DictConfig
+    alignment_target: AlignmentTarget
     resolved_config: Dict[str, Any]
 
 

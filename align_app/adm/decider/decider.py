@@ -1,4 +1,5 @@
-from .types import DeciderParams, ADMResult
+from align_utils.models import ADMResult
+from .types import DeciderParams
 from .worker import decider_worker_func
 from .multiprocess_worker import (
     WorkerHandle,
