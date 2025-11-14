@@ -4,8 +4,9 @@ Provides a convenient get_decision() function that manages a singleton Multiproc
 """
 
 import atexit
+from align_utils.models import ADMResult
 from .decider import MultiprocessDecider
-from .types import DeciderParams, ADMResult
+from .types import DeciderParams
 
 _decider = None
 

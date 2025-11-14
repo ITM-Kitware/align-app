@@ -4,8 +4,9 @@ import logging
 import traceback
 from typing import Dict, Tuple, Callable, Any
 from multiprocessing import Queue
+from align_utils.models import ADMResult
 from .executor import instantiate_adm
-from .types import DeciderParams, ADMResult
+from .types import DeciderParams
 
 
 def extract_cache_key(resolved_config: Dict[str, Any]) -> str:

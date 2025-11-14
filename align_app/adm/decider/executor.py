@@ -4,8 +4,8 @@ import torch
 from functools import partial
 from align_system.utils.hydra_utils import initialize_with_custom_references
 from align_system.utils.hydrate_state import p2triage_hydrate_scenario_state
-from align_utils.models import InputData
-from .types import DeciderParams, ADMResult, Decision, ChoiceInfo
+from align_utils.models import InputData, ADMResult, Decision, ChoiceInfo
+from .types import DeciderParams
 
 
 def hydrate_scenario_input(scenario_input: InputData) -> Tuple[Any, Any]:
@@ -58,7 +58,7 @@ def choose_action(model: Any, params: DeciderParams) -> ADMResult:
     result = func(
         scenario_state=state,
         available_actions=actions,
-        alignment_target=params.alignment_target,
+        alignment_target=params.alignment_target.model_dump(),
         **model.get("inference_kwargs", {}),
         reasoning_max_length=-1,
         max_generator_tokens=-1,
