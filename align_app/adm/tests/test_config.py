@@ -2,11 +2,7 @@ import pytest
 from omegaconf import OmegaConf
 from align_app.adm.probe_registry import create_probe_registry
 from align_app.adm.adm_core import get_all_deciders
-from align_app.adm.config import (
-    get_dataset_decider_configs,
-    get_base_decider_config,
-    resolve_decider_config,
-)
+from align_app.adm.config import get_decider_config
 
 
 @pytest.fixture
@@ -52,105 +48,30 @@ def alignment_target_baseline():
     )
 
 
-class TestGetDatasetDeciderConfigs:
+class TestGetDeciderConfig:
     def test_returns_merged_config_for_valid_decider(
         self, sample_probe, all_deciders, datasets
     ):
-        result = get_dataset_decider_configs(
+        result = get_decider_config(
             sample_probe.probe_id, "pipeline_baseline", all_deciders, datasets
         )
 
         assert result is not None
-        assert "postures" in result
-        assert "baseline" in result["postures"] or "aligned" in result["postures"]
+        assert isinstance(result, dict)
 
     def test_returns_none_for_invalid_decider(
         self, sample_probe, all_deciders, datasets
     ):
-        result = get_dataset_decider_configs(
+        result = get_decider_config(
             sample_probe.probe_id, "nonexistent_decider", all_deciders, datasets
         )
 
         assert result is None
 
-    def test_merges_postures_correctly(self, sample_probe, all_deciders, datasets):
-        result = get_dataset_decider_configs(
+    def test_merges_config_overrides(self, sample_probe, all_deciders, datasets):
+        result = get_decider_config(
             sample_probe.probe_id,
             "phase2_pipeline_zeroshot_comparative_regression",
-            all_deciders,
-            datasets,
-        )
-
-        assert result is not None
-        assert "postures" in result
-        assert "aligned" in result["postures"]
-
-
-class TestGetBaseDeciderConfig:
-    def test_returns_config_for_aligned_posture(
-        self, sample_probe, all_deciders, datasets
-    ):
-        result = get_base_decider_config(
-            sample_probe.probe_id,
-            "phase2_pipeline_zeroshot_comparative_regression",
-            baseline=False,
-            all_deciders=all_deciders,
-            datasets=datasets,
-        )
-
-        assert result is not None
-        assert isinstance(result, dict)
-
-    def test_returns_config_for_baseline_posture(
-        self, sample_probe, all_deciders, datasets
-    ):
-        result = get_base_decider_config(
-            sample_probe.probe_id,
-            "pipeline_baseline",
-            baseline=True,
-            all_deciders=all_deciders,
-            datasets=datasets,
-        )
-
-        assert result is not None
-        assert isinstance(result, dict)
-
-    def test_returns_none_for_unavailable_posture(
-        self, sample_probe, all_deciders, datasets
-    ):
-        result = get_base_decider_config(
-            sample_probe.probe_id,
-            "phase2_pipeline_zeroshot_comparative_regression",
-            baseline=True,
-            all_deciders=all_deciders,
-            datasets=datasets,
-        )
-
-        assert result is None
-
-
-class TestResolveDeciderConfig:
-    def test_resolves_baseline_config_for_empty_kdma(
-        self, sample_probe, alignment_target_baseline, all_deciders, datasets
-    ):
-        result = resolve_decider_config(
-            sample_probe.probe_id,
-            "pipeline_baseline",
-            alignment_target_baseline,
-            all_deciders,
-            datasets,
-        )
-
-        assert result is not None
-        assert isinstance(result, dict)
-
-    def test_resolves_aligned_config_for_kdma_values(
-        self, sample_probe, alignment_target_with_kdma, all_deciders, datasets
-    ):
-        result = resolve_decider_config(
-            sample_probe.probe_id,
-            "phase2_pipeline_zeroshot_comparative_regression",
-            alignment_target_with_kdma,
             all_deciders,
             datasets,
         )
@@ -161,14 +82,13 @@ class TestResolveDeciderConfig:
 
 class TestInstantiateAdm:
     def test_instantiate_returns_model_and_cleanup(
-        self, sample_probe, alignment_target_baseline, all_deciders, datasets
+        self, sample_probe, all_deciders, datasets
     ):
         from align_app.adm.decider.executor import instantiate_adm
 
-        config = resolve_decider_config(
+        config = get_decider_config(
             sample_probe.probe_id,
             "pipeline_baseline",
-            alignment_target_baseline,
             all_deciders,
             datasets,
         )
@@ -181,15 +101,12 @@ class TestInstantiateAdm:
 
         cleanup()
 
-    def test_instantiate_with_llm_backbone(
-        self, sample_probe, alignment_target_baseline, all_deciders, datasets
-    ):
+    def test_instantiate_with_llm_backbone(self, sample_probe, all_deciders, datasets):
         from align_app.adm.decider.executor import instantiate_adm
 
-        config = resolve_decider_config(
+        config = get_decider_config(
             sample_probe.probe_id,
             "pipeline_baseline",
-            alignment_target_baseline,
             all_deciders,
             datasets,
         )

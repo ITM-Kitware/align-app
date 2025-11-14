@@ -351,7 +351,7 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def update_max_alignment_attributes(self, **_):
         """Update max alignment attributes from decider config."""
-        decider_configs = self.decider_api.get_dataset_decider_configs(
+        decider_configs = self.decider_api.get_decider_config(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
@@ -371,14 +371,19 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def validate_alignment_attribute(self, **_):
         """Validate alignment attributes are present when required."""
-        decider_configs = self.decider_api.get_dataset_decider_configs(
+        decider_configs = self.decider_api.get_decider_config(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
 
+        # Baseline and random deciders don't need alignment attributes
+        decider_needs_alignment = self.server.state.decider not in [
+            "pipeline_baseline",
+            "pipeline_random",
+        ]
         needs_attributes = (
             decider_configs
-            and "baseline" not in decider_configs.get("postures", {})
+            and decider_needs_alignment
             and len(self.server.state.alignment_attributes) == 0
         )
 
@@ -387,7 +392,7 @@ class PromptController:
     @change("decider", "prompt_probe_id")
     def validate_decider_exists_for_dataset(self, **_):
         """Validate decider is supported for the dataset."""
-        decider_configs = self.decider_api.get_dataset_decider_configs(
+        decider_configs = self.decider_api.get_decider_config(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
@@ -405,7 +410,7 @@ class PromptController:
 
     @change("prompt_probe_id", "decider")
     def update_decider_params(self, **_):
-        decider_configs = self.decider_api.get_dataset_decider_configs(
+        decider_configs = self.decider_api.get_decider_config(
             self.server.state.prompt_probe_id,
             self.server.state.decider,
         )
@@ -422,7 +427,7 @@ class PromptController:
     @change("prompt_probe_id", "decider")
     def limit_to_dataset_alignment_attributes(self, **_):
         valid_attributes = self.probe_registry.get_attributes(
-            self.server.state.prompt_probe_id, self.server.state.decider
+            self.server.state.prompt_probe_id
         )
         self.server.state.alignment_attributes = filter_valid_attributes(
             self.server.state.alignment_attributes, valid_attributes
@@ -430,10 +435,7 @@ class PromptController:
 
     @change("prompt_probe_id", "decider")
     def compute_possible_alignment_attributes(self, **_):
-        attrs = self.probe_registry.get_attributes(
-            self.server.state.prompt_probe_id,
-            self.server.state.decider,
-        )
+        attrs = self.probe_registry.get_attributes(self.server.state.prompt_probe_id)
 
         # Get alignment descriptions
         prompt = self.get_prompt()
