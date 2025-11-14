@@ -106,24 +106,6 @@ def create_probe_registry(scenarios_paths=None):
                 "personal_safety": {"possible_scores": "continuous"},
             },
             "attribute_descriptions_dir": attribute_descriptions_dir,
-            "deciders": {
-                "phase2_pipeline_zeroshot_comparative_regression": {
-                    "postures": {
-                        "aligned": {
-                            "inference_kwargs": {},
-                        },
-                    },
-                },
-                "phase2_pipeline_fewshot_comparative_regression": {
-                    "postures": {
-                        "aligned": {
-                            "inference_kwargs": {},
-                        },
-                    },
-                },
-                "pipeline_random": {},
-                "pipeline_baseline": {},
-            },
         },
     }
 
@@ -139,17 +121,10 @@ def create_probe_registry(scenarios_paths=None):
                 return dataset_info["probes"][probe_id]
         raise ValueError(f"Probe ID {probe_id} not found.")
 
-    def get_attributes(probe_id, decider):
-        """Get the attributes for a dataset, checking for decider-specific overrides."""
+    def get_attributes(probe_id):
+        """Get the attributes for a dataset."""
         dataset_name = get_dataset_name(probe_id)
         dataset_info = datasets[dataset_name]
-
-        decider_config = dataset_info.get("deciders", {}).get(decider, {})
-        decider_specific_attributes = decider_config.get("attributes")
-
-        if decider_specific_attributes is not None:
-            return decider_specific_attributes
-
         return dataset_info.get("attributes", {})
 
     return ProbeRegistry(

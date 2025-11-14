@@ -2,7 +2,7 @@ import pytest
 from omegaconf import OmegaConf
 from align_app.adm.probe_registry import create_probe_registry
 from align_app.adm.adm_core import get_all_deciders
-from align_app.adm.config import resolve_decider_config
+from align_app.adm.config import get_decider_config
 from align_app.adm.decider import MultiprocessDecider, DeciderParams
 
 
@@ -40,10 +40,9 @@ def alignment_target_baseline():
 
 @pytest.fixture
 def decider_params(sample_probe, alignment_target_baseline, all_deciders, datasets):
-    resolved_config = resolve_decider_config(
+    resolved_config = get_decider_config(
         sample_probe.probe_id,
         "pipeline_random",
-        alignment_target_baseline,
         all_deciders,
         datasets,
     )

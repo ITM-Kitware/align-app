@@ -21,7 +21,7 @@ from align_system.prompt_engineering.outlines_prompts import (
 
 # from .action_filtering import filter_actions
 from .probe import Probe
-from .config import resolve_decider_config, get_base_decider_config
+from .config import get_decider_config
 
 
 def get_icl_data_paths():
@@ -191,7 +191,7 @@ def create_decider_entry(config_path, overrides={}):
         "config_path": config_path,
         "llm_backbones": LLM_BACKBONES,
         "model_path_keys": ["structured_inference_engine", "model_name"],
-        "postures": {"baseline": {}},
+        "dataset_overrides": {},
         **overrides,
     }
 
@@ -201,9 +201,9 @@ _BASE_DECIDERS = {
         "adm/phase2_pipeline_zeroshot_comparative_regression.yaml",
         {
             "config_overrides": {
-                "comparative_regression_choice_schema": {"reasoning_max_length": -1}
+                "comparative_regression_choice_schema": {"reasoning_max_length": -1},
+                "max_alignment_attributes": 10,
             },
-            "postures": {"aligned": {}},
             "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
         },
     ),
@@ -212,6 +212,7 @@ _BASE_DECIDERS = {
         {
             "config_overrides": {
                 "comparative_regression_choice_schema": {"reasoning_max_length": -1},
+                "max_alignment_attributes": 10,
                 "step_definitions": {
                     "regression_icl": {
                         "icl_generator_partial": {
@@ -220,7 +221,6 @@ _BASE_DECIDERS = {
                     }
                 },
             },
-            "postures": {"aligned": {}},
             "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
         },
     ),
@@ -240,14 +240,13 @@ _BASE_DECIDERS = {
                     }
                 }
             },
-            "postures": {"baseline": {}},
             "system_prompt_generator": _generate_baseline_pipeline_system_prompt,
         },
     ),
-    "pipeline_random": create_decider_entry(
-        "adm/pipeline_random.yaml",
-        {"postures": {"baseline": {}}},
-    ),
+    "pipeline_random": {
+        "config_path": "adm/pipeline_random.yaml",
+        "dataset_overrides": {},
+    },
 }
 
 
@@ -256,11 +255,8 @@ def create_runtime_decider_entry(config_path):
     return create_decider_entry(
         config_path,
         {
-            "postures": {
-                "aligned": {
-                    "max_alignment_attributes": 10,
-                },
-                "baseline": {},
+            "config_overrides": {
+                "max_alignment_attributes": 10,
             },
             "runtime_config": True,
         },
@@ -375,9 +371,7 @@ def prepare_context(
     datasets: Dict[str, Any],
 ) -> Dict[str, Any]:
     state, actions = create_probe_state(probe)
-    config = resolve_decider_config(
-        probe.probe_id, decider, alignment_target, all_deciders, datasets
-    )
+    config = get_decider_config(probe.probe_id, decider, all_deciders, datasets)
     return {
         "state": state,
         "actions": actions,
@@ -421,10 +415,9 @@ def get_alignment_descriptions_map(prompt: Prompt) -> dict:
     all_deciders = prompt.get("all_deciders")
     datasets = prompt.get("datasets")
 
-    config = get_base_decider_config(
+    config = get_decider_config(
         probe_id,
         decider,
-        baseline=False,
         all_deciders=all_deciders,
         datasets=datasets,
     )

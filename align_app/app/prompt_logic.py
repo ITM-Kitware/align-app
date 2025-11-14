@@ -81,10 +81,7 @@ def get_max_alignment_attributes(decider_configs: Dict) -> int:
     """Extract max alignment attributes from decider configs."""
     if not decider_configs:
         return 0
-    postures = decider_configs.get("postures", {})
-    if "aligned" in postures:
-        return postures["aligned"].get("max_alignment_attributes", 0)
-    return 0
+    return decider_configs.get("max_alignment_attributes", 0)
 
 
 def get_llm_backbones_from_config(decider_configs: Dict) -> List[str]:
@@ -125,10 +122,9 @@ def build_prompt_context(
 
     prompt_data = build_prompt_data(probe, llm_backbone, decider, mapped_attributes)
 
-    resolved_config = decider_registry.resolve_decider_config(
+    resolved_config = decider_registry.get_decider_config(
         probe.probe_id,
         prompt_data["decider_params"]["decider"],
-        prompt_data["alignment_target"],
     )
 
     original_choices = cast(List[Dict], probe.choices or [])
