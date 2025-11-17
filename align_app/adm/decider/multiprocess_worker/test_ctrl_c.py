@@ -108,6 +108,9 @@ async def test_ctrl_c_during_processing():
     worker = create_worker(video_metadata_simulation_worker)
 
     try:
+        # Capture the original process PID before it dies
+        original_pid = worker.process.pid
+
         # Send the metadata extraction task
         # This should return None when the worker process dies from KeyboardInterrupt
         # Previously this would hang forever
@@ -122,17 +125,35 @@ async def test_ctrl_c_during_processing():
         elapsed = end_time - start_time
         assert elapsed < 5.0, f"Took too long: {elapsed}s (indicates hanging)"
 
-        # CRITICAL: Now verify the process actually dies (this is core to the fix working)
-        # Give process reasonable time to clean up after KeyboardInterrupt
+        # CRITICAL: Now verify the ORIGINAL process actually dies
+        # We track the original PID because send() auto-restarts dead workers
+        import psutil
+
         process_died = False
-        for _ in range(30):  # Up to 3 seconds for process cleanup
-            await asyncio.sleep(0.1)
-            if not worker.process.is_alive():
-                process_died = True
-                break
+        try:
+            original_process = psutil.Process(original_pid)
+            # Give process reasonable time to clean up after KeyboardInterrupt
+            for _ in range(50):  # Up to 5 seconds for process cleanup
+                await asyncio.sleep(0.1)
+                try:
+                    # Check if process is dead or zombie
+                    status = original_process.status()
+                    if status in (psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD):
+                        process_died = True
+                        break
+                    if not original_process.is_running():
+                        process_died = True
+                        break
+                except psutil.NoSuchProcess:
+                    # Process gone during status check
+                    process_died = True
+                    break
+        except psutil.NoSuchProcess:
+            # Process already gone - that's good!
+            process_died = True
 
         assert process_died, (
-            "Process should die after KeyboardInterrupt but is still alive after 3s. "
+            "Process should die after KeyboardInterrupt but is still alive after 5s. "
             "This means the death detection isn't working, which is core to the Ctrl+C fix!"
         )
 

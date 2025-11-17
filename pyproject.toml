@@ -54,6 +54,7 @@ pytest = "*"
 mypy = "*"
 types-PyYAML = "*"
 pytest-playwright = "*"
+psutil = "*"
 
 [tool.poetry.scripts]
 align-app = "align_app.app:main"
