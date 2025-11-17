@@ -211,7 +211,9 @@ class TestWorker:
 
         try:
             # Send a quick task
-            worker, result = await send(worker, {"duration": 0.1}, timeout=1.0)
+            # Use longer timeout for spawn-based systems (MacOS/Windows) where
+            # process initialization adds overhead
+            worker, result = await send(worker, {"duration": 0.1}, timeout=3.0)
             # Should get result
             assert result is not None and "completed:" in result
 
