@@ -72,6 +72,34 @@ def slow_initialization_worker(task_queue: Queue, result_queue: Queue):
         print("Worker interrupted during initialization", file=sys.stderr)
 
 
+def mixed_worker(task_queue: Queue, result_queue: Queue):
+    """Worker that can do both interruptible and normal tasks."""
+    for task in iter(task_queue.get, None):
+        try:
+            if task == "normal_task":
+                result_queue.put("normal_result")
+            elif task == "interrupt_task":
+                time.sleep(0.1)
+                raise KeyboardInterrupt("Simulated interrupt")
+        except (KeyboardInterrupt, SystemExit):
+            break
+        except Exception as e:
+            result_queue.put(f"error: {e}")
+
+
+def timing_critical_worker(task_queue: Queue, result_queue: Queue):
+    """Worker that simulates the exact timing of the original bug."""
+    for task in iter(task_queue.get, None):
+        try:
+            for i in range(100):
+                time.sleep(0.01)
+                if i == 30:
+                    raise KeyboardInterrupt("Critical timing interrupt")
+            result_queue.put("should_not_get_here")
+        except (KeyboardInterrupt, SystemExit):
+            break
+
+
 @pytest.mark.anyio
 async def test_ctrl_c_during_processing():
     """Test the exact scenario that was causing hangs."""
@@ -108,8 +136,6 @@ async def test_ctrl_c_during_processing():
             "This means the death detection isn't working, which is core to the Ctrl+C fix!"
         )
 
-        print(f"✓ Ctrl+C handled correctly in {elapsed:.2f}s")
-
     finally:
         close_worker(worker)
 
@@ -129,8 +155,6 @@ async def test_initialization_interrupt():
         # Should return None when process dies
         worker, result = await send(worker, {"command": "interrupt_me"}, timeout=0.1)
         assert result is None
-
-        print("✓ Initialization interrupt handled correctly")
 
     finally:
         close_worker(worker)
@@ -156,8 +180,6 @@ async def test_multiple_interrupts():
             # Worker should restart automatically for next task
             # (this tests the auto-restart functionality)
 
-        print("✓ Multiple interrupts handled correctly")
-
     finally:
         close_worker(worker)
 
@@ -166,20 +188,6 @@ async def test_multiple_interrupts():
 async def test_normal_operation_after_interrupt():
     """Test that worker can recover and do normal work after being interrupted."""
     print("Testing normal operation after interrupt...")
-
-    # Use a worker that can do both interruptible and normal tasks
-    def mixed_worker(task_queue: Queue, result_queue: Queue):
-        for task in iter(task_queue.get, None):
-            try:
-                if task == "normal_task":
-                    result_queue.put("normal_result")
-                elif task == "interrupt_task":
-                    time.sleep(0.1)
-                    raise KeyboardInterrupt("Simulated interrupt")
-            except (KeyboardInterrupt, SystemExit):
-                break
-            except Exception as e:
-                result_queue.put(f"error: {e}")
 
     worker = create_worker(mixed_worker)
 
@@ -196,8 +204,6 @@ async def test_normal_operation_after_interrupt():
         worker, result = await send(worker, "normal_task")
         assert result == "normal_result"
 
-        print("✓ Recovery after interrupt works correctly")
-
     finally:
         close_worker(worker)
 
@@ -206,27 +212,6 @@ async def test_normal_operation_after_interrupt():
 async def test_timing_critical_scenario():
     """Test the exact timing scenario that was problematic."""
     print("Testing timing-critical interrupt scenario...")
-
-    def timing_critical_worker(task_queue: Queue, result_queue: Queue):
-        """Worker that simulates the exact timing of the original bug."""
-        for task in iter(task_queue.get, None):
-            try:
-                # Start processing
-                for i in range(100):
-                    time.sleep(0.01)  # Small delays
-
-                    # Interrupt at a specific point that was problematic
-                    if i == 30:
-                        # This simulates the exact moment when Ctrl+C was pressed
-                        # in the original video metadata extraction
-                        raise KeyboardInterrupt("Critical timing interrupt")
-
-                result_queue.put("should_not_get_here")
-
-            except (KeyboardInterrupt, SystemExit):
-                # The key is that we DON'T put anything in result_queue here
-                # This was causing the main process to hang
-                break
 
     worker = create_worker(timing_critical_worker)
 
@@ -240,8 +225,6 @@ async def test_timing_critical_scenario():
         # The fix ensures this returns None quickly instead of hanging
         assert result is None
         assert (end_time - start_time) < 2.0  # Should be much faster
-
-        print(f"✓ Timing-critical scenario handled in {end_time - start_time:.2f}s")
 
     finally:
         close_worker(worker)
