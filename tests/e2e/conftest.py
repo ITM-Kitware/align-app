@@ -4,6 +4,14 @@ import time
 from typing import Generator
 
 import pytest
+import urllib.request
+import urllib.error
+
+SERVER_STARTUP_TIMEOUT = 30
+SERVER_HEALTH_CHECK_INTERVAL = 0.5
+DECISION_TIMEOUT = 10000
+DEFAULT_WAIT_TIMEOUT = 10000
+SPINNER_APPEAR_TIMEOUT = 5000
 
 
 def _run_server(port: int):
@@ -20,14 +28,15 @@ def get_free_port() -> int:
     return port
 
 
-def wait_for_port(port: int, host: str = "localhost", timeout: int = 30):
+def wait_for_server(url: str, timeout: int = SERVER_STARTUP_TIMEOUT) -> bool:
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            with socket.create_connection((host, port), timeout=1):
-                return True
-        except (ConnectionRefusedError, OSError):
-            time.sleep(0.5)
+            with urllib.request.urlopen(url, timeout=1) as response:
+                if response.status == 200:
+                    return True
+        except (urllib.error.URLError, ConnectionRefusedError, OSError):
+            time.sleep(SERVER_HEALTH_CHECK_INTERVAL)
     return False
 
 
@@ -39,10 +48,10 @@ def align_app_server() -> Generator[str, None, None]:
     process = multiprocessing.Process(target=_run_server, args=(port,))
     process.start()
 
-    if not wait_for_port(port, timeout=30):
+    if not wait_for_server(server_url):
         process.terminate()
         raise RuntimeError(
-            "Failed to start align-app server - timeout waiting for port"
+            f"Failed to start align-app server at {server_url} - timeout waiting for HTTP response"
         )
 
     if not process.is_alive():
