@@ -45,6 +45,8 @@ def reload(m=None):
 
 SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
 
+RUN_COLUMN_MIN_WIDTH = "20rem"
+
 CHOICE_INFO_DESCRIPTIONS = {
     "Predicted KDMA values": "Key Decision-Making Attributes associated with each choice",
     "ICL example responses": (
@@ -269,17 +271,26 @@ class PanelSection(vuetify3.VExpansionPanel):
 class RowWithLabel:
     def __init__(self, run_content=noop, label="", no_runs=None):
         title = bool(label)
-        with vuetify3.VRow(no_gutters=False, classes="flex-nowrap overflow-hidden"):
-            with vuetify3.VCol(cols=2, classes="align-self-center flex-shrink-0"):
+        with vuetify3.VRow(no_gutters=False, classes="flex-nowrap"):
+            with vuetify3.VCol(
+                cols=2,
+                classes="align-self-center flex-shrink-0",
+                style="position: sticky; left: 0; z-index: 10; background-color: white;",
+            ):
                 html.Span(label, classes="text-h6")
             with vuetify3.VCol(
                 v_for=("(id, column) in runs_to_compare",),
                 key=("id",),
                 v_if=("runs_to_compare.length > 0",),
+                style=(
+                    f"min-width: {RUN_COLUMN_MIN_WIDTH}; "
+                    f"max-width: {RUN_COLUMN_MIN_WIDTH}; "
+                    f"width: {RUN_COLUMN_MIN_WIDTH};"
+                ),
                 classes=(
-                    "text-subtitle-1 text-no-wrap text-truncate align-self-center"
+                    "text-subtitle-1 text-no-wrap text-truncate align-self-center flex-shrink-0"
                     if title
-                    else "align-self-start text-break"
+                    else "align-self-start text-break flex-shrink-0"
                 ),
             ):
                 run_content()
@@ -804,8 +815,14 @@ class AlignLayout(SinglePageLayout):
 
             with layout.content:
                 with vuetify3.VContainer(fluid=True, classes="overflow-y-auto"):
-                    with vuetify3.VRow():
-                        with vuetify3.VCol(cols=8):
+                    with vuetify3.VRow(classes="overflow-x-auto flex-nowrap"):
+                        with vuetify3.VCol(
+                            style=f"min-width: calc({RUN_COLUMN_MIN_WIDTH} * 3);",
+                            classes="flex-grow-1 flex-shrink-0",
+                        ):
                             ResultsComparison()
-                        with vuetify3.VCol(cols=4):
+                        with vuetify3.VCol(
+                            style=f"min-width: {RUN_COLUMN_MIN_WIDTH};",
+                            classes="flex-grow-0 flex-shrink-0",
+                        ):
                             PromptInput()
