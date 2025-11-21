@@ -67,10 +67,7 @@ class AlignApp:
                 **self.state.runs,
                 run_id: run,
             }
-            if len(self.state.runs_to_compare) >= 2:
-                self.state.runs_to_compare = self.state.runs_to_compare[1:] + [run_id]
-            else:
-                self.state.runs_to_compare = self.state.runs_to_compare + [run_id]
+            self.state.runs_to_compare = self.state.runs_to_compare + [run_id]
 
         await self.server.network_completion  # let spinner be shown
 
