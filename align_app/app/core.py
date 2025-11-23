@@ -41,22 +41,10 @@ class AlignApp:
 
         self._build_ui()
         self.reset_state()
-        self._populate_available_probes()
 
     @controller.set("reset_state")
     def reset_state(self):
         self._runsController.reset_state()
-        self.server.state.available_probes = []
-
-    def _populate_available_probes(self):
-        probes = self._promptController.probe_registry.get_probes()
-        self.server.state.available_probes = [
-            {
-                "text": f"{probe.scenario_id} - {probe.scene_id} - {probe_id}",
-                "value": probe_id,
-            }
-            for probe_id, probe in probes.items()
-        ]
 
     def _build_ui(self, *args, **kwargs):
         extra_args = {}
