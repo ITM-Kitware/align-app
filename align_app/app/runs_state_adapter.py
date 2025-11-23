@@ -1,18 +1,80 @@
-from typing import Dict
+from typing import Dict, Any, List
 from trame.app import asynchronous
 from trame.decorators import TrameApp, controller, change
-from ..adm.decider import get_decision, DeciderParams
-from ..utils.utils import get_id
 from .run_models import Run, RunDecision
+from .runs_registry import RunsRegistry
+from ..adm.decider.types import DeciderParams
+from ..utils.utils import get_id
 import json
 
 
+def run_to_state_dict(run: Run) -> Dict[str, Any]:
+    scenario_input = run.decider_params.scenario_input
+
+    display_state = None
+    if scenario_input.full_state and "unstructured" in scenario_input.full_state:
+        display_state = scenario_input.full_state["unstructured"]
+
+    scene_id = None
+    if (
+        scenario_input.full_state
+        and "meta_info" in scenario_input.full_state
+        and "scene_id" in scenario_input.full_state["meta_info"]
+    ):
+        scene_id = scenario_input.full_state["meta_info"]["scene_id"]
+
+    probe_dict = {
+        "probe_id": run.probe_id,
+        "scene_id": scene_id,
+        "scenario_id": scenario_input.scenario_id,
+        "display_state": display_state,
+        "state": scenario_input.state,
+        "choices": scenario_input.choices,
+        "full_state": scenario_input.full_state,
+    }
+
+    result = {
+        "id": run.id,
+        "prompt": {
+            "probe": probe_dict,
+            "alignment_target": run.decider_params.alignment_target.model_dump(),
+            "decider_params": {
+                "llm_backbone": run.llm_backbone_name,
+                "decider": run.decider_name,
+            },
+            "system_prompt": run.system_prompt,
+            "resolved_config": run.decider_params.resolved_config,
+            "decider": {"name": run.decider_name},
+            "llm_backbone": run.llm_backbone_name,
+        },
+    }
+
+    if run.decision:
+        result["decision"] = decision_to_state_dict(run.decision)
+
+    return result
+
+
+def decision_to_state_dict(decision: RunDecision) -> Dict[str, Any]:
+    from .ui import prep_decision_for_state
+
+    choice_letter = chr(decision.choice_index + ord("A"))
+
+    decision_dict = {
+        "unstructured": f"{choice_letter}. {decision.adm_result.decision.unstructured}",
+        "justification": decision.adm_result.decision.justification,
+        "choice_info": decision.adm_result.choice_info.model_dump(exclude_none=True),
+    }
+
+    return prep_decision_for_state(decision_dict)
+
+
 @TrameApp()
-class RunsController:
-    def __init__(self, server, prompt_controller):
+class RunsStateAdapter:
+    def __init__(self, server, prompt_controller, runs_registry: RunsRegistry):
         self.server = server
         self.prompt_controller = prompt_controller
-        self.decision_cache: Dict[str, RunDecision] = {}
+        self.runs_registry = runs_registry
         self.init_state()
 
     @property
@@ -23,17 +85,34 @@ class RunsController:
         self.state.runs = {}
         self.state.runs_to_compare = []
         self.state.runs_json = "[]"
+        self.state.decision_cache = {}
+        self.state.run_edit_configs = {}
+        self.state.run_needs_execution = {}
+        self.state.run_cache_available = {}
+        self.state.run_validation_errors = {}
 
     @controller.set("reset_runs_state")
     def reset_state(self):
         self.init_state()
-        self.decision_cache = {}
+        self.runs_registry.clear_runs()
 
     @controller.set("update_run_to_compare")
     def update_run_to_compare(self, run_index, run_column_index):
         runs = list(self.state.runs.keys())
         self.state.runs_to_compare[run_column_index] = runs[run_index - 1]
         self.state.dirty("runs_to_compare")
+
+    def _sync_run_to_state(self, run: Run):
+        run_dict = run_to_state_dict(run)
+
+        with self.state:
+            self.state.runs = {
+                run_id: ({**item, **run_dict} if run_id == run.id else item)
+                for run_id, item in self.state.runs.items()
+            }
+            if run.id not in self.state.runs:
+                self.state.runs = {**self.state.runs, run.id: run_dict}
+                self.state.runs_to_compare = self.state.runs_to_compare + [run.id]
 
     async def create_and_execute_run(self):
         prompt_context = self.prompt_controller.get_prompt()
@@ -57,45 +136,24 @@ class RunsController:
         )
 
         with self.state:
-            self.state.runs = {
-                **self.state.runs,
-                run_id: run.to_state_dict(),
-            }
+            run_dict = run_to_state_dict(run)
+            self.state.runs = {**self.state.runs, run_id: run_dict}
             self.state.runs_to_compare = self.state.runs_to_compare + [run_id]
-
-        cache_key = run.compute_cache_key()
-
-        if cache_key in self.decision_cache:
-            cached_decision = self.decision_cache[cache_key]
-            run.decision = cached_decision
-            with self.state:
-                self.state.runs = {
-                    id: ({**item, **run.to_state_dict()} if id == run_id else item)
-                    for id, item in self.state.runs.items()
-                }
-            return
 
         await self.server.network_completion
 
-        adm_result = await get_decision(run.decider_params)
-
         probe_choices = prompt_context["probe"].choices or []
-        decision = RunDecision.from_adm_result(adm_result, probe_choices)
+        updated_run = await self.runs_registry.create_and_execute_run(
+            run, probe_choices
+        )
 
-        self.decision_cache[cache_key] = decision
-        run.decision = decision
-
-        with self.state:
-            self.state.runs = {
-                id: ({**item, **run.to_state_dict()} if id == run_id else item)
-                for id, item in self.state.runs.items()
-            }
+        self._sync_run_to_state(updated_run)
 
     @controller.set("submit_prompt")
     def submit_prompt(self):
         asynchronous.create_task(self.create_and_execute_run())
 
-    def export_runs_to_json(self):
+    def export_runs_to_json(self) -> str:
         exported_runs = []
 
         for run_dict in self.state.runs.values():

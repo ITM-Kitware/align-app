@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List
+from typing import Dict, Optional, List
 from pydantic import BaseModel
 import hashlib
 import json
@@ -48,19 +48,6 @@ class RunDecision(BaseModel):
             choice_index=choice_idx,
         )
 
-    def to_state_dict(self) -> Dict[str, Any]:
-        from .ui import prep_decision_for_state
-
-        choice_letter = chr(self.choice_index + ord("A"))
-
-        decision_dict = {
-            "unstructured": f"{choice_letter}. {self.adm_result.decision.unstructured}",
-            "justification": self.adm_result.decision.justification,
-            "choice_info": self.adm_result.choice_info.model_dump(exclude_none=True),
-        }
-
-        return prep_decision_for_state(decision_dict)
-
 
 class Run(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
@@ -80,49 +67,3 @@ class Run(BaseModel):
             llm_backbone_name=self.llm_backbone_name,
             decider_params=self.decider_params,
         )
-
-    def to_state_dict(self) -> Dict[str, Any]:
-        scenario_input = self.decider_params.scenario_input
-
-        display_state = None
-        if scenario_input.full_state and "unstructured" in scenario_input.full_state:
-            display_state = scenario_input.full_state["unstructured"]
-
-        scene_id = None
-        if (
-            scenario_input.full_state
-            and "meta_info" in scenario_input.full_state
-            and "scene_id" in scenario_input.full_state["meta_info"]
-        ):
-            scene_id = scenario_input.full_state["meta_info"]["scene_id"]
-
-        probe_dict = {
-            "probe_id": self.probe_id,
-            "scene_id": scene_id,
-            "scenario_id": scenario_input.scenario_id,
-            "display_state": display_state,
-            "state": scenario_input.state,
-            "choices": scenario_input.choices,
-            "full_state": scenario_input.full_state,
-        }
-
-        result = {
-            "id": self.id,
-            "prompt": {
-                "probe": probe_dict,
-                "alignment_target": self.decider_params.alignment_target.model_dump(),
-                "decider_params": {
-                    "llm_backbone": self.llm_backbone_name,
-                    "decider": self.decider_name,
-                },
-                "system_prompt": self.system_prompt,
-                "resolved_config": self.decider_params.resolved_config,
-                "decider": {"name": self.decider_name},
-                "llm_backbone": self.llm_backbone_name,
-            },
-        }
-
-        if self.decision:
-            result["decision"] = self.decision.to_state_dict()
-
-        return result

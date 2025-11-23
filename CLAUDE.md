@@ -28,8 +28,14 @@ poetry run align-app --port 8081 --host 0.0.0.0
 
 ### Development Tools
 ```bash
-# Run tests
+# Run all tests
 poetry run pytest
+
+# Run end-to-end tests
+poetry run pytest tests/e2e/ -v
+
+# Run e2e tests with full output
+poetry run pytest tests/e2e/ -xvs
 
 # Lint and format code
 ruff check --fix
@@ -76,6 +82,15 @@ The app supports various LLM backbones through HuggingFace transformers. Models 
 2. Parameters are processed through `adm_core.py` using Hydra configuration
 3. Decision is made using the align-system library
 4. Result with justification is returned to the UI for comparison with previous decisions
+
+## Testing
+
+### End-to-End Tests
+E2e tests use Playwright to test the full application stack. The test infrastructure captures all backend server logs, prints, and errors:
+- Backend stdout and stderr are captured in real-time
+- All logs are displayed after each test (both passing and failing)
+- Backend errors and tracebacks are included in test failure reports
+- Add `print()` statements in backend code to debug during e2e tests
 
 ## Pre-commit Configuration
 - `codespell`: Spell checking (excludes .json files and CHANGELOG.md)
