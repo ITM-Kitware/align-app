@@ -43,22 +43,14 @@ class AlignApp:
         self.reset_state()
         self._populate_available_probes()
 
-    @property
-    def state(self):
-        return self.server.state
-
-    @property
-    def ctrl(self):
-        return self.server.controller
-
     @controller.set("reset_state")
     def reset_state(self):
         self._runsController.reset_state()
-        self.state.available_probes = []
+        self.server.state.available_probes = []
 
     def _populate_available_probes(self):
         probes = self._promptController.probe_registry.get_probes()
-        self.state.available_probes = [
+        self.server.state.available_probes = [
             {
                 "text": f"{probe.scenario_id} - {probe.scene_id} - {probe_id}",
                 "value": probe_id,
@@ -67,13 +59,13 @@ class AlignApp:
         ]
 
     def _initialize_run_edit_config(self, run_id: str):
-        if run_id not in self.state.runs:
+        if run_id not in self.server.state.runs:
             return
 
-        run = self.state.runs[run_id]
+        run = self.server.state.runs[run_id]
         prompt = run["prompt"]
 
-        self.state.run_edit_configs[run_id] = {
+        self.server.state.run_edit_configs[run_id] = {
             "probe_id": prompt["probe"]["id"],
             "decider": prompt["decider"]["name"],
             "llm_backbone": prompt["llm_backbone"],
@@ -87,21 +79,20 @@ class AlignApp:
             "system_prompt": prompt.get("system_prompt", ""),
         }
 
-        self.state.run_needs_execution[run_id] = False
-        self.state.run_cache_available[run_id] = False
-        self.state.run_validation_errors[run_id] = []
-
     def _get_cache_key_for_run(self, run_id: str) -> str:
         raise NotImplementedError(
             "TODO: Update for Phase 2 - need to build DeciderParams from edit config"
         )
 
     def _has_run_config_changed(self, run_id: str) -> bool:
-        if run_id not in self.state.runs or run_id not in self.state.run_edit_configs:
+        if (
+            run_id not in self.server.state.runs
+            or run_id not in self.server.state.run_edit_configs
+        ):
             return False
 
-        original_run = self.state.runs[run_id]
-        edit_config = self.state.run_edit_configs[run_id]
+        original_run = self.server.state.runs[run_id]
+        edit_config = self.server.state.run_edit_configs[run_id]
         prompt = original_run["prompt"]
 
         return (

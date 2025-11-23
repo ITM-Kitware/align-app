@@ -42,8 +42,8 @@ _output_lock = threading.Lock()
 
 
 def _capture_stream(pipe, output_list):
-    for line in iter(pipe.readline, b''):
-        decoded_line = line.decode('utf-8', errors='replace')
+    for line in iter(pipe.readline, b""):
+        decoded_line = line.decode("utf-8", errors="replace")
         with _output_lock:
             output_list.append(decoded_line)
     pipe.close()
@@ -59,6 +59,7 @@ def align_app_server() -> Generator[str, None, None]:
     server_url = f"http://localhost:{port}"
 
     import os
+
     venv_bin = os.path.join(os.path.dirname(sys.executable), "align-app")
 
     process = subprocess.Popen(
@@ -67,8 +68,12 @@ def align_app_server() -> Generator[str, None, None]:
         stdout=subprocess.PIPE,
     )
 
-    stderr_thread = threading.Thread(target=_capture_stream, args=(process.stderr, _server_stderr_lines), daemon=True)
-    stdout_thread = threading.Thread(target=_capture_stream, args=(process.stdout, _server_stdout_lines), daemon=True)
+    stderr_thread = threading.Thread(
+        target=_capture_stream, args=(process.stderr, _server_stderr_lines), daemon=True
+    )
+    stdout_thread = threading.Thread(
+        target=_capture_stream, args=(process.stdout, _server_stdout_lines), daemon=True
+    )
     stderr_thread.start()
     stdout_thread.start()
 
@@ -77,12 +82,16 @@ def align_app_server() -> Generator[str, None, None]:
         process.wait(timeout=2)
         with _output_lock:
             stderr_content = "".join(_server_stderr_lines)
-        raise RuntimeError(f"Failed to start align-app server at {server_url}\n\nServer stderr:\n{stderr_content}")
+        raise RuntimeError(
+            f"Failed to start align-app server at {server_url}\n\nServer stderr:\n{stderr_content}"
+        )
 
     if process.poll() is not None:
         with _output_lock:
             stderr_content = "".join(_server_stderr_lines)
-        raise RuntimeError(f"Failed to start align-app server - process died\n\nServer stderr:\n{stderr_content}")
+        raise RuntimeError(
+            f"Failed to start align-app server - process died\n\nServer stderr:\n{stderr_content}"
+        )
 
     yield server_url
 
@@ -105,15 +114,22 @@ def pytest_runtest_makereport(item, call):
 
             output_to_append = []
             if stderr_content:
-                output_to_append.append(f"{'='*60}\nBACKEND SERVER STDERR:\n{'='*60}\n{stderr_content}")
+                output_to_append.append(
+                    f"{'=' * 60}\nBACKEND SERVER STDERR:\n{'=' * 60}\n{stderr_content}"
+                )
             if stdout_content:
-                output_to_append.append(f"{'='*60}\nBACKEND SERVER STDOUT:\n{'='*60}\n{stdout_content}")
+                output_to_append.append(
+                    f"{'=' * 60}\nBACKEND SERVER STDOUT:\n{'=' * 60}\n{stdout_content}"
+                )
 
             if output_to_append:
                 if report.failed:
-                    report.longrepr = str(report.longrepr) + "\n\n" + "\n\n".join(output_to_append)
+                    report.longrepr = (
+                        str(report.longrepr) + "\n\n" + "\n\n".join(output_to_append)
+                    )
                 else:
                     import sys
+
                     print("\n" + "\n\n".join(output_to_append), file=sys.stderr)
 
 

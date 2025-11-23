@@ -85,11 +85,7 @@ class RunsStateAdapter:
         self.state.runs = {}
         self.state.runs_to_compare = []
         self.state.runs_json = "[]"
-        self.state.decision_cache = {}
         self.state.run_edit_configs = {}
-        self.state.run_needs_execution = {}
-        self.state.run_cache_available = {}
-        self.state.run_validation_errors = {}
 
     @controller.set("reset_runs_state")
     def reset_state(self):
