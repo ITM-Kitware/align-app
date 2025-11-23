@@ -1,9 +1,10 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from trame.app import asynchronous
 from trame.decorators import TrameApp, controller, change
 from .run_models import Run, RunDecision
 from .runs_registry import RunsRegistry
 from ..adm.decider.types import DeciderParams
+from .ui import prep_decision_for_state
 from ..utils.utils import get_id
 import json
 
@@ -56,8 +57,6 @@ def run_to_state_dict(run: Run) -> Dict[str, Any]:
 
 
 def decision_to_state_dict(decision: RunDecision) -> Dict[str, Any]:
-    from .ui import prep_decision_for_state
-
     choice_letter = chr(decision.choice_index + ord("A"))
 
     decision_dict = {
@@ -75,22 +74,25 @@ class RunsStateAdapter:
         self.server = server
         self.prompt_controller = prompt_controller
         self.runs_registry = runs_registry
-        self.init_state()
+        self._sync_from_runs_data(runs_registry.get_all_runs())
 
     @property
     def state(self):
         return self.server.state
 
-    def init_state(self):
-        self.state.runs = {}
-        self.state.runs_to_compare = []
-        self.state.runs_json = "[]"
-        self.state.run_edit_configs = {}
+    def _sync_from_runs_data(self, runs_dict: Dict[str, Run]):
+        self.state.runs = {
+            run_id: run_to_state_dict(run) for run_id, run in runs_dict.items()
+        }
+        if not self.state.runs:
+            self.state.runs_to_compare = []
+            self.state.runs_json = "[]"
+            self.state.run_edit_configs = {}
 
     @controller.set("reset_runs_state")
     def reset_state(self):
-        self.init_state()
         self.runs_registry.clear_runs()
+        self._sync_from_runs_data({})
 
     @controller.set("update_run_to_compare")
     def update_run_to_compare(self, run_index, run_column_index):
@@ -131,17 +133,13 @@ class RunsStateAdapter:
             system_prompt=prompt_context.get("system_prompt", ""),
         )
 
-        with self.state:
-            run_dict = run_to_state_dict(run)
-            self.state.runs = {**self.state.runs, run_id: run_dict}
-            self.state.runs_to_compare = self.state.runs_to_compare + [run_id]
+        self.runs_registry.add_run(run)
+        self._sync_run_to_state(run)
 
-        await self.server.network_completion
+        await self.server.network_completion  # show spinner
 
         probe_choices = prompt_context["probe"].choices or []
-        updated_run = await self.runs_registry.create_and_execute_run(
-            run, probe_choices
-        )
+        updated_run = await self.runs_registry.execute_decision(run, probe_choices)
 
         self._sync_run_to_state(updated_run)
 

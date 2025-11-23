@@ -58,54 +58,6 @@ class AlignApp:
             for probe_id, probe in probes.items()
         ]
 
-    def _initialize_run_edit_config(self, run_id: str):
-        if run_id not in self.server.state.runs:
-            return
-
-        run = self.server.state.runs[run_id]
-        prompt = run["prompt"]
-
-        self.server.state.run_edit_configs[run_id] = {
-            "probe_id": prompt["probe"]["id"],
-            "decider": prompt["decider"]["name"],
-            "llm_backbone": prompt["llm_backbone"],
-            "alignment_attributes": prompt.get("alignment_target", {})
-            .get("kdma_values", [])
-            .copy(),
-            "edited_probe_text": prompt["probe"]["state"],
-            "edited_choices": [
-                choice["unstructured"] for choice in prompt["probe"]["choices"]
-            ],
-            "system_prompt": prompt.get("system_prompt", ""),
-        }
-
-    def _get_cache_key_for_run(self, run_id: str) -> str:
-        raise NotImplementedError(
-            "TODO: Update for Phase 2 - need to build DeciderParams from edit config"
-        )
-
-    def _has_run_config_changed(self, run_id: str) -> bool:
-        if (
-            run_id not in self.server.state.runs
-            or run_id not in self.server.state.run_edit_configs
-        ):
-            return False
-
-        original_run = self.server.state.runs[run_id]
-        edit_config = self.server.state.run_edit_configs[run_id]
-        prompt = original_run["prompt"]
-
-        return (
-            edit_config["probe_id"] != prompt["probe"]["id"]
-            or edit_config["decider"] != prompt["decider"]["name"]
-            or edit_config["llm_backbone"] != prompt["llm_backbone"]
-            or edit_config["alignment_attributes"]
-            != prompt.get("alignment_target", {}).get("kdma_values", [])
-            or edit_config["edited_probe_text"] != prompt["probe"]["state"]
-            or [choice for choice in edit_config["edited_choices"]]
-            != [choice["unstructured"] for choice in prompt["probe"]["choices"]]
-        )
-
     def _build_ui(self, *args, **kwargs):
         extra_args = {}
         if self.server.hot_reload:
