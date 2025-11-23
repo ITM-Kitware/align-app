@@ -2,7 +2,8 @@ from trame.app import get_server
 from trame.decorators import TrameApp, controller
 from . import ui
 from .prompt import PromptController
-from .runs_controller import RunsController
+from .runs_registry import create_runs_registry
+from .runs_state_adapter import RunsStateAdapter
 
 
 @TrameApp()
@@ -30,7 +31,10 @@ class AlignApp:
         self._promptController = PromptController(
             self.server, args.deciders, args.scenarios
         )
-        self._runsController = RunsController(self.server, self._promptController)
+        self._runs_registry = create_runs_registry()
+        self._runsController = RunsStateAdapter(
+            self.server, self._promptController, self._runs_registry
+        )
 
         if self.server.hot_reload:
             self.server.controller.on_server_reload.add(self._build_ui)
@@ -50,12 +54,6 @@ class AlignApp:
     @controller.set("reset_state")
     def reset_state(self):
         self._runsController.reset_state()
-
-        self.state.decision_cache = {}
-        self.state.run_edit_configs = {}
-        self.state.run_needs_execution = {}
-        self.state.run_cache_available = {}
-        self.state.run_validation_errors = {}
         self.state.available_probes = []
 
     def _populate_available_probes(self):
