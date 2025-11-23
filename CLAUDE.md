@@ -83,6 +83,24 @@ The app supports various LLM backbones through HuggingFace transformers. Models 
 3. Decision is made using the align-system library
 4. Result with justification is returned to the UI for comparison with previous decisions
 
+### Design Patterns
+
+#### Unidirectional State Flow (Three-Layer Architecture)
+1. **Functional Core** (`*_core.py`) - Pure functions on immutable data structures
+   - Example: `add_run(data: Runs, run: Run) -> Runs`
+2. **Registry** (`*_registry.py`) - State management via closures with `nonlocal data`
+   - Calls functional core, captures returned state
+3. **State Adapter** (`*_state_adapter.py`) - Trame UI bridge
+   - Controllers trigger registry, sync to reactive state
+
+Flow: UI → Adapter → Registry → Core → new data → Registry → Adapter → UI
+
+#### Functional Programming
+- Immutable data: `@dataclass(frozen=True)`, `replace()` instead of mutation
+- Pure transformations: return new collections, no in-place modifications
+- Separation: pure logic in `*_core.py`, side effects in registry/adapter
+- Data-first: `fn(data: DataType, ...params) -> DataType`
+
 ## Testing
 
 ### End-to-End Tests

@@ -183,6 +183,17 @@ class PromptController:
         if selected:
             self.server.state.decider = selected
 
+    def update_available_probes(self):
+        """Update the available probes list in state."""
+        probes = self.probe_registry.get_probes()
+        self.server.state.available_probes = [
+            {
+                "text": f"{probe.scenario_id} - {probe.scene_id} - {probe_id}",
+                "value": probe_id,
+            }
+            for probe_id, probe in probes.items()
+        ]
+
     def init_state(self):
         self.server.state.decider = ""
         self.server.state.decider_messages = []
@@ -204,9 +215,11 @@ class PromptController:
         self.server.state.scenario_id = ""
         self.server.state.scene_items = []
         self.server.state.scene_id = ""
+        self.server.state.available_probes = []
 
         self.update_scenarios()
         self.update_deciders()
+        self.update_available_probes()
         self.update_decider_params()
 
         if self.server.state.llm_backbones:
