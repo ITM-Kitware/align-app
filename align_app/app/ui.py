@@ -451,9 +451,21 @@ class Probe:
 
             RowWithLabel(run_content=run_content, label="Scenario")
 
-    class Text:
-        def __init__(self):
+    class Text(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
+                vuetify3.VSelect(
+                    label="Scene",
+                    items=("scene_items",),
+                    model_value=("runs[id].prompt.probe.scene_id",),
+                    update_modelValue=(
+                        self.server.controller.update_run_scene,
+                        r"[id, $event]",
+                    ),
+                    hide_details="auto",
+                )
                 ProbeLayout("runs[id].prompt.probe")
 
             RowWithLabel(run_content=run_content)

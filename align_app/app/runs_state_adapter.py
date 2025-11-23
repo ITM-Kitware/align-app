@@ -147,6 +147,18 @@ class RunsStateAdapter:
     def submit_prompt(self):
         asynchronous.create_task(self.create_and_execute_run())
 
+    @controller.set("update_run_scene")
+    def update_run_scene(self, run_id: str, scene_id: str):
+        """Handle scene change for a run.
+
+        Minimal - just coordinates registry call and UI sync.
+        All complexity delegated to registry → core layers.
+        """
+        updated_run = self.runs_registry.update_run_scene(run_id, scene_id)
+
+        if updated_run:
+            self._sync_run_to_state(updated_run)
+
     def export_runs_to_json(self) -> str:
         exported_runs = []
 
