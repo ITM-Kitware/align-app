@@ -25,7 +25,7 @@ class AlignPage:
 
     @property
     def decision_text(self) -> Locator:
-        return self.page.locator("text=/^[A-Z]\\./").first
+        return self.page.locator("text=/^[A-Z].+/").first
 
     def goto(self, url: str) -> None:
         self.page.goto(url)
