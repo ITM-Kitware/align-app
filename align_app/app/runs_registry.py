@@ -1,7 +1,8 @@
 from collections import namedtuple
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any, Callable
 from .run_models import Run
 from . import runs_core
+from . import runs_edit_logic
 
 
 RunsRegistry = namedtuple(
@@ -13,12 +14,42 @@ RunsRegistry = namedtuple(
         "get_run",
         "get_all_runs",
         "clear_runs",
+        "update_run_scene",
     ],
 )
 
 
-def create_runs_registry():
+def create_runs_registry(probe_registry):
     data = runs_core.init_runs()
+
+    def _create_update_method(
+        prepare_fn: Callable[[Run, Any], Optional[Run]],
+    ) -> Callable[[str, Any], Optional[Run]]:
+        """Factory that generates registry update methods.
+
+        Args:
+            prepare_fn: Orchestration helper that prepares updated run.
+                       Signature: (run, value, *, probe_registry) -> Optional[Run]
+
+        Returns:
+            Update method with signature: (run_id, value) -> Optional[Run]
+        """
+
+        def update_method(run_id: str, value: Any) -> Optional[Run]:
+            nonlocal data
+
+            run = runs_core.get_run(data, run_id)
+            if not run:
+                return None
+
+            updated_run = prepare_fn(run, value, probe_registry=probe_registry)
+            if not updated_run:
+                return None
+
+            data = runs_core.update_run(data, run_id, updated_run)
+            return runs_core.get_run(data, run_id)
+
+        return update_method
 
     def add_run(run: Run) -> Run:
         nonlocal data
@@ -46,6 +77,8 @@ def create_runs_registry():
         data = runs_core.clear_runs(data)
         return data
 
+    update_run_scene = _create_update_method(runs_edit_logic.prepare_scene_update)
+
     return RunsRegistry(
         add_run=add_run,
         execute_decision=execute_decision,
@@ -53,4 +86,5 @@ def create_runs_registry():
         get_run=get_run,
         get_all_runs=get_all_runs,
         clear_runs=clear_runs,
+        update_run_scene=update_run_scene,
     )
