@@ -16,6 +16,7 @@ class RunsStateAdapter:
         self.prompt_controller = prompt_controller
         self.runs_registry = runs_registry
         self.probe_registry = prompt_controller.probe_registry
+        self.decider_registry = prompt_controller.decider_api
         self.server.state.runs_computing = []
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
@@ -25,7 +26,9 @@ class RunsStateAdapter:
 
     def _sync_from_runs_data(self, runs_dict: Dict[str, Run]):
         self.state.runs = {
-            run_id: runs_presentation.run_to_state_dict(run, self.probe_registry)
+            run_id: runs_presentation.run_to_state_dict(
+                run, self.probe_registry, self.decider_registry
+            )
             for run_id, run in runs_dict.items()
         }
 
@@ -49,7 +52,9 @@ class RunsStateAdapter:
         self.state.dirty("runs_to_compare")
 
     def _sync_run_to_state(self, run: Run):
-        run_dict = runs_presentation.run_to_state_dict(run, self.probe_registry)
+        run_dict = runs_presentation.run_to_state_dict(
+            run, self.probe_registry, self.decider_registry
+        )
 
         with self.state:
             self.state.runs = {
@@ -115,6 +120,18 @@ class RunsStateAdapter:
         All complexity delegated to registry → core layers.
         """
         updated_run = self.runs_registry.update_run_scenario(run_id, scenario_id)
+
+        if updated_run:
+            self._sync_run_to_state(updated_run)
+
+    @controller.set("update_run_decider")
+    def update_run_decider(self, run_id: str, decider_name: str):
+        """Handle decider change for a run.
+
+        Minimal - just coordinates registry call and UI sync.
+        All complexity delegated to registry → core layers.
+        """
+        updated_run = self.runs_registry.update_run_decider(run_id, decider_name)
 
         if updated_run:
             self._sync_run_to_state(updated_run)

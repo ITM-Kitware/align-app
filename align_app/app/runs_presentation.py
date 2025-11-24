@@ -19,7 +19,9 @@ def decision_to_state_dict(decision: RunDecision) -> Dict[str, Any]:
     return prep_decision_for_state(decision_dict)
 
 
-def run_to_state_dict(run: Run, probe_registry=None) -> Dict[str, Any]:
+def run_to_state_dict(
+    run: Run, probe_registry=None, decider_registry=None
+) -> Dict[str, Any]:
     scenario_input = run.decider_params.scenario_input
 
     display_state = None
@@ -49,9 +51,15 @@ def run_to_state_dict(run: Run, probe_registry=None) -> Dict[str, Any]:
         probes = probe_registry.get_probes()
         scene_items = get_scenes_for_base_scenario(probes, scenario_input.scenario_id)
 
+    decider_items = []
+    if decider_registry:
+        all_deciders = decider_registry.get_all_deciders()
+        decider_items = list(all_deciders.keys())
+
     result = {
         "id": run.id,
         "scene_items": scene_items,
+        "decider_items": decider_items,
         "prompt": {
             "probe": probe_dict,
             "alignment_target": run.decider_params.alignment_target.model_dump(),

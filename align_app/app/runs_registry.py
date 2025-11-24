@@ -19,22 +19,23 @@ RunsRegistry = namedtuple(
         "clear_runs",
         "update_run_scene",
         "update_run_scenario",
+        "update_run_decider",
     ],
 )
 
 
-def create_runs_registry(probe_registry):
+def create_runs_registry(probe_registry, decider_registry):
     """Create runs service with methods for managing run lifecycle."""
     data = runs_core.init_runs()
 
     def _create_update_method(
-        prepare_fn: Callable[[Run, Any], Optional[Run]],
+        prepare_fn: Callable[..., Optional[Run]],
     ) -> Callable[[str, Any], Optional[Run]]:
         """Factory that generates registry update methods.
 
         Args:
             prepare_fn: Orchestration helper that prepares updated run.
-                       Signature: (run, value, *, probe_registry) -> Optional[Run]
+                       Signature: (run, value, *, probe_registry, decider_registry) -> Optional[Run]
 
         Returns:
             Update method with signature: (run_id, value) -> Optional[Run]
@@ -47,7 +48,12 @@ def create_runs_registry(probe_registry):
             if not run:
                 return None
 
-            updated_run = prepare_fn(run, value, probe_registry=probe_registry)
+            updated_run = prepare_fn(
+                run,
+                value,
+                probe_registry=probe_registry,
+                decider_registry=decider_registry,
+            )
             if not updated_run:
                 return None
 
@@ -99,6 +105,7 @@ def create_runs_registry(probe_registry):
 
     update_run_scene = _create_update_method(runs_edit_logic.prepare_scene_update)
     update_run_scenario = _create_update_method(runs_edit_logic.prepare_scenario_update)
+    update_run_decider = _create_update_method(runs_edit_logic.prepare_decider_update)
 
     return RunsRegistry(
         add_run=add_run,
@@ -110,4 +117,5 @@ def create_runs_registry(probe_registry):
         clear_runs=clear_runs,
         update_run_scene=update_run_scene,
         update_run_scenario=update_run_scenario,
+        update_run_decider=update_run_decider,
     )

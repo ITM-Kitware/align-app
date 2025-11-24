@@ -32,7 +32,8 @@ class AlignApp:
             self.server, args.deciders, args.scenarios
         )
         self._runs_registry = create_runs_registry(
-            self._promptController.probe_registry
+            self._promptController.probe_registry,
+            self._promptController.decider_api,
         )
         self._runsController = RunsStateAdapter(
             self.server, self._promptController, self._runs_registry
