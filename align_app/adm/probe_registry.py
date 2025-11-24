@@ -1,43 +1,26 @@
 from collections import namedtuple
 from pathlib import Path
-import json
 import align_system
 from align_utils.models import (
-    InputOutputFile,
     InputOutputItem,
 )
+from align_utils.discovery import load_input_output_files
 from align_app.adm.probe import Probe
 
 DEFAULT_SCENARIOS_PATH = Path(__file__).parent / "input_output_files" / "phase2_july"
 
 
-def list_json_files(dir_path: Path):
-    """Recursively find all JSON files in a directory and its subdirectories."""
-    return [str(path) for path in dir_path.rglob("*.json")]
-
-
-def load_probes(evaluation_file: str):
-    try:
-        file_path = Path(evaluation_file)
-        input_output = InputOutputFile.load(file_path)
-    except (json.JSONDecodeError, ValueError, FileNotFoundError):
-        return {}
-
-    if not input_output.data:
-        return {}
+def get_probes(input_output_files):
+    """Convert InputOutputFile models to probe dictionary."""
 
     def _process_probe(item: InputOutputItem):
         probe = Probe.from_input_output_item(item)
         return probe.probe_id, probe
 
-    return dict(_process_probe(item) for item in input_output.data)
-
-
-def get_probes(files):
     return {
         probe_id: probe
-        for file in files
-        for probe_id, probe in load_probes(file).items()
+        for input_output_file in input_output_files
+        for probe_id, probe in (_process_probe(item) for item in input_output_file.data)
     }
 
 
@@ -82,18 +65,12 @@ def create_probe_registry(scenarios_paths=None):
     if not isinstance(scenarios_paths, list):
         scenarios_paths = [scenarios_paths]
 
-    def _get_files_from_path(path):
-        path = Path(path)
-        if path.is_file():
-            return [str(path)]
-        elif path.is_dir():
-            return list_json_files(path)
-        raise ValueError(f"Invalid scenarios path: {path}")
-
-    all_files = [
-        file for path in scenarios_paths for file in _get_files_from_path(path)
+    all_input_output_files = [
+        input_output_file
+        for path in scenarios_paths
+        for input_output_file in load_input_output_files(Path(path))
     ]
-    probes = get_probes(all_files)
+    probes = get_probes(all_input_output_files)
 
     datasets = {
         "phase2": {

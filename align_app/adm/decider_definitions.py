@@ -76,7 +76,11 @@ def _generate_comparative_regression_pipeline_system_prompt(config, alignment):
     return "\n\n".join(attribute_prompts)
 
 
-def _generate_baseline_pipeline_system_prompt(config, alignment):
+def _generate_random_pipeline_system_prompt(_config, _alignment):
+    return "N/A"
+
+
+def _generate_baseline_pipeline_system_prompt(_config, _alignment):
     """Generate system prompt for pipeline_baseline ADM.
 
     The baseline ADM always uses the same prompt regardless of alignment,
@@ -152,10 +156,13 @@ _BASE_DECIDERS = {
             "system_prompt_generator": _generate_baseline_pipeline_system_prompt,
         },
     ),
-    "pipeline_random": {
-        "config_path": "adm/pipeline_random.yaml",
-        "dataset_overrides": {},
-    },
+    "pipeline_random": create_decider_entry(
+        "adm/pipeline_random.yaml",
+        {
+            "llm_backbones": [],
+            "system_prompt_generator": _generate_random_pipeline_system_prompt,
+        },
+    ),
 }
 
 

@@ -13,11 +13,15 @@ class AlignPage:
 
     @property
     def decider_dropdown(self) -> Locator:
-        return self.page.locator(".v-select").filter(has_text="Decider")
+        return (
+            self.page.locator(".v-card-text .v-select")
+            .filter(has_text="Decider")
+            .first
+        )
 
     @property
     def send_button(self) -> Locator:
-        return self.page.locator("button:has(i.mdi-send)")
+        return self.page.locator(".v-card-actions button:has(i.mdi-send)")
 
     @property
     def spinner(self) -> Locator:
@@ -25,7 +29,43 @@ class AlignPage:
 
     @property
     def decision_text(self) -> Locator:
-        return self.page.locator("text=/^[A-Z]\\./").first
+        return self.page.locator("text=/^[A-Z].+/").first
+
+    @property
+    def scenario_dropdown(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panel-text .v-select")
+            .filter(has_text="Scenario")
+            .first
+        )
+
+    @property
+    def scene_dropdown(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panel-text .v-select")
+            .filter(has_text="Scene")
+            .first
+        )
+
+    @property
+    def results_decider_dropdown(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panels .v-expansion-panel-title .v-select")
+            .filter(has_text="Decider")
+            .first
+        )
+
+    @property
+    def results_llm_dropdown(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panels .v-expansion-panel-title .v-select")
+            .filter(has_text="LLM")
+            .first
+        )
+
+    @property
+    def decision_send_button(self) -> Locator:
+        return self.page.get_by_role("button", name="Choose", exact=True).first
 
     def goto(self, url: str) -> None:
         self.page.goto(url)
@@ -57,3 +97,45 @@ class AlignPage:
         self, timeout: int = DEFAULT_WAIT_TIMEOUT
     ) -> None:
         expect(self.spinner).not_to_be_visible(timeout=timeout)
+
+    def select_scenario(self, scenario_id: str) -> None:
+        self.scenario_dropdown.click()
+        self.page.locator(f".v-list-item:has-text('{scenario_id}')").click()
+
+    def select_scene(self, scene_id: str) -> None:
+        self.scene_dropdown.click()
+        self.page.locator(f".v-list-item:has-text('{scene_id}')").click()
+
+    def get_scene_dropdown_value(self) -> str:
+        value = self.scene_dropdown.locator("input").input_value()
+        if value is None:
+            raise RuntimeError("Scene dropdown value is None")
+        return value
+
+    def click_decision_send_button(self) -> None:
+        self.decision_send_button.click()
+
+    def wait_for_decision_send_button(
+        self, timeout: int = DEFAULT_WAIT_TIMEOUT
+    ) -> None:
+        expect(self.decision_send_button).to_be_visible(timeout=timeout)
+
+    def select_results_decider(self, decider_name: str) -> None:
+        expect(self.results_decider_dropdown).to_be_visible()
+        self.results_decider_dropdown.click()
+        menu_item = self.page.locator(f".v-list-item:has-text('{decider_name}')")
+        expect(menu_item).to_be_visible()
+        menu_item.click()
+
+    def get_results_llm_value(self) -> str:
+        value = self.results_llm_dropdown.locator("input").input_value()
+        if value is None:
+            raise RuntimeError("LLM dropdown value is None")
+        return value
+
+    def select_results_llm(self, llm_name: str) -> None:
+        expect(self.results_llm_dropdown).to_be_visible()
+        self.results_llm_dropdown.click()
+        menu_item = self.page.locator(f".v-list-item:has-text('{llm_name}')")
+        expect(menu_item).to_be_visible()
+        menu_item.click()
