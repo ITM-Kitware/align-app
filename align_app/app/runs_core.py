@@ -18,6 +18,11 @@ def add_run(data: Runs, run: Run) -> Runs:
     return replace(data, runs={**data.runs, run.id: run})
 
 
+def remove_run(data: Runs, run_id: str) -> Runs:
+    runs = {rid: run for rid, run in data.runs.items() if rid != run_id}
+    return replace(data, runs=runs)
+
+
 def get_run(data: Runs, run_id: str) -> Optional[Run]:
     return data.runs.get(run_id)
 
@@ -36,6 +41,12 @@ def get_cached_decision(data: Runs, cache_key: str) -> Optional[RunDecision]:
         return None
     run = data.runs.get(run_id)
     return run.decision if run else None
+
+
+def apply_cached_decision(data: Runs, run: Run) -> Run:
+    cache_key = run.compute_cache_key()
+    cached_decision = get_cached_decision(data, cache_key)
+    return run.model_copy(update={"decision": cached_decision})
 
 
 def add_cached_decision(data: Runs, cache_key: str, run_id: str) -> Runs:
@@ -69,10 +80,7 @@ def update_run(data: Runs, run_id: str, updated_run: Run) -> Runs:
 
     Pure domain operation - receives already-transformed run.
     """
-    cache_key = updated_run.compute_cache_key()
-    cached_decision = get_cached_decision(data, cache_key)
-    updated_run = updated_run.model_copy(update={"decision": cached_decision})
-
+    updated_run = apply_cached_decision(data, updated_run)
     return replace(data, runs={**data.runs, run_id: updated_run})
 
 

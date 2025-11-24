@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from trame.app import asynchronous
 from trame.decorators import TrameApp, controller, change
 from .run_models import Run
@@ -100,6 +100,14 @@ class RunsStateAdapter:
     def submit_prompt(self):
         asynchronous.create_task(self.create_and_execute_run())
 
+    def _handle_run_update(self, old_run_id: str, new_run: Optional[Run]):
+        if new_run:
+            self.state.runs_to_compare = [
+                new_run.id if rid == old_run_id else rid
+                for rid in self.state.runs_to_compare
+            ]
+            self._sync_from_runs_data(self.runs_registry.get_all_runs())
+
     @controller.set("update_run_scene")
     def update_run_scene(self, run_id: str, scene_id: str):
         """Handle scene change for a run.
@@ -107,10 +115,8 @@ class RunsStateAdapter:
         Minimal - just coordinates registry call and UI sync.
         All complexity delegated to registry → core layers.
         """
-        updated_run = self.runs_registry.update_run_scene(run_id, scene_id)
-
-        if updated_run:
-            self._sync_run_to_state(updated_run)
+        new_run = self.runs_registry.update_run_scene(run_id, scene_id)
+        self._handle_run_update(run_id, new_run)
 
     @controller.set("update_run_scenario")
     def update_run_scenario(self, run_id: str, scenario_id: str):
@@ -119,10 +125,8 @@ class RunsStateAdapter:
         Minimal - just coordinates registry call and UI sync.
         All complexity delegated to registry → core layers.
         """
-        updated_run = self.runs_registry.update_run_scenario(run_id, scenario_id)
-
-        if updated_run:
-            self._sync_run_to_state(updated_run)
+        new_run = self.runs_registry.update_run_scenario(run_id, scenario_id)
+        self._handle_run_update(run_id, new_run)
 
     @controller.set("update_run_decider")
     def update_run_decider(self, run_id: str, decider_name: str):
@@ -131,10 +135,8 @@ class RunsStateAdapter:
         Minimal - just coordinates registry call and UI sync.
         All complexity delegated to registry → core layers.
         """
-        updated_run = self.runs_registry.update_run_decider(run_id, decider_name)
-
-        if updated_run:
-            self._sync_run_to_state(updated_run)
+        new_run = self.runs_registry.update_run_decider(run_id, decider_name)
+        self._handle_run_update(run_id, new_run)
 
     async def _execute_run_decision(self, run_id: str):
         self.state.runs_computing = list(set(self.state.runs_computing + [run_id]))

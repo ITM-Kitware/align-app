@@ -5,6 +5,7 @@ from typing import Optional, Dict, List, Any, Callable
 from .run_models import Run
 from . import runs_core
 from . import runs_edit_logic
+from ..utils.utils import get_id
 
 
 RunsRegistry = namedtuple(
@@ -57,8 +58,17 @@ def create_runs_registry(probe_registry, decider_registry):
             if not updated_run:
                 return None
 
-            data = runs_core.update_run(data, run_id, updated_run)
-            return runs_core.get_run(data, run_id)
+            new_run_id = get_id()
+            new_run = updated_run.model_copy(
+                update={"id": new_run_id, "decision": None}
+            )
+            new_run = runs_core.apply_cached_decision(data, new_run)
+
+            if run.decision is None:
+                data = runs_core.remove_run(data, run_id)
+            data = runs_core.add_run(data, new_run)
+
+            return new_run
 
         return update_method
 
