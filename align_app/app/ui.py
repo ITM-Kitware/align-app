@@ -307,10 +307,21 @@ class RowWithLabel:
 
 
 class LlmBackbone:
-    class Title:
-        def __init__(self):
+    class Title(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                html.Span("{{runs[id].prompt.decider_params.llm_backbone}}")
+                vuetify3.VSelect(
+                    label="LLM",
+                    items=("runs[id].llm_backbone_items",),
+                    model_value=("runs[id].prompt.decider_params.llm_backbone",),
+                    update_modelValue=(
+                        self.server.controller.update_run_llm_backbone,
+                        r"[id, $event]",
+                    ),
+                    hide_details="auto",
+                )
 
             RowWithLabel(run_content=run_content, label="LLM")
 

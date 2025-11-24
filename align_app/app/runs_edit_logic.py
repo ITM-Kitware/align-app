@@ -3,7 +3,7 @@
 from typing import Optional, Dict
 from .run_models import Run
 from ..adm.probe import Probe
-from .prompt_logic import find_probe_by_base_and_scene
+from .prompt_logic import find_probe_by_base_and_scene, get_llm_backbones_from_config
 from .prompt import get_scenes_for_base_scenario
 
 
@@ -81,12 +81,20 @@ def prepare_decider_update(
     """Prepare run with new decider (orchestration + transformation).
 
     Gets new resolved_config for the decider and builds updated run.
+    Auto-selects appropriate LLM if current one is not available in new decider.
     Used by factory-generated registry methods.
     """
+    decider_options = decider_registry.get_decider_options(run.probe_id, decider_name)
+    available_llms = get_llm_backbones_from_config(decider_options)
+
+    llm_backbone = run.llm_backbone_name
+    if llm_backbone not in available_llms:
+        llm_backbone = available_llms[0] if available_llms else "N/A"
+
     resolved_config = decider_registry.get_decider_config(
         probe_id=run.probe_id,
         decider=decider_name,
-        llm_backbone=run.llm_backbone_name,
+        llm_backbone=llm_backbone,
     )
 
     if resolved_config is None:
@@ -97,5 +105,35 @@ def prepare_decider_update(
     )
 
     return run.model_copy(
-        update={"decider_name": decider_name, "decider_params": updated_params}
+        update={
+            "decider_name": decider_name,
+            "llm_backbone_name": llm_backbone,
+            "decider_params": updated_params,
+        }
+    )
+
+
+def prepare_llm_update(
+    run: Run, llm_backbone: str, *, probe_registry=None, decider_registry
+) -> Optional[Run]:
+    """Prepare run with new LLM backbone (orchestration + transformation).
+
+    Gets new resolved_config for the LLM backbone and builds updated run.
+    Used by factory-generated registry methods.
+    """
+    resolved_config = decider_registry.get_decider_config(
+        probe_id=run.probe_id,
+        decider=run.decider_name,
+        llm_backbone=llm_backbone,
+    )
+
+    if resolved_config is None:
+        return None
+
+    updated_params = run.decider_params.model_copy(
+        update={"resolved_config": resolved_config}
+    )
+
+    return run.model_copy(
+        update={"llm_backbone_name": llm_backbone, "decider_params": updated_params}
     )
