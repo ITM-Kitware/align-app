@@ -152,7 +152,8 @@ def pytest_runtest_makereport(item, call):
             if js_errors:
                 error_msg = (
                     f"\n{'=' * 60}\nJAVASCRIPT ERRORS DETECTED:\n{'=' * 60}\n"
-                    f"Found {len(js_errors)} JavaScript error(s):\n" + "\n".join(js_errors)
+                    f"Found {len(js_errors)} JavaScript error(s):\n"
+                    + "\n".join(js_errors)
                 )
                 output_to_append.append(error_msg)
                 if not report.failed:
