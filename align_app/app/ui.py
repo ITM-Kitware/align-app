@@ -457,8 +457,18 @@ class Probe:
 
             def run_content():
                 vuetify3.VSelect(
+                    label="Scenario",
+                    items=("base_scenarios",),
+                    model_value=("runs[id].prompt.probe.scenario_id",),
+                    update_modelValue=(
+                        self.server.controller.update_run_scenario,
+                        r"[id, $event]",
+                    ),
+                    hide_details="auto",
+                )
+                vuetify3.VSelect(
                     label="Scene",
-                    items=("scene_items",),
+                    items=("runs[id].scene_items",),
                     model_value=("runs[id].prompt.probe.scene_id",),
                     update_modelValue=(
                         self.server.controller.update_run_scene,
