@@ -13,7 +13,7 @@ class AlignPage:
 
     @property
     def decider_dropdown(self) -> Locator:
-        return self.page.locator(".v-select").filter(has_text="Decider")
+        return self.page.locator(".v-select").filter(has_text="Decider").first
 
     @property
     def send_button(self) -> Locator:
@@ -40,6 +40,14 @@ class AlignPage:
         return (
             self.page.locator(".v-expansion-panel-text .v-select")
             .filter(has_text="Scene")
+            .first
+        )
+
+    @property
+    def results_decider_dropdown(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panels .v-expansion-panel-title .v-select")
+            .filter(has_text="Decider")
             .first
         )
 
@@ -99,3 +107,10 @@ class AlignPage:
         self, timeout: int = DEFAULT_WAIT_TIMEOUT
     ) -> None:
         expect(self.decision_send_button).to_be_visible(timeout=timeout)
+
+    def select_results_decider(self, decider_name: str) -> None:
+        expect(self.results_decider_dropdown).to_be_visible()
+        self.results_decider_dropdown.click()
+        menu_item = self.page.locator(f".v-list-item:has-text('{decider_name}')")
+        expect(menu_item).to_be_visible()
+        menu_item.click()
