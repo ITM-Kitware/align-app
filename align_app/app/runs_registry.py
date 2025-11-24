@@ -10,6 +10,7 @@ RunsRegistry = namedtuple(
     [
         "add_run",
         "execute_decision",
+        "execute_run_decision",
         "create_and_execute_run",
         "get_run",
         "get_all_runs",
@@ -61,6 +62,21 @@ def create_runs_registry(probe_registry):
         data, updated_run = await runs_core.compute_decision(data, run, probe_choices)
         return updated_run
 
+    async def execute_run_decision(run_id: str) -> Optional[Run]:
+        nonlocal data
+
+        run = runs_core.get_run(data, run_id)
+        if not run:
+            return None
+
+        probe = probe_registry.get_probe(run.probe_id)
+        if not probe:
+            return None
+
+        probe_choices = probe.choices or []
+        data, updated_run = await runs_core.compute_decision(data, run, probe_choices)
+        return updated_run
+
     async def create_and_execute_run(run: Run, probe_choices: List[Dict]):
         nonlocal data
         data, updated_run = await runs_core.compute_decision(data, run, probe_choices)
@@ -82,6 +98,7 @@ def create_runs_registry(probe_registry):
     return RunsRegistry(
         add_run=add_run,
         execute_decision=execute_decision,
+        execute_run_decision=execute_run_decision,
         create_and_execute_run=create_and_execute_run,
         get_run=get_run,
         get_all_runs=get_all_runs,

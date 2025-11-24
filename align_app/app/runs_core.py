@@ -65,16 +65,13 @@ async def compute_decision(
 def update_run(data: Runs, run_id: str, updated_run: Run) -> Runs:
     """Generic run updater with cache check.
 
-    Updates run and checks cache with new parameters.
-    If cache hit, populates decision from cached run.
+    Updates run and sets decision from cache (None if no cache hit).
 
     Pure domain operation - receives already-transformed run.
     """
     cache_key = updated_run.compute_cache_key()
     cached_decision = get_cached_decision(data, cache_key)
-
-    if cached_decision:
-        updated_run = updated_run.model_copy(update={"decision": cached_decision})
+    updated_run = updated_run.model_copy(update={"decision": cached_decision})
 
     return replace(data, runs={**data.runs, run_id: updated_run})
 

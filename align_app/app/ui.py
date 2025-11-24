@@ -472,13 +472,26 @@ class Probe:
 
 
 class Decision:
-    class Title:
-        def __init__(self):
+    class Title(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def render_run_decision():
                 html.Span(
                     "{{runs[id].decision.unstructured}}", v_if=("runs[id].decision",)
                 )
-                vuetify3.VProgressCircular(v_else=True, indeterminate=True, size=20)
+                with html.Template(v_else=True):
+                    vuetify3.VProgressCircular(
+                        v_if=("runs_computing.includes(id)",),
+                        indeterminate=True,
+                        size=20,
+                    )
+                    with vuetify3.VBtn(
+                        v_else=True,
+                        click=(self.server.controller.execute_run_decision, "[id]"),
+                        append_icon="mdi-send",
+                    ):
+                        html.Span("Choose")
 
             RowWithLabel(run_content=render_run_decision, label="Decision")
 
@@ -502,7 +515,12 @@ class ChoiceInfo:
                         "runs[id].decision && runs[id].decision.choice_info_readable_keys",
                     ),
                 )
-                vuetify3.VProgressCircular(v_else=True, indeterminate=True, size=20)
+                with html.Template(v_else=True):
+                    vuetify3.VProgressCircular(
+                        v_if=("runs_computing.includes(id)",),
+                        indeterminate=True,
+                        size=20,
+                    )
 
             RowWithLabel(run_content=render_choice_info, label="Choice Info")
 

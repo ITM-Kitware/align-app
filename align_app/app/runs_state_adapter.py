@@ -48,10 +48,8 @@ def run_to_state_dict(run: Run) -> Dict[str, Any]:
             "decider": {"name": run.decider_name},
             "llm_backbone": run.llm_backbone_name,
         },
+        "decision": decision_to_state_dict(run.decision) if run.decision else None,
     }
-
-    if run.decision:
-        result["decision"] = decision_to_state_dict(run.decision)
 
     return result
 
@@ -74,6 +72,7 @@ class RunsStateAdapter:
         self.server = server
         self.prompt_controller = prompt_controller
         self.runs_registry = runs_registry
+        self.server.state.runs_computing = []
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
     @property
@@ -105,7 +104,7 @@ class RunsStateAdapter:
 
         with self.state:
             self.state.runs = {
-                run_id: ({**item, **run_dict} if run_id == run.id else item)
+                run_id: (run_dict if run_id == run.id else item)
                 for run_id, item in self.state.runs.items()
             }
             if run.id not in self.state.runs:
@@ -159,15 +158,31 @@ class RunsStateAdapter:
         if updated_run:
             self._sync_run_to_state(updated_run)
 
+    async def _execute_run_decision(self, run_id: str):
+        self.state.runs_computing = list(set(self.state.runs_computing + [run_id]))
+
+        updated_run = await self.runs_registry.execute_run_decision(run_id)
+
+        if updated_run:
+            self._sync_run_to_state(updated_run)
+
+        self.state.runs_computing = [
+            rid for rid in self.state.runs_computing if rid != run_id
+        ]
+
+    @controller.set("execute_run_decision")
+    def execute_run_decision(self, run_id: str):
+        asynchronous.create_task(self._execute_run_decision(run_id))
+
     def export_runs_to_json(self) -> str:
         exported_runs = []
 
         for run_dict in self.state.runs.values():
-            if "decision" not in run_dict:
+            decision = run_dict.get("decision")
+            if not decision:
                 continue
 
             prompt = run_dict["prompt"]
-            decision = run_dict["decision"]
 
             choice_idx = 0
             if "unstructured" in decision:
