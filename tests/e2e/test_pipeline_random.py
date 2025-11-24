@@ -45,6 +45,9 @@ def test_pipeline_random_scene_change_rerun(page: Page, align_app_server: str):
     expect(align_page.decision_send_button).to_be_visible()
 
     align_page.click_decision_send_button()
+
+    expect(align_page.spinner).to_be_visible()
+
     align_page.wait_for_decision()
 
     expect(align_page.decision_text).to_be_visible()

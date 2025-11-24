@@ -149,7 +149,10 @@ class RunsStateAdapter:
         self._handle_run_update(run_id, new_run)
 
     async def _execute_run_decision(self, run_id: str):
-        self.state.runs_computing = list(set(self.state.runs_computing + [run_id]))
+        with self.state:
+            self.state.runs_computing = list(set(self.state.runs_computing + [run_id]))
+
+        await self.server.network_completion  # show spinner
 
         updated_run = await self.runs_registry.execute_run_decision(run_id)
 

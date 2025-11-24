@@ -524,6 +524,7 @@ class Decision:
                         v_else=True,
                         click=(self.server.controller.execute_run_decision, "[id]"),
                         append_icon="mdi-send",
+                        raw_attrs=["@click.stop"],
                     ):
                         html.Span("Choose")
 
