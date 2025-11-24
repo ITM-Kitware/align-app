@@ -7,15 +7,19 @@ from ..adm.decider import get_decision
 @dataclass(frozen=True)
 class Runs:
     runs: Dict[str, Run]
-    decision_cache_index: Dict[str, str]
+    decision_cache: Dict[str, RunDecision]
 
     @staticmethod
     def empty():
-        return Runs(runs={}, decision_cache_index={})
+        return Runs(runs={}, decision_cache={})
 
 
 def add_run(data: Runs, run: Run) -> Runs:
-    return replace(data, runs={**data.runs, run.id: run})
+    new_data = replace(data, runs={**data.runs, run.id: run})
+    if run.decision:
+        cache_key = run.compute_cache_key()
+        new_data = add_cached_decision(new_data, cache_key, run.decision)
+    return new_data
 
 
 def remove_run(data: Runs, run_id: str) -> Runs:
@@ -36,11 +40,7 @@ def filter_runs_by_probe(data: Runs, probe_id: str) -> List[Run]:
 
 
 def get_cached_decision(data: Runs, cache_key: str) -> Optional[RunDecision]:
-    run_id = data.decision_cache_index.get(cache_key)
-    if run_id is None:
-        return None
-    run = data.runs.get(run_id)
-    return run.decision if run else None
+    return data.decision_cache.get(cache_key)
 
 
 def apply_cached_decision(data: Runs, run: Run) -> Run:
@@ -49,10 +49,8 @@ def apply_cached_decision(data: Runs, run: Run) -> Run:
     return run.model_copy(update={"decision": cached_decision})
 
 
-def add_cached_decision(data: Runs, cache_key: str, run_id: str) -> Runs:
-    return replace(
-        data, decision_cache_index={**data.decision_cache_index, cache_key: run_id}
-    )
+def add_cached_decision(data: Runs, cache_key: str, decision: RunDecision) -> Runs:
+    return replace(data, decision_cache={**data.decision_cache, cache_key: decision})
 
 
 async def compute_decision(
@@ -61,14 +59,16 @@ async def compute_decision(
     cache_key = run.compute_cache_key()
 
     if cached := get_cached_decision(data, cache_key):
-        return data, run.model_copy(update={"decision": cached})
+        updated_run = run.model_copy(update={"decision": cached})
+        new_data = add_run(data, updated_run)
+        return new_data, updated_run
 
     adm_result = await get_decision(run.decider_params)
     decision = RunDecision.from_adm_result(adm_result, probe_choices)
 
     updated_run = run.model_copy(update={"decision": decision})
     new_data = add_run(data, updated_run)
-    new_data = add_cached_decision(new_data, cache_key, updated_run.id)
+    new_data = add_cached_decision(new_data, cache_key, decision)
 
     return new_data, updated_run
 
