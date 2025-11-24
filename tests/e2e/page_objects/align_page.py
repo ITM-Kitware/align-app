@@ -13,11 +13,15 @@ class AlignPage:
 
     @property
     def decider_dropdown(self) -> Locator:
-        return self.page.locator(".v-select").filter(has_text="Decider").first
+        return (
+            self.page.locator(".v-card-text .v-select")
+            .filter(has_text="Decider")
+            .first
+        )
 
     @property
     def send_button(self) -> Locator:
-        return self.page.locator("button:has(i.mdi-send)")
+        return self.page.locator(".v-card-actions button:has(i.mdi-send)")
 
     @property
     def spinner(self) -> Locator:
@@ -52,8 +56,16 @@ class AlignPage:
         )
 
     @property
+    def results_llm_dropdown(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panels .v-expansion-panel-title .v-select")
+            .filter(has_text="LLM")
+            .first
+        )
+
+    @property
     def decision_send_button(self) -> Locator:
-        return self.page.get_by_role("button", name="Choose", exact=True)
+        return self.page.get_by_role("button", name="Choose", exact=True).first
 
     def goto(self, url: str) -> None:
         self.page.goto(url)
@@ -112,5 +124,18 @@ class AlignPage:
         expect(self.results_decider_dropdown).to_be_visible()
         self.results_decider_dropdown.click()
         menu_item = self.page.locator(f".v-list-item:has-text('{decider_name}')")
+        expect(menu_item).to_be_visible()
+        menu_item.click()
+
+    def get_results_llm_value(self) -> str:
+        value = self.results_llm_dropdown.locator("input").input_value()
+        if value is None:
+            raise RuntimeError("LLM dropdown value is None")
+        return value
+
+    def select_results_llm(self, llm_name: str) -> None:
+        expect(self.results_llm_dropdown).to_be_visible()
+        self.results_llm_dropdown.click()
+        menu_item = self.page.locator(f".v-list-item:has-text('{llm_name}')")
         expect(menu_item).to_be_visible()
         menu_item.click()

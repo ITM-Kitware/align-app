@@ -4,6 +4,7 @@ from typing import Dict, Any
 from .run_models import Run, RunDecision
 from .ui import prep_decision_for_state
 from .prompt import get_scenes_for_base_scenario
+from .prompt_logic import get_llm_backbones_from_config
 import json
 
 
@@ -52,14 +53,20 @@ def run_to_state_dict(
         scene_items = get_scenes_for_base_scenario(probes, scenario_input.scenario_id)
 
     decider_items = []
+    llm_backbone_items = ["N/A"]
     if decider_registry:
         all_deciders = decider_registry.get_all_deciders()
         decider_items = list(all_deciders.keys())
+        decider_options = decider_registry.get_decider_options(
+            run.probe_id, run.decider_name
+        )
+        llm_backbone_items = get_llm_backbones_from_config(decider_options)
 
     result = {
         "id": run.id,
         "scene_items": scene_items,
         "decider_items": decider_items,
+        "llm_backbone_items": llm_backbone_items,
         "prompt": {
             "probe": probe_dict,
             "alignment_target": run.decider_params.alignment_target.model_dump(),

@@ -21,6 +21,7 @@ RunsRegistry = namedtuple(
         "update_run_scene",
         "update_run_scenario",
         "update_run_decider",
+        "update_run_llm_backbone",
     ],
 )
 
@@ -116,6 +117,7 @@ def create_runs_registry(probe_registry, decider_registry):
     update_run_scene = _create_update_method(runs_edit_logic.prepare_scene_update)
     update_run_scenario = _create_update_method(runs_edit_logic.prepare_scenario_update)
     update_run_decider = _create_update_method(runs_edit_logic.prepare_decider_update)
+    update_run_llm_backbone = _create_update_method(runs_edit_logic.prepare_llm_update)
 
     return RunsRegistry(
         add_run=add_run,
@@ -128,4 +130,5 @@ def create_runs_registry(probe_registry, decider_registry):
         update_run_scene=update_run_scene,
         update_run_scenario=update_run_scenario,
         update_run_decider=update_run_decider,
+        update_run_llm_backbone=update_run_llm_backbone,
     )

@@ -138,6 +138,16 @@ class RunsStateAdapter:
         new_run = self.runs_registry.update_run_decider(run_id, decider_name)
         self._handle_run_update(run_id, new_run)
 
+    @controller.set("update_run_llm_backbone")
+    def update_run_llm_backbone(self, run_id: str, llm_backbone: str):
+        """Handle LLM backbone change for a run.
+
+        Minimal - just coordinates registry call and UI sync.
+        All complexity delegated to registry → core layers.
+        """
+        new_run = self.runs_registry.update_run_llm_backbone(run_id, llm_backbone)
+        self._handle_run_update(run_id, new_run)
+
     async def _execute_run_decision(self, run_id: str):
         self.state.runs_computing = list(set(self.state.runs_computing + [run_id]))
 
