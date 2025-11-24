@@ -27,7 +27,9 @@ def build_run_with_new_scene(run: Run, probe: Probe) -> Run:
     )
 
 
-def prepare_scene_update(run: Run, scene_id: str, *, probe_registry) -> Optional[Run]:
+def prepare_scene_update(
+    run: Run, scene_id: str, *, probe_registry, decider_registry=None
+) -> Optional[Run]:
     """Prepare run with new scene (orchestration + transformation).
 
     Performs lookups and builds updated run with new scene.
@@ -50,7 +52,7 @@ def prepare_scene_update(run: Run, scene_id: str, *, probe_registry) -> Optional
 
 
 def prepare_scenario_update(
-    run: Run, scenario_id: str, *, probe_registry
+    run: Run, scenario_id: str, *, probe_registry, decider_registry=None
 ) -> Optional[Run]:
     """Prepare run with new scenario (orchestration + transformation).
 
@@ -71,3 +73,29 @@ def prepare_scenario_update(
         return None
 
     return build_run_with_new_scene(run, new_probe)
+
+
+def prepare_decider_update(
+    run: Run, decider_name: str, *, probe_registry=None, decider_registry
+) -> Optional[Run]:
+    """Prepare run with new decider (orchestration + transformation).
+
+    Gets new resolved_config for the decider and builds updated run.
+    Used by factory-generated registry methods.
+    """
+    resolved_config = decider_registry.get_decider_config(
+        probe_id=run.probe_id,
+        decider=decider_name,
+        llm_backbone=run.llm_backbone_name,
+    )
+
+    if resolved_config is None:
+        return None
+
+    updated_params = run.decider_params.model_copy(
+        update={"resolved_config": resolved_config}
+    )
+
+    return run.model_copy(
+        update={"decider_name": decider_name, "decider_params": updated_params}
+    )

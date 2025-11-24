@@ -316,10 +316,21 @@ class LlmBackbone:
 
 
 class Decider:
-    class Title:
-        def __init__(self):
+    class Title(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                html.Span("{{runs[id].prompt.decider_params.decider}}")
+                vuetify3.VSelect(
+                    label="Decider",
+                    items=("runs[id].decider_items",),
+                    model_value=("runs[id].prompt.decider_params.decider",),
+                    update_modelValue=(
+                        self.server.controller.update_run_decider,
+                        r"[id, $event]",
+                    ),
+                    hide_details="auto",
+                )
 
             RowWithLabel(run_content=run_content, label="Decider")
 
