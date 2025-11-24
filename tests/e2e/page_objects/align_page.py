@@ -28,6 +28,14 @@ class AlignPage:
         return self.page.locator("text=/^[A-Z].+/").first
 
     @property
+    def scenario_dropdown(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panel-text .v-select")
+            .filter(has_text="Scenario")
+            .first
+        )
+
+    @property
     def scene_dropdown(self) -> Locator:
         return (
             self.page.locator(".v-expansion-panel-text .v-select")
@@ -70,9 +78,19 @@ class AlignPage:
     ) -> None:
         expect(self.spinner).not_to_be_visible(timeout=timeout)
 
+    def select_scenario(self, scenario_id: str) -> None:
+        self.scenario_dropdown.click()
+        self.page.locator(f".v-list-item:has-text('{scenario_id}')").click()
+
     def select_scene(self, scene_id: str) -> None:
         self.scene_dropdown.click()
         self.page.locator(f".v-list-item:has-text('{scene_id}')").click()
+
+    def get_scene_dropdown_value(self) -> str:
+        value = self.scene_dropdown.locator("input").input_value()
+        if value is None:
+            raise RuntimeError("Scene dropdown value is None")
+        return value
 
     def click_decision_send_button(self) -> None:
         self.decision_send_button.click()

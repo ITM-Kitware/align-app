@@ -16,6 +16,7 @@ RunsRegistry = namedtuple(
         "get_all_runs",
         "clear_runs",
         "update_run_scene",
+        "update_run_scenario",
     ],
 )
 
@@ -94,6 +95,7 @@ def create_runs_registry(probe_registry):
         return data
 
     update_run_scene = _create_update_method(runs_edit_logic.prepare_scene_update)
+    update_run_scenario = _create_update_method(runs_edit_logic.prepare_scenario_update)
 
     return RunsRegistry(
         add_run=add_run,
@@ -104,4 +106,5 @@ def create_runs_registry(probe_registry):
         get_all_runs=get_all_runs,
         clear_runs=clear_runs,
         update_run_scene=update_run_scene,
+        update_run_scenario=update_run_scenario,
     )
