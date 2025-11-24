@@ -1,3 +1,5 @@
+"""Service layer managing run state and coordinating domain operations."""
+
 from collections import namedtuple
 from typing import Optional, Dict, List, Any, Callable
 from .run_models import Run
@@ -22,6 +24,7 @@ RunsRegistry = namedtuple(
 
 
 def create_runs_registry(probe_registry):
+    """Create runs service with methods for managing run lifecycle."""
     data = runs_core.init_runs()
 
     def _create_update_method(
