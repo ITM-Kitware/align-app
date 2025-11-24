@@ -38,6 +38,7 @@ def wait_for_server(url: str, timeout: int = SERVER_STARTUP_TIMEOUT) -> bool:
 
 _server_stderr_lines: List[str] = []
 _server_stdout_lines: List[str] = []
+_console_messages: List[str] = []
 _output_lock = threading.Lock()
 
 
@@ -51,9 +52,10 @@ def _capture_stream(pipe, output_list):
 
 @pytest.fixture(scope="session")
 def align_app_server() -> Generator[str, None, None]:
-    global _server_stderr_lines, _server_stdout_lines
+    global _server_stderr_lines, _server_stdout_lines, _console_messages
     _server_stderr_lines = []
     _server_stdout_lines = []
+    _console_messages = []
 
     port = get_free_port()
     server_url = f"http://localhost:{port}"
@@ -102,6 +104,20 @@ def align_app_server() -> Generator[str, None, None]:
         process.wait()
 
 
+@pytest.fixture(autouse=True)
+def capture_console_messages(page):
+    global _console_messages
+    _console_messages = []
+
+    def handle_console(msg):
+        with _output_lock:
+            _console_messages.append(f"{msg.type}: {msg.text}")
+
+    page.on("console", handle_console)
+    yield
+    page.remove_listener("console", handle_console)
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     outcome = yield
@@ -111,6 +127,13 @@ def pytest_runtest_makereport(item, call):
         with _output_lock:
             stderr_content = "".join(_server_stderr_lines)
             stdout_content = "".join(_server_stdout_lines)
+            console_content = "\n".join(_console_messages)
+
+            js_errors = [
+                msg
+                for msg in _console_messages
+                if "typeerror" in msg.lower() or "cannot read" in msg.lower()
+            ]
 
             output_to_append = []
             if stderr_content:
@@ -121,6 +144,20 @@ def pytest_runtest_makereport(item, call):
                 output_to_append.append(
                     f"{'=' * 60}\nBACKEND SERVER STDOUT:\n{'=' * 60}\n{stdout_content}"
                 )
+            if console_content:
+                output_to_append.append(
+                    f"{'=' * 60}\nBROWSER CONSOLE MESSAGES:\n{'=' * 60}\n{console_content}"
+                )
+
+            if js_errors:
+                error_msg = (
+                    f"\n{'=' * 60}\nJAVASCRIPT ERRORS DETECTED:\n{'=' * 60}\nFound {len(js_errors)} JavaScript error(s):\n"
+                    + "\n".join(js_errors)
+                )
+                output_to_append.append(error_msg)
+                if not report.failed:
+                    report.outcome = "failed"
+                    report.longrepr = error_msg
 
             if output_to_append:
                 if report.failed:

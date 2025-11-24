@@ -27,6 +27,18 @@ class AlignPage:
     def decision_text(self) -> Locator:
         return self.page.locator("text=/^[A-Z].+/").first
 
+    @property
+    def scene_dropdown(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panel-text .v-select")
+            .filter(has_text="Scene")
+            .first
+        )
+
+    @property
+    def decision_send_button(self) -> Locator:
+        return self.page.get_by_role("button", name="Choose", exact=True)
+
     def goto(self, url: str) -> None:
         self.page.goto(url)
         self.page.wait_for_load_state("domcontentloaded")
@@ -57,3 +69,15 @@ class AlignPage:
         self, timeout: int = DEFAULT_WAIT_TIMEOUT
     ) -> None:
         expect(self.spinner).not_to_be_visible(timeout=timeout)
+
+    def select_scene(self, scene_id: str) -> None:
+        self.scene_dropdown.click()
+        self.page.locator(f".v-list-item:has-text('{scene_id}')").click()
+
+    def click_decision_send_button(self) -> None:
+        self.decision_send_button.click()
+
+    def wait_for_decision_send_button(
+        self, timeout: int = DEFAULT_WAIT_TIMEOUT
+    ) -> None:
+        expect(self.decision_send_button).to_be_visible(timeout=timeout)
