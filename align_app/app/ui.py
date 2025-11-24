@@ -283,7 +283,9 @@ class RowWithLabel:
                 key=("id",),
                 v_if=("runs_to_compare.length > 0",),
                 style=(
-                    f"min-width: {RUN_COLUMN_MIN_WIDTH}; width: 0;"  # width: 0 forces flex-grow to distribute space equally instead of basing on content width
+                    # width: 0 forces flex-grow to distribute space equally
+                    # instead of basing on content width
+                    f"min-width: {RUN_COLUMN_MIN_WIDTH}; width: 0;"
                 ),
                 classes=(
                     "text-subtitle-1 text-no-wrap text-truncate align-self-center flex-grow-1 flex-shrink-0"

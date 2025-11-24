@@ -34,8 +34,6 @@ def test_pipeline_random_scene_change_rerun(page: Page, align_app_server: str):
 
     align_page.wait_for_decision()
 
-    first_decision = align_page.get_decision_text()
-
     page.get_by_role("button").filter(has_text="Scenario").click()
 
     align_page.scene_dropdown.click()

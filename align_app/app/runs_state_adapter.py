@@ -1,76 +1,12 @@
-from typing import Dict, Any
+from typing import Dict
 from trame.app import asynchronous
 from trame.decorators import TrameApp, controller, change
-from .run_models import Run, RunDecision
+from .run_models import Run
 from .runs_registry import RunsRegistry
 from ..adm.decider.types import DeciderParams
-from .ui import prep_decision_for_state
 from ..utils.utils import get_id
-from .prompt import extract_base_scenarios, get_scenes_for_base_scenario
-import json
-
-
-def run_to_state_dict(run: Run, probe_registry=None) -> Dict[str, Any]:
-    scenario_input = run.decider_params.scenario_input
-
-    display_state = None
-    if scenario_input.full_state and "unstructured" in scenario_input.full_state:
-        display_state = scenario_input.full_state["unstructured"]
-
-    scene_id = None
-    if (
-        scenario_input.full_state
-        and "meta_info" in scenario_input.full_state
-        and "scene_id" in scenario_input.full_state["meta_info"]
-    ):
-        scene_id = scenario_input.full_state["meta_info"]["scene_id"]
-
-    probe_dict = {
-        "probe_id": run.probe_id,
-        "scene_id": scene_id,
-        "scenario_id": scenario_input.scenario_id,
-        "display_state": display_state,
-        "state": scenario_input.state,
-        "choices": scenario_input.choices,
-        "full_state": scenario_input.full_state,
-    }
-
-    scene_items = []
-    if probe_registry:
-        probes = probe_registry.get_probes()
-        scene_items = get_scenes_for_base_scenario(probes, scenario_input.scenario_id)
-
-    result = {
-        "id": run.id,
-        "scene_items": scene_items,
-        "prompt": {
-            "probe": probe_dict,
-            "alignment_target": run.decider_params.alignment_target.model_dump(),
-            "decider_params": {
-                "llm_backbone": run.llm_backbone_name,
-                "decider": run.decider_name,
-            },
-            "system_prompt": run.system_prompt,
-            "resolved_config": run.decider_params.resolved_config,
-            "decider": {"name": run.decider_name},
-            "llm_backbone": run.llm_backbone_name,
-        },
-        "decision": decision_to_state_dict(run.decision) if run.decision else None,
-    }
-
-    return result
-
-
-def decision_to_state_dict(decision: RunDecision) -> Dict[str, Any]:
-    choice_letter = chr(decision.choice_index + ord("A"))
-
-    decision_dict = {
-        "unstructured": f"{choice_letter}. {decision.adm_result.decision.unstructured}",
-        "justification": decision.adm_result.decision.justification,
-        "choice_info": decision.adm_result.choice_info.model_dump(exclude_none=True),
-    }
-
-    return prep_decision_for_state(decision_dict)
+from .prompt import extract_base_scenarios
+from . import runs_presentation
 
 
 @TrameApp()
@@ -89,7 +25,7 @@ class RunsStateAdapter:
 
     def _sync_from_runs_data(self, runs_dict: Dict[str, Run]):
         self.state.runs = {
-            run_id: run_to_state_dict(run, self.probe_registry)
+            run_id: runs_presentation.run_to_state_dict(run, self.probe_registry)
             for run_id, run in runs_dict.items()
         }
 
@@ -113,7 +49,7 @@ class RunsStateAdapter:
         self.state.dirty("runs_to_compare")
 
     def _sync_run_to_state(self, run: Run):
-        run_dict = run_to_state_dict(run, self.probe_registry)
+        run_dict = runs_presentation.run_to_state_dict(run, self.probe_registry)
 
         with self.state:
             self.state.runs = {
@@ -200,43 +136,7 @@ class RunsStateAdapter:
         asynchronous.create_task(self._execute_run_decision(run_id))
 
     def export_runs_to_json(self) -> str:
-        exported_runs = []
-
-        for run_dict in self.state.runs.values():
-            decision = run_dict.get("decision")
-            if not decision:
-                continue
-
-            prompt = run_dict["prompt"]
-
-            choice_idx = 0
-            if "unstructured" in decision:
-                decision_text = decision["unstructured"]
-                if decision_text and len(decision_text) > 0:
-                    first_char = decision_text[0]
-                    if first_char.isalpha() and first_char.upper() >= "A":
-                        choice_idx = ord(first_char.upper()) - ord("A")
-
-            input_data = {
-                "scenario_id": prompt["probe"]["scenario_id"],
-                "full_state": prompt["probe"]["full_state"],
-                "state": prompt["probe"]["full_state"]["unstructured"],
-                "choices": prompt["probe"]["choices"],
-            }
-
-            output_data = {"choice": choice_idx}
-
-            if choice_idx < len(prompt["probe"]["choices"]):
-                selected_choice = prompt["probe"]["choices"][choice_idx]
-                output_data["action"] = {
-                    "unstructured": selected_choice["unstructured"],
-                    "justification": decision.get("justification", ""),
-                }
-
-            exported_run = {"input": input_data, "output": output_data}
-            exported_runs.append(exported_run)
-
-        return json.dumps(exported_runs, indent=2)
+        return runs_presentation.export_runs_to_json(self.state.runs)
 
     @change("runs")
     def update_runs_json(self, **_):
