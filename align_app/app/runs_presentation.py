@@ -54,6 +54,7 @@ def run_to_state_dict(
 
     decider_items = []
     llm_backbone_items = ["N/A"]
+    system_prompt = run.system_prompt
     if decider_registry:
         all_deciders = decider_registry.get_all_deciders()
         decider_items = list(all_deciders.keys())
@@ -61,6 +62,13 @@ def run_to_state_dict(
             run.probe_id, run.decider_name
         )
         llm_backbone_items = get_llm_backbones_from_config(decider_options)
+
+        if not system_prompt or system_prompt == "Unknown":
+            system_prompt = decider_registry.get_system_prompt(
+                decider=run.decider_name,
+                attributes=run.decider_params.alignment_target.kdma_values,
+                probe_id=run.probe_id,
+            )
 
     result = {
         "id": run.id,
@@ -74,7 +82,7 @@ def run_to_state_dict(
                 "llm_backbone": run.llm_backbone_name,
                 "decider": run.decider_name,
             },
-            "system_prompt": run.system_prompt,
+            "system_prompt": system_prompt,
             "resolved_config": run.decider_params.resolved_config,
             "decider": {"name": run.decider_name},
             "llm_backbone": run.llm_backbone_name,
