@@ -59,9 +59,19 @@ def create_runs_registry(probe_registry, decider_registry):
             if not updated_run:
                 return None
 
+            system_prompt = decider_registry.get_system_prompt(
+                decider=updated_run.decider_name,
+                attributes=updated_run.decider_params.alignment_target.kdma_values,
+                probe_id=updated_run.probe_id,
+            )
+
             new_run_id = get_id()
             new_run = updated_run.model_copy(
-                update={"id": new_run_id, "decision": None}
+                update={
+                    "id": new_run_id,
+                    "decision": None,
+                    "system_prompt": system_prompt,
+                }
             )
             new_run = runs_core.apply_cached_decision(data, new_run)
 
