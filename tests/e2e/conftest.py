@@ -50,7 +50,7 @@ def _capture_stream(pipe, output_list):
     pipe.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def align_app_server() -> Generator[str, None, None]:
     global _server_stderr_lines, _server_stdout_lines, _console_messages
     _server_stderr_lines = []

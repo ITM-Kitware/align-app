@@ -351,31 +351,97 @@ class Alignment:
         def __init__(self):
             def run_content():
                 html.Span(
-                    "{{ runs[id].prompt.alignment_target.kdma_values.length ? "
-                    "runs[id].prompt.alignment_target.kdma_values.map(att => `${att.kdma} ${att.value}`).join(', ') : "
+                    "{{ runs[id].alignment_attributes.length ? "
+                    "runs[id].alignment_attributes.map(att => `${att.title} ${att.score}`).join(' - ') : "
                     "'No Alignment' }}"
                 )
 
             RowWithLabel(run_content=run_content, label="Alignment")
 
-    class Text:
-        def __init__(self):
+    class Text(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                with html.Div(
-                    v_for=(
-                        "kdma_value in runs[id].prompt.alignment_target.kdma_values",
-                    ),
-                    key=("kdma_value.kdma",),
+                with html.Template(
+                    v_for=("attr in runs[id].alignment_attributes",),
+                    key=("attr.index",),
                 ):
-                    with html.Div(
-                        style="display: flex; align-items: center; gap: 8px;"
+                    with vuetify3.VRow(no_gutters=True):
+                        with vuetify3.VSelect(
+                            label="Alignment",
+                            items=("runs[id].possible_alignment_attributes",),
+                            model_value=("attr",),
+                            update_modelValue=(
+                                self.server.controller.update_run_alignment_attribute_value,
+                                r"[id, attr.index, $event]",
+                            ),
+                            no_data_text="No available alignments",
+                            hide_details="auto",
+                        ):
+                            with vuetify3.Template(v_slot_append_inner=""):
+                                TooltipIcon("attr.description")
+                        with vuetify3.VBtn(
+                            classes="ml-2 mt-1",
+                            icon=True,
+                            click=(
+                                self.server.controller.delete_run_alignment_attribute,
+                                "[id, attr.index]",
+                            ),
+                        ):
+                            vuetify3.VIcon("mdi-delete")
+
+                    with vuetify3.VRow(
+                        v_if=("attr.possible_scores !== 'continuous' || true",),
+                        align="center",
+                        justify="center",
+                        classes="mb-2",
                     ):
-                        html.Span("{{kdma_value.kdma}}")
-                        ValueWithProgressBar("kdma_value.value")
-                    html.Div("{{kdma_value.description}}", classes="ml-8")
-                html.Div(
-                    "",
-                    v_if=("runs[id].prompt.alignment_target.kdma_values.length === 0",),
+                        with html.Template(
+                            v_if=("attr.possible_scores === 'continuous'",)
+                        ):
+                            vuetify3.VSlider(
+                                style="max-width: 300px",
+                                model_value=("attr.score",),
+                                end=(
+                                    self.server.controller.update_run_alignment_attribute_score,
+                                    r"[id, attr.index, $event]",
+                                ),
+                                min=(0,),
+                                max=(1,),
+                                step=(0.1,),
+                                thumb_label=True,
+                                hide_details="auto",
+                            )
+                        vuetify3.VSlider(
+                            v_else=True,
+                            style="max-width: 300px",
+                            model_value=("attr.score",),
+                            end=(
+                                self.server.controller.update_run_alignment_attribute_score,
+                                r"[id, attr.index, $event]",
+                            ),
+                            max=("attr.possible_scores.length - 1",),
+                            ticks=(
+                                r"Object.fromEntries(attr.possible_scores.map((s, i) => [i, s]))",
+                            ),
+                            show_ticks="always",
+                            step="1",
+                            tick_size="4",
+                            hide_details="auto",
+                        )
+
+                vuetify3.VBtn(
+                    "Add Alignment",
+                    click=(
+                        self.server.controller.add_run_alignment_attribute,
+                        "[id]",
+                    ),
+                    v_if=(
+                        "runs[id].alignment_attributes.length < runs[id].max_alignment_attributes"
+                        " && runs[id].possible_alignment_attributes.length > 0"
+                    ),
+                    classes="my-2",
                 )
 
             RowWithLabel(run_content=run_content)
@@ -489,6 +555,7 @@ class Probe:
                         r"[id, $event]",
                     ),
                     hide_details="auto",
+                    classes="mb-2",
                 )
                 vuetify3.VSelect(
                     label="Scene",

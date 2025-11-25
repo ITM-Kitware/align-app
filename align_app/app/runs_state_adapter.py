@@ -148,6 +148,34 @@ class RunsStateAdapter:
         new_run = self.runs_registry.update_run_llm_backbone(run_id, llm_backbone)
         self._handle_run_update(run_id, new_run)
 
+    @controller.set("add_run_alignment_attribute")
+    def add_run_alignment_attribute(self, run_id: str):
+        new_run = self.runs_registry.add_run_alignment_attribute(run_id, None)
+        self._handle_run_update(run_id, new_run)
+
+    @controller.set("update_run_alignment_attribute_value")
+    def update_run_alignment_attribute_value(
+        self, run_id: str, attr_index: int, value: str
+    ):
+        new_run = self.runs_registry.update_run_alignment_attribute_value(
+            run_id, {"attr_index": attr_index, "value": value}
+        )
+        self._handle_run_update(run_id, new_run)
+
+    @controller.set("update_run_alignment_attribute_score")
+    def update_run_alignment_attribute_score(
+        self, run_id: str, attr_index: int, score: float
+    ):
+        new_run = self.runs_registry.update_run_alignment_attribute_score(
+            run_id, {"attr_index": attr_index, "score": score}
+        )
+        self._handle_run_update(run_id, new_run)
+
+    @controller.set("delete_run_alignment_attribute")
+    def delete_run_alignment_attribute(self, run_id: str, attr_index: int):
+        new_run = self.runs_registry.delete_run_alignment_attribute(run_id, attr_index)
+        self._handle_run_update(run_id, new_run)
+
     async def _execute_run_decision(self, run_id: str):
         with self.state:
             self.state.runs_computing = list(set(self.state.runs_computing + [run_id]))

@@ -14,9 +14,7 @@ class AlignPage:
     @property
     def decider_dropdown(self) -> Locator:
         return (
-            self.page.locator(".v-card-text .v-select")
-            .filter(has_text="Decider")
-            .first
+            self.page.locator(".v-card-text .v-select").filter(has_text="Decider").first
         )
 
     @property
@@ -137,5 +135,62 @@ class AlignPage:
         expect(self.results_llm_dropdown).to_be_visible()
         self.results_llm_dropdown.click()
         menu_item = self.page.locator(f".v-list-item:has-text('{llm_name}')")
+        expect(menu_item).to_be_visible()
+        menu_item.click()
+
+    @property
+    def alignment_panel_title(self) -> Locator:
+        return self.page.get_by_role("button").filter(has_text="Alignment").filter(
+            has=self.page.locator(".v-expansion-panel-title__overlay")
+        )
+
+    @property
+    def alignment_panel_content(self) -> Locator:
+        return self.page.locator(".v-expansion-panel").filter(
+            has=self.page.get_by_role("button").filter(has_text="Alignment")
+        ).locator(".v-expansion-panel-text")
+
+    def expand_alignment_panel(self) -> None:
+        expect(self.alignment_panel_title).to_be_visible()
+        is_expanded = self.alignment_panel_title.get_attribute("aria-expanded") == "true"
+        if not is_expanded:
+            self.alignment_panel_title.click()
+        expect(self.alignment_panel_title).to_have_attribute("aria-expanded", "true")
+        expect(self.alignment_panel_content).to_be_visible()
+
+    @property
+    def add_alignment_button(self) -> Locator:
+        return self.alignment_panel_content.get_by_role("button", name="Add Alignment")
+
+    def get_alignment_count(self) -> int:
+        return self.alignment_panel_content.locator(".v-select").count()
+
+    def get_alignment_dropdown(self, index: int = 0) -> Locator:
+        return self.alignment_panel_content.locator(".v-select").nth(index)
+
+    def get_alignment_delete_button(self, index: int = 0) -> Locator:
+        return self.alignment_panel_content.locator("button:has(.mdi-delete)").nth(index)
+
+    def click_add_alignment(self) -> None:
+        expect(self.add_alignment_button).to_be_visible()
+        self.add_alignment_button.click()
+
+    def delete_alignment(self, index: int = 0) -> None:
+        delete_btn = self.get_alignment_delete_button(index)
+        expect(delete_btn).to_be_visible()
+        delete_btn.click()
+
+    def get_alignment_value(self, index: int = 0) -> str:
+        dropdown = self.get_alignment_dropdown(index)
+        value = dropdown.locator("input").input_value()
+        if value is None:
+            return ""
+        return value
+
+    def select_alignment(self, index: int, alignment_name: str) -> None:
+        dropdown = self.get_alignment_dropdown(index)
+        expect(dropdown).to_be_visible()
+        dropdown.click()
+        menu_item = self.page.locator(f".v-list-item:has-text('{alignment_name}')")
         expect(menu_item).to_be_visible()
         menu_item.click()
