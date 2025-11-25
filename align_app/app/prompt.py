@@ -16,6 +16,7 @@ from .prompt_logic import (
     find_probe_by_base_and_scene,
     get_alignment_descriptions_map,
 )
+from ..adm.types import attributes_to_alignment_target
 
 # Maximum number of choices allowed (limited by ADM code)
 MAX_CHOICES = 2
@@ -458,9 +459,10 @@ class PromptController:
         mapped_attributes = map_ui_to_align_attributes(
             self.server.state.alignment_attributes
         )
+        alignment_target = attributes_to_alignment_target(mapped_attributes)
         sys_prompt = self.decider_api.get_system_prompt(
             self.server.state.decider,
-            mapped_attributes,
+            alignment_target,
             self.server.state.prompt_probe_id,
         )
         self.server.state.system_prompt = sys_prompt

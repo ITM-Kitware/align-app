@@ -1,7 +1,7 @@
 """Decider configuration definitions and system prompt generation."""
 
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any
 import hydra
 from omegaconf import OmegaConf
 import align_system
@@ -11,7 +11,7 @@ from align_system.prompt_engineering.outlines_prompts import (
 )
 from align_system.utils import call_with_coerced_args
 from align_system.utils.alignment_utils import attributes_in_alignment_target
-from .types import Attribute, attributes_to_alignment_target
+from align_utils.models import AlignmentTarget
 from .config import get_decider_config
 
 
@@ -190,12 +190,12 @@ def get_all_deciders(config_paths=[]):
 
 def get_system_prompt(
     decider: str,
-    attributes: List[Attribute],
+    alignment_target: AlignmentTarget,
     probe_id: str,
     all_deciders: Dict[str, Any],
     datasets: Dict[str, Any],
 ) -> str:
-    """Generate system prompt for a decider with given attributes."""
+    """Generate system prompt for a decider with given alignment target."""
     decider_main_config = all_deciders.get(decider)
     if not decider_main_config:
         raise ValueError(f"Decider '{decider}' not found in all_deciders configuration")
@@ -212,12 +212,9 @@ def get_system_prompt(
     if probe is None:
         raise ValueError(f"Probe '{probe_id}' not found in datasets configuration")
 
-    alignment_target = attributes_to_alignment_target(attributes)
     config = get_decider_config(probe.probe_id, all_deciders, datasets, decider)
 
     if config is None:
-        # This implies that for the given decider,
-        # a valid configuration was not found (e.g., kaleido needs an alignment).
         return ""
 
     return generate_sys_prompt(config, alignment_target.model_dump())

@@ -22,6 +22,10 @@ RunsRegistry = namedtuple(
         "update_run_scenario",
         "update_run_decider",
         "update_run_llm_backbone",
+        "add_run_alignment_attribute",
+        "update_run_alignment_attribute_value",
+        "update_run_alignment_attribute_score",
+        "delete_run_alignment_attribute",
     ],
 )
 
@@ -61,7 +65,7 @@ def create_runs_registry(probe_registry, decider_registry):
 
             system_prompt = decider_registry.get_system_prompt(
                 decider=updated_run.decider_name,
-                attributes=updated_run.decider_params.alignment_target.kdma_values,
+                alignment_target=updated_run.decider_params.alignment_target,
                 probe_id=updated_run.probe_id,
             )
 
@@ -128,6 +132,18 @@ def create_runs_registry(probe_registry, decider_registry):
     update_run_scenario = _create_update_method(runs_edit_logic.prepare_scenario_update)
     update_run_decider = _create_update_method(runs_edit_logic.prepare_decider_update)
     update_run_llm_backbone = _create_update_method(runs_edit_logic.prepare_llm_update)
+    add_run_alignment_attribute = _create_update_method(
+        runs_edit_logic.prepare_add_alignment_attribute
+    )
+    update_run_alignment_attribute_value = _create_update_method(
+        runs_edit_logic.prepare_update_alignment_attribute_value
+    )
+    update_run_alignment_attribute_score = _create_update_method(
+        runs_edit_logic.prepare_update_alignment_attribute_score
+    )
+    delete_run_alignment_attribute = _create_update_method(
+        runs_edit_logic.prepare_delete_alignment_attribute
+    )
 
     return RunsRegistry(
         add_run=add_run,
@@ -141,4 +157,8 @@ def create_runs_registry(probe_registry, decider_registry):
         update_run_scenario=update_run_scenario,
         update_run_decider=update_run_decider,
         update_run_llm_backbone=update_run_llm_backbone,
+        add_run_alignment_attribute=add_run_alignment_attribute,
+        update_run_alignment_attribute_value=update_run_alignment_attribute_value,
+        update_run_alignment_attribute_score=update_run_alignment_attribute_score,
+        delete_run_alignment_attribute=delete_run_alignment_attribute,
     )

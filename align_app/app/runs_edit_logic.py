@@ -1,10 +1,15 @@
 """Update runs with new scenes and scenarios."""
 
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from .run_models import Run
 from ..adm.probe import Probe
-from .prompt_logic import find_probe_by_base_and_scene, get_llm_backbones_from_config
+from .prompt_logic import (
+    find_probe_by_base_and_scene,
+    get_llm_backbones_from_config,
+    get_max_alignment_attributes,
+)
 from .prompt import get_scenes_for_base_scenario
+from align_utils.models import AlignmentTarget, KDMAValue
 
 
 def get_first_scene_for_scenario(probes: Dict[str, Probe], scenario_id: str) -> str:
@@ -137,3 +142,111 @@ def prepare_llm_update(
     return run.model_copy(
         update={"llm_backbone_name": llm_backbone, "decider_params": updated_params}
     )
+
+
+def prepare_add_alignment_attribute(
+    run: Run, _: Any, *, probe_registry, decider_registry
+) -> Optional[Run]:
+    """Add first available alignment attribute to the run."""
+    decider_options = decider_registry.get_decider_options(
+        run.probe_id, run.decider_name
+    )
+    max_attrs = get_max_alignment_attributes(decider_options)
+
+    current_kdmas = run.decider_params.alignment_target.kdma_values
+    if len(current_kdmas) >= max_attrs:
+        return None
+
+    all_attrs = probe_registry.get_attributes(run.probe_id)
+    used_kdmas = {kv.kdma for kv in current_kdmas}
+    available = [k for k in all_attrs.keys() if k not in used_kdmas]
+
+    if not available:
+        return None
+
+    first_available = available[0]
+    attr_info = all_attrs[first_available]
+    possible_scores = attr_info.get("possible_scores", "continuous")
+    initial_score = 0.0 if possible_scores == "continuous" else 0
+
+    new_kdma = KDMAValue(kdma=first_available, value=initial_score, kdes=None)
+    new_kdma_values = list(current_kdmas) + [new_kdma]
+
+    new_alignment_target = AlignmentTarget(
+        id=run.decider_params.alignment_target.id, kdma_values=new_kdma_values
+    )
+    updated_params = run.decider_params.model_copy(
+        update={"alignment_target": new_alignment_target}
+    )
+    return run.model_copy(update={"decider_params": updated_params})
+
+
+def prepare_update_alignment_attribute_value(
+    run: Run, payload: Dict[str, Any], *, probe_registry, decider_registry
+) -> Optional[Run]:
+    """Update KDMA type for an alignment attribute."""
+    attr_index = payload["attr_index"]
+    new_kdma = payload["value"]
+
+    current_kdmas = list(run.decider_params.alignment_target.kdma_values)
+    if attr_index < 0 or attr_index >= len(current_kdmas):
+        return None
+
+    all_attrs = probe_registry.get_attributes(run.probe_id)
+    attr_info = all_attrs.get(new_kdma, {})
+    possible_scores = attr_info.get("possible_scores", "continuous")
+    initial_score = 0.0 if possible_scores == "continuous" else 0
+
+    current_kdmas[attr_index] = KDMAValue(kdma=new_kdma, value=initial_score, kdes=None)
+
+    new_alignment_target = AlignmentTarget(
+        id=run.decider_params.alignment_target.id, kdma_values=current_kdmas
+    )
+    updated_params = run.decider_params.model_copy(
+        update={"alignment_target": new_alignment_target}
+    )
+    return run.model_copy(update={"decider_params": updated_params})
+
+
+def prepare_update_alignment_attribute_score(
+    run: Run, payload: Dict[str, Any], *, probe_registry=None, decider_registry=None
+) -> Optional[Run]:
+    """Update score for an alignment attribute."""
+    attr_index = payload["attr_index"]
+    new_score = payload["score"]
+
+    current_kdmas = list(run.decider_params.alignment_target.kdma_values)
+    if attr_index < 0 or attr_index >= len(current_kdmas):
+        return None
+
+    old_kdma = current_kdmas[attr_index]
+    current_kdmas[attr_index] = KDMAValue(
+        kdma=old_kdma.kdma, value=new_score, kdes=old_kdma.kdes
+    )
+
+    new_alignment_target = AlignmentTarget(
+        id=run.decider_params.alignment_target.id, kdma_values=current_kdmas
+    )
+    updated_params = run.decider_params.model_copy(
+        update={"alignment_target": new_alignment_target}
+    )
+    return run.model_copy(update={"decider_params": updated_params})
+
+
+def prepare_delete_alignment_attribute(
+    run: Run, attr_index: int, *, probe_registry=None, decider_registry=None
+) -> Optional[Run]:
+    """Remove an alignment attribute from the run."""
+    current_kdmas = list(run.decider_params.alignment_target.kdma_values)
+    if attr_index < 0 or attr_index >= len(current_kdmas):
+        return None
+
+    new_kdma_values = [kv for i, kv in enumerate(current_kdmas) if i != attr_index]
+
+    new_alignment_target = AlignmentTarget(
+        id=run.decider_params.alignment_target.id, kdma_values=new_kdma_values
+    )
+    updated_params = run.decider_params.model_copy(
+        update={"alignment_target": new_alignment_target}
+    )
+    return run.model_copy(update={"decider_params": updated_params})
