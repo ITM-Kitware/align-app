@@ -288,9 +288,9 @@ class RowWithLabel:
                     f"min-width: {RUN_COLUMN_MIN_WIDTH}; width: 0;"
                 ),
                 classes=(
-                    "text-subtitle-1 text-no-wrap text-truncate align-self-center flex-grow-1 flex-shrink-0"
+                    "text-subtitle-1 text-no-wrap text-truncate align-self-center flex-grow-1 flex-shrink-0 pe-8"
                     if title
-                    else "align-self-start text-break flex-grow-1 flex-shrink-0"
+                    else "align-self-start text-break flex-grow-1 flex-shrink-0 pe-8"
                 ),
             ):
                 run_content()
@@ -530,14 +530,98 @@ class EditableProbeLayout(html.Div):
                 )
 
 
+class EditableProbeLayoutForRun:
+    def __init__(self, server):
+        ctrl = server.controller
+        html.Div("Situation", classes="text-h6 pt-4")
+        vuetify3.VTextarea(
+            model_value=("runs[id].prompt.probe.display_state",),
+            update_modelValue=(ctrl.update_run_probe_text, "[id, $event]"),
+            blur=(ctrl.check_probe_edited, "[id]"),
+            auto_grow=True,
+            rows=3,
+            hide_details="auto",
+        )
+        html.Div("Choices", classes="text-h6 pt-4")
+        with html.Div(classes="ml-4"):
+            with html.Ul(classes="pa-0", style="list-style: none"):
+                with html.Li(
+                    v_for="(choice, index) in runs[id].prompt.probe.choices",
+                    key=("index",),
+                    classes="d-flex align-center mb-2",
+                ):
+                    html.Span(
+                        "{{String.fromCharCode(65 + index)}}.",
+                        classes="mr-2",
+                    )
+                    vuetify3.VTextarea(
+                        model_value=("choice.unstructured",),
+                        update_modelValue=(
+                            ctrl.update_run_choice_text,
+                            "[id, index, $event]",
+                        ),
+                        blur=(ctrl.check_probe_edited, "[id]"),
+                        auto_grow=True,
+                        rows=1,
+                        hide_details="auto",
+                        density="compact",
+                        classes="flex-grow-1",
+                    )
+                    with vuetify3.VBtn(
+                        icon=True,
+                        size="small",
+                        classes="ml-2",
+                        disabled=("runs[id].prompt.probe.choices.length <= 2",),
+                        click=(ctrl.delete_run_choice, "[id, index]"),
+                        v_if="runs[id].max_choices > 2",
+                    ):
+                        vuetify3.VIcon("mdi-close", size="small")
+            vuetify3.VBtn(
+                "Add Choice",
+                click=(ctrl.add_run_choice, "[id]"),
+                variant="outlined",
+                size="small",
+                classes="mt-2",
+                v_if=(
+                    "runs[id].prompt.probe.choices.length < "
+                    "runs[id].max_choices && runs[id].max_choices > 2"
+                ),
+            )
+
+
 class Probe:
-    class Title:
-        def __init__(self):
+    class Title(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                html.Span(
-                    "{{runs[id].prompt.probe.probe_id}} - "
-                    "{{runs[id].prompt.probe.full_state.unstructured}}",
-                )
+                with html.Div(
+                    classes="d-flex ga-2",
+                    style="width: 100%;",
+                    raw_attrs=["@click.stop", "@mousedown.stop"],
+                ):
+                    vuetify3.VSelect(
+                        label="Scenario",
+                        items=("base_scenarios",),
+                        model_value=("runs[id].prompt.probe.scenario_id",),
+                        update_modelValue=(
+                            self.server.controller.update_run_scenario,
+                            r"[id, $event]",
+                        ),
+                        hide_details="auto",
+                        style="flex: 1;",
+                    )
+                    vuetify3.VSelect(
+                        label="Scene",
+                        items=("runs[id].scene_items",),
+                        model_value=("runs[id].prompt.probe.scene_id",),
+                        update_modelValue=(
+                            self.server.controller.update_run_scene,
+                            r"[id, $event]",
+                        ),
+                        hide_details="auto",
+                        style="flex: 1;",
+                    )
 
             RowWithLabel(run_content=run_content, label="Scenario")
 
@@ -546,28 +630,7 @@ class Probe:
             super().__init__(**kwargs)
 
             def run_content():
-                vuetify3.VSelect(
-                    label="Scenario",
-                    items=("base_scenarios",),
-                    model_value=("runs[id].prompt.probe.scenario_id",),
-                    update_modelValue=(
-                        self.server.controller.update_run_scenario,
-                        r"[id, $event]",
-                    ),
-                    hide_details="auto",
-                    classes="mb-2",
-                )
-                vuetify3.VSelect(
-                    label="Scene",
-                    items=("runs[id].scene_items",),
-                    model_value=("runs[id].prompt.probe.scene_id",),
-                    update_modelValue=(
-                        self.server.controller.update_run_scene,
-                        r"[id, $event]",
-                    ),
-                    hide_details="auto",
-                )
-                ProbeLayout("runs[id].prompt.probe")
+                EditableProbeLayoutForRun(self.server)
 
             RowWithLabel(run_content=run_content)
 
@@ -944,6 +1007,10 @@ class AlignLayout(SinglePageLayout):
                     html.Span("Clear Runs")
 
             with layout.content:
+                # Prevent scrollbar flicker on auto-grow VTextarea
+                html.Div(
+                    v_html="'<style>.v-textarea .v-field__input { overflow-y: hidden !important; }</style>'"
+                )
                 with vuetify3.VContainer(fluid=True, classes="overflow-y-auto"):
                     with vuetify3.VRow(classes="overflow-x-auto flex-nowrap"):
                         with vuetify3.VCol(
