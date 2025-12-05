@@ -1,8 +1,11 @@
+import copy
 from collections import namedtuple
 from pathlib import Path
+from typing import List, Dict, Any
 import align_system
 from align_utils.models import (
     InputOutputItem,
+    InputData,
 )
 from align_utils.discovery import load_input_output_files
 from align_app.adm.probe import Probe
@@ -42,6 +45,7 @@ ProbeRegistry = namedtuple(
         "get_probe",
         "get_datasets",
         "get_attributes",
+        "add_edited_probe",
     ],
 )
 
@@ -104,10 +108,49 @@ def create_probe_registry(scenarios_paths=None):
         dataset_info = datasets[dataset_name]
         return dataset_info.get("attributes", {})
 
+    def add_edited_probe(
+        base_probe_id: str, edited_text: str, edited_choices: List[Dict[str, Any]]
+    ) -> Probe:
+        """Create new probe with edited content and -edit-N suffix."""
+        base_probe = get_probe(base_probe_id)
+
+        base_scene = base_probe.scene_id.split(" edit ")[0]
+        edit_num = 1
+        for existing_id in probes:
+            if f".{base_scene} edit " in existing_id:
+                try:
+                    num = int(existing_id.split(" edit ")[-1])
+                    edit_num = max(edit_num, num + 1)
+                except ValueError:
+                    pass
+
+        new_scene_id = f"{base_scene} edit {edit_num}"
+
+        new_full_state = copy.deepcopy(base_probe.full_state)
+        new_full_state["unstructured"] = edited_text
+        new_full_state["meta_info"]["scene_id"] = new_scene_id
+
+        new_input = InputData(
+            scenario_id=base_probe.scenario_id,
+            state=base_probe.state,
+            full_state=new_full_state,
+            choices=edited_choices,
+        )
+        new_item = InputOutputItem(input=new_input, output=base_probe.item.output)
+
+        new_probe = Probe.from_input_output_item(new_item)
+        probes[new_probe.probe_id] = new_probe
+
+        dataset_name = get_dataset_name(base_probe_id)
+        datasets[dataset_name]["probes"][new_probe.probe_id] = new_probe
+
+        return new_probe
+
     return ProbeRegistry(
         get_probes=lambda: probes,
         get_dataset_name=get_dataset_name,
         get_probe=get_probe,
         get_datasets=lambda: datasets,
         get_attributes=get_attributes,
+        add_edited_probe=add_edited_probe,
     )

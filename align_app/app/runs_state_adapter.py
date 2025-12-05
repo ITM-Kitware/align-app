@@ -176,9 +176,117 @@ class RunsStateAdapter:
         new_run = self.runs_registry.delete_run_alignment_attribute(run_id, attr_index)
         self._handle_run_update(run_id, new_run)
 
+    @controller.set("update_run_probe_text")
+    def update_run_probe_text(self, run_id: str, text: str):
+        if run_id in self.state.runs:
+            self.state.runs[run_id]["prompt"]["probe"]["display_state"] = text
+            self.state.dirty("runs")
+
+    @controller.set("update_run_choice_text")
+    def update_run_choice_text(self, run_id: str, index: int, text: str):
+        if run_id in self.state.runs:
+            choices = self.state.runs[run_id]["prompt"]["probe"]["choices"]
+            if 0 <= index < len(choices):
+                choices[index]["unstructured"] = text
+                self.state.dirty("runs")
+
+    @controller.set("add_run_choice")
+    def add_run_choice(self, run_id: str):
+        new_run = self.runs_registry.add_run_choice(run_id, None)
+        self._handle_run_update(run_id, new_run)
+
+    @controller.set("delete_run_choice")
+    def delete_run_choice(self, run_id: str, index: int):
+        new_run = self.runs_registry.delete_run_choice(run_id, index)
+        self._handle_run_update(run_id, new_run)
+
+    @controller.set("check_probe_edited")
+    def check_probe_edited(self, run_id: str):
+        if not self._is_probe_edited(run_id):
+            return
+
+        new_probe_id = self._create_edited_probe_for_run(run_id)
+        new_probe = self.probe_registry.get_probe(new_probe_id)
+        run = self.runs_registry.get_run(run_id)
+
+        updated_params = run.decider_params.model_copy(
+            update={"scenario_input": new_probe.item.input}
+        )
+        new_run_id = get_id()
+        new_run = run.model_copy(
+            update={
+                "id": new_run_id,
+                "probe_id": new_probe_id,
+                "decider_params": updated_params,
+                "decision": None,
+            }
+        )
+        self.runs_registry.add_run(new_run)
+
+        self.state.runs_to_compare = [
+            new_run_id if rid == run_id else rid for rid in self.state.runs_to_compare
+        ]
+        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+
+    def _is_probe_edited(self, run_id: str) -> bool:
+        """Check if UI state differs from original probe."""
+        run = self.runs_registry.get_run(run_id)
+        if not run:
+            return False
+
+        if run_id not in self.state.runs:
+            return False
+
+        try:
+            original_probe = self.probe_registry.get_probe(run.probe_id)
+        except ValueError:
+            return False
+
+        ui_run = self.state.runs[run_id]
+        current_text = ui_run["prompt"]["probe"].get("display_state", "")
+        original_text = original_probe.display_state or ""
+
+        if current_text != original_text:
+            return True
+
+        current_choices = ui_run["prompt"]["probe"].get("choices", [])
+        original_choices = original_probe.choices or []
+
+        if len(current_choices) != len(original_choices):
+            return True
+
+        for curr, orig in zip(current_choices, original_choices):
+            if curr.get("unstructured") != orig.get("unstructured"):
+                return True
+
+        return False
+
+    def _create_edited_probe_for_run(self, run_id: str) -> str:
+        """Create new probe from UI state edited content. Returns new probe_id."""
+        run = self.runs_registry.get_run(run_id)
+        ui_run = self.state.runs[run_id]
+        edited_text = ui_run["prompt"]["probe"].get("display_state", "")
+        edited_choices = list(ui_run["prompt"]["probe"].get("choices", []))
+
+        new_probe = self.probe_registry.add_edited_probe(
+            run.probe_id, edited_text, edited_choices
+        )
+        return new_probe.probe_id
+
     async def _execute_run_decision(self, run_id: str):
         with self.state:
             self.state.runs_computing = list(set(self.state.runs_computing + [run_id]))
+
+        if self._is_probe_edited(run_id):
+            new_probe_id = self._create_edited_probe_for_run(run_id)
+            run = self.runs_registry.get_run(run_id)
+            updated_run = run.model_copy(update={"probe_id": new_probe_id})
+            self.runs_registry.add_run(updated_run)
+            self.state.runs_to_compare = [
+                updated_run.id if rid == run_id else rid
+                for rid in self.state.runs_to_compare
+            ]
+            run_id = updated_run.id
 
         await self.server.network_completion  # show spinner
 

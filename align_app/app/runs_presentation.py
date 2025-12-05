@@ -11,6 +11,7 @@ from .prompt_logic import (
 )
 from ..utils.utils import readable
 import json
+import copy
 
 
 def kdma_values_to_alignment_attributes(
@@ -108,7 +109,7 @@ def run_to_state_dict(
         "scenario_id": scenario_input.scenario_id,
         "display_state": display_state,
         "state": scenario_input.state,
-        "choices": scenario_input.choices,
+        "choices": copy.deepcopy(scenario_input.choices),
         "full_state": scenario_input.full_state,
     }
 
@@ -173,6 +174,7 @@ def run_to_state_dict(
         "alignment_attributes": alignment_attributes,
         "possible_alignment_attributes": possible_alignment_attributes,
         "max_alignment_attributes": max_alignment_attributes,
+        "max_choices": 2,
         "prompt": {
             "probe": probe_dict,
             "alignment_target": run.decider_params.alignment_target.model_dump(),

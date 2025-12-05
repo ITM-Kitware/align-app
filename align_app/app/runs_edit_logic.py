@@ -3,7 +3,9 @@
 from typing import Optional, Dict, Any
 from .run_models import Run
 from ..adm.probe import Probe
+import copy
 from .prompt_logic import (
+    create_default_choice,
     find_probe_by_base_and_scene,
     get_llm_backbones_from_config,
     get_max_alignment_attributes,
@@ -248,5 +250,75 @@ def prepare_delete_alignment_attribute(
     )
     updated_params = run.decider_params.model_copy(
         update={"alignment_target": new_alignment_target}
+    )
+    return run.model_copy(update={"decider_params": updated_params})
+
+
+def prepare_update_probe_text(
+    run: Run, text: str, *, probe_registry=None, decider_registry=None
+) -> Optional[Run]:
+    """Update run's scenario_input.full_state.unstructured."""
+    scenario_input = run.decider_params.scenario_input
+    updated_full_state = copy.deepcopy(scenario_input.full_state) or {}
+    updated_full_state["unstructured"] = text
+
+    new_scenario_input = scenario_input.model_copy(
+        update={"full_state": updated_full_state}
+    )
+    updated_params = run.decider_params.model_copy(
+        update={"scenario_input": new_scenario_input}
+    )
+    return run.model_copy(update={"decider_params": updated_params})
+
+
+def prepare_update_choice_text(
+    run: Run, payload: Dict[str, Any], *, probe_registry=None, decider_registry=None
+) -> Optional[Run]:
+    """Update choice text at index. payload = {"index": int, "text": str}"""
+    index, text = payload["index"], payload["text"]
+    scenario_input = run.decider_params.scenario_input
+    choices = list(scenario_input.choices or [])
+
+    if index < 0 or index >= len(choices):
+        return None
+
+    choices[index] = {**choices[index], "unstructured": text}
+    new_scenario_input = scenario_input.model_copy(update={"choices": choices})
+    updated_params = run.decider_params.model_copy(
+        update={"scenario_input": new_scenario_input}
+    )
+    return run.model_copy(update={"decider_params": updated_params})
+
+
+def prepare_add_run_choice(
+    run: Run, _, *, probe_registry=None, decider_registry=None
+) -> Optional[Run]:
+    """Add new empty choice."""
+    scenario_input = run.decider_params.scenario_input
+    choices = list(scenario_input.choices or [])
+    new_choice = create_default_choice(len(choices), "")
+    choices.append(new_choice)
+
+    new_scenario_input = scenario_input.model_copy(update={"choices": choices})
+    updated_params = run.decider_params.model_copy(
+        update={"scenario_input": new_scenario_input}
+    )
+    return run.model_copy(update={"decider_params": updated_params})
+
+
+def prepare_delete_run_choice(
+    run: Run, index: int, *, probe_registry=None, decider_registry=None
+) -> Optional[Run]:
+    """Remove choice at index (min 2 choices)."""
+    scenario_input = run.decider_params.scenario_input
+    choices = list(scenario_input.choices or [])
+
+    if len(choices) <= 2 or index < 0 or index >= len(choices):
+        return None
+
+    choices = [c for i, c in enumerate(choices) if i != index]
+    new_scenario_input = scenario_input.model_copy(update={"choices": choices})
+    updated_params = run.decider_params.model_copy(
+        update={"scenario_input": new_scenario_input}
     )
     return run.model_copy(update={"decider_params": updated_params})

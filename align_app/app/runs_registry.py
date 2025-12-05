@@ -26,6 +26,10 @@ RunsRegistry = namedtuple(
         "update_run_alignment_attribute_value",
         "update_run_alignment_attribute_score",
         "delete_run_alignment_attribute",
+        "update_run_probe_text",
+        "update_run_choice_text",
+        "add_run_choice",
+        "delete_run_choice",
     ],
 )
 
@@ -144,6 +148,14 @@ def create_runs_registry(probe_registry, decider_registry):
     delete_run_alignment_attribute = _create_update_method(
         runs_edit_logic.prepare_delete_alignment_attribute
     )
+    update_run_probe_text = _create_update_method(
+        runs_edit_logic.prepare_update_probe_text
+    )
+    update_run_choice_text = _create_update_method(
+        runs_edit_logic.prepare_update_choice_text
+    )
+    add_run_choice = _create_update_method(runs_edit_logic.prepare_add_run_choice)
+    delete_run_choice = _create_update_method(runs_edit_logic.prepare_delete_run_choice)
 
     return RunsRegistry(
         add_run=add_run,
@@ -161,4 +173,8 @@ def create_runs_registry(probe_registry, decider_registry):
         update_run_alignment_attribute_value=update_run_alignment_attribute_value,
         update_run_alignment_attribute_score=update_run_alignment_attribute_score,
         delete_run_alignment_attribute=delete_run_alignment_attribute,
+        update_run_probe_text=update_run_probe_text,
+        update_run_choice_text=update_run_choice_text,
+        add_run_choice=add_run_choice,
+        delete_run_choice=delete_run_choice,
     )

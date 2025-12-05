@@ -530,6 +530,65 @@ class EditableProbeLayout(html.Div):
                 )
 
 
+class EditableProbeLayoutForRun:
+    def __init__(self, server):
+        ctrl = server.controller
+        html.Div("Situation", classes="text-h6 pt-4")
+        vuetify3.VTextarea(
+            model_value=("runs[id].prompt.probe.display_state",),
+            update_modelValue=(ctrl.update_run_probe_text, "[id, $event]"),
+            blur=(ctrl.check_probe_edited, "[id]"),
+            auto_grow=True,
+            rows=3,
+            hide_details="auto",
+        )
+        html.Div("Choices", classes="text-h6 pt-4")
+        with html.Div(classes="ml-4"):
+            with html.Ul(classes="pa-0", style="list-style: none"):
+                with html.Li(
+                    v_for="(choice, index) in runs[id].prompt.probe.choices",
+                    key=("index",),
+                    classes="d-flex align-center mb-2",
+                ):
+                    html.Span(
+                        "{{String.fromCharCode(65 + index)}}.",
+                        classes="mr-2",
+                    )
+                    vuetify3.VTextarea(
+                        model_value=("choice.unstructured",),
+                        update_modelValue=(
+                            ctrl.update_run_choice_text,
+                            "[id, index, $event]",
+                        ),
+                        blur=(ctrl.check_probe_edited, "[id]"),
+                        auto_grow=True,
+                        rows=1,
+                        hide_details="auto",
+                        density="compact",
+                        classes="flex-grow-1",
+                    )
+                    with vuetify3.VBtn(
+                        icon=True,
+                        size="small",
+                        classes="ml-2",
+                        disabled=("runs[id].prompt.probe.choices.length <= 2",),
+                        click=(ctrl.delete_run_choice, "[id, index]"),
+                        v_if="runs[id].max_choices > 2",
+                    ):
+                        vuetify3.VIcon("mdi-close", size="small")
+            vuetify3.VBtn(
+                "Add Choice",
+                click=(ctrl.add_run_choice, "[id]"),
+                variant="outlined",
+                size="small",
+                classes="mt-2",
+                v_if=(
+                    "runs[id].prompt.probe.choices.length < "
+                    "runs[id].max_choices && runs[id].max_choices > 2"
+                ),
+            )
+
+
 class Probe:
     class Title:
         def __init__(self):
@@ -567,7 +626,7 @@ class Probe:
                     ),
                     hide_details="auto",
                 )
-                ProbeLayout("runs[id].prompt.probe")
+                EditableProbeLayoutForRun(self.server)
 
             RowWithLabel(run_content=run_content)
 
