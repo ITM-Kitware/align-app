@@ -45,6 +45,8 @@ def reload(m=None):
 
 SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
 
+RUN_COLUMN_MIN_WIDTH = "20rem"
+
 CHOICE_INFO_DESCRIPTIONS = {
     "Predicted KDMA values": "Key Decision-Making Attributes associated with each choice",
     "ICL example responses": (
@@ -269,17 +271,26 @@ class PanelSection(vuetify3.VExpansionPanel):
 class RowWithLabel:
     def __init__(self, run_content=noop, label="", no_runs=None):
         title = bool(label)
-        with vuetify3.VRow(no_gutters=False, classes="flex-nowrap overflow-hidden"):
-            with vuetify3.VCol(cols=2, classes="align-self-center flex-shrink-0"):
+        with vuetify3.VRow(no_gutters=False, classes="flex-nowrap"):
+            with vuetify3.VCol(
+                cols=2,
+                classes="align-self-center flex-shrink-0",
+                style="position: sticky; left: 0; z-index: 10; background-color: white;",
+            ):
                 html.Span(label, classes="text-h6")
             with vuetify3.VCol(
                 v_for=("(id, column) in runs_to_compare",),
                 key=("id",),
                 v_if=("runs_to_compare.length > 0",),
+                style=(
+                    # width: 0 forces flex-grow to distribute space equally
+                    # instead of basing on content width
+                    f"min-width: {RUN_COLUMN_MIN_WIDTH}; width: 0;"
+                ),
                 classes=(
-                    "text-subtitle-1 text-no-wrap text-truncate align-self-center"
+                    "text-subtitle-1 text-no-wrap text-truncate align-self-center flex-grow-1 flex-shrink-0"
                     if title
-                    else "align-self-start text-break"
+                    else "align-self-start text-break flex-grow-1 flex-shrink-0"
                 ),
             ):
                 run_content()
@@ -296,19 +307,41 @@ class RowWithLabel:
 
 
 class LlmBackbone:
-    class Title:
-        def __init__(self):
+    class Title(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                html.Span("{{runs[id].prompt.decider_params.llm_backbone}}")
+                vuetify3.VSelect(
+                    label="LLM",
+                    items=("runs[id].llm_backbone_items",),
+                    model_value=("runs[id].prompt.decider_params.llm_backbone",),
+                    update_modelValue=(
+                        self.server.controller.update_run_llm_backbone,
+                        r"[id, $event]",
+                    ),
+                    hide_details="auto",
+                )
 
             RowWithLabel(run_content=run_content, label="LLM")
 
 
 class Decider:
-    class Title:
-        def __init__(self):
+    class Title(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                html.Span("{{runs[id].prompt.decider_params.decider}}")
+                vuetify3.VSelect(
+                    label="Decider",
+                    items=("runs[id].decider_items",),
+                    model_value=("runs[id].prompt.decider_params.decider",),
+                    update_modelValue=(
+                        self.server.controller.update_run_decider,
+                        r"[id, $event]",
+                    ),
+                    hide_details="auto",
+                )
 
             RowWithLabel(run_content=run_content, label="Decider")
 
@@ -318,31 +351,97 @@ class Alignment:
         def __init__(self):
             def run_content():
                 html.Span(
-                    "{{ runs[id].prompt.alignment_target.kdma_values.length ? "
-                    "runs[id].prompt.alignment_target.kdma_values.map(att => `${att.kdma} ${att.value}`).join(', ') : "
+                    "{{ runs[id].alignment_attributes.length ? "
+                    "runs[id].alignment_attributes.map(att => `${att.title} ${att.score}`).join(' - ') : "
                     "'No Alignment' }}"
                 )
 
             RowWithLabel(run_content=run_content, label="Alignment")
 
-    class Text:
-        def __init__(self):
+    class Text(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                with html.Div(
-                    v_for=(
-                        "kdma_value in runs[id].prompt.alignment_target.kdma_values",
-                    ),
-                    key=("kdma_value.kdma",),
+                with html.Template(
+                    v_for=("attr in runs[id].alignment_attributes",),
+                    key=("attr.index",),
                 ):
-                    with html.Div(
-                        style="display: flex; align-items: center; gap: 8px;"
+                    with vuetify3.VRow(no_gutters=True):
+                        with vuetify3.VSelect(
+                            label="Alignment",
+                            items=("runs[id].possible_alignment_attributes",),
+                            model_value=("attr",),
+                            update_modelValue=(
+                                self.server.controller.update_run_alignment_attribute_value,
+                                r"[id, attr.index, $event]",
+                            ),
+                            no_data_text="No available alignments",
+                            hide_details="auto",
+                        ):
+                            with vuetify3.Template(v_slot_append_inner=""):
+                                TooltipIcon("attr.description")
+                        with vuetify3.VBtn(
+                            classes="ml-2 mt-1",
+                            icon=True,
+                            click=(
+                                self.server.controller.delete_run_alignment_attribute,
+                                "[id, attr.index]",
+                            ),
+                        ):
+                            vuetify3.VIcon("mdi-delete")
+
+                    with vuetify3.VRow(
+                        v_if=("attr.possible_scores !== 'continuous' || true",),
+                        align="center",
+                        justify="center",
+                        classes="mb-2",
                     ):
-                        html.Span("{{kdma_value.kdma}}")
-                        ValueWithProgressBar("kdma_value.value")
-                    html.Div("{{kdma_value.description}}", classes="ml-8")
-                html.Div(
-                    "",
-                    v_if=("runs[id].prompt.alignment_target.kdma_values.length === 0",),
+                        with html.Template(
+                            v_if=("attr.possible_scores === 'continuous'",)
+                        ):
+                            vuetify3.VSlider(
+                                style="max-width: 300px",
+                                model_value=("attr.score",),
+                                end=(
+                                    self.server.controller.update_run_alignment_attribute_score,
+                                    r"[id, attr.index, $event]",
+                                ),
+                                min=(0,),
+                                max=(1,),
+                                step=(0.1,),
+                                thumb_label=True,
+                                hide_details="auto",
+                            )
+                        vuetify3.VSlider(
+                            v_else=True,
+                            style="max-width: 300px",
+                            model_value=("attr.score",),
+                            end=(
+                                self.server.controller.update_run_alignment_attribute_score,
+                                r"[id, attr.index, $event]",
+                            ),
+                            max=("attr.possible_scores.length - 1",),
+                            ticks=(
+                                r"Object.fromEntries(attr.possible_scores.map((s, i) => [i, s]))",
+                            ),
+                            show_ticks="always",
+                            step="1",
+                            tick_size="4",
+                            hide_details="auto",
+                        )
+
+                vuetify3.VBtn(
+                    "Add Alignment",
+                    click=(
+                        self.server.controller.add_run_alignment_attribute,
+                        "[id]",
+                    ),
+                    v_if=(
+                        "runs[id].alignment_attributes.length < runs[id].max_alignment_attributes"
+                        " && runs[id].possible_alignment_attributes.length > 0"
+                    ),
+                    classes="my-2",
                 )
 
             RowWithLabel(run_content=run_content)
@@ -431,6 +530,65 @@ class EditableProbeLayout(html.Div):
                 )
 
 
+class EditableProbeLayoutForRun:
+    def __init__(self, server):
+        ctrl = server.controller
+        html.Div("Situation", classes="text-h6 pt-4")
+        vuetify3.VTextarea(
+            model_value=("runs[id].prompt.probe.display_state",),
+            update_modelValue=(ctrl.update_run_probe_text, "[id, $event]"),
+            blur=(ctrl.check_probe_edited, "[id]"),
+            auto_grow=True,
+            rows=3,
+            hide_details="auto",
+        )
+        html.Div("Choices", classes="text-h6 pt-4")
+        with html.Div(classes="ml-4"):
+            with html.Ul(classes="pa-0", style="list-style: none"):
+                with html.Li(
+                    v_for="(choice, index) in runs[id].prompt.probe.choices",
+                    key=("index",),
+                    classes="d-flex align-center mb-2",
+                ):
+                    html.Span(
+                        "{{String.fromCharCode(65 + index)}}.",
+                        classes="mr-2",
+                    )
+                    vuetify3.VTextarea(
+                        model_value=("choice.unstructured",),
+                        update_modelValue=(
+                            ctrl.update_run_choice_text,
+                            "[id, index, $event]",
+                        ),
+                        blur=(ctrl.check_probe_edited, "[id]"),
+                        auto_grow=True,
+                        rows=1,
+                        hide_details="auto",
+                        density="compact",
+                        classes="flex-grow-1",
+                    )
+                    with vuetify3.VBtn(
+                        icon=True,
+                        size="small",
+                        classes="ml-2",
+                        disabled=("runs[id].prompt.probe.choices.length <= 2",),
+                        click=(ctrl.delete_run_choice, "[id, index]"),
+                        v_if="runs[id].max_choices > 2",
+                    ):
+                        vuetify3.VIcon("mdi-close", size="small")
+            vuetify3.VBtn(
+                "Add Choice",
+                click=(ctrl.add_run_choice, "[id]"),
+                variant="outlined",
+                size="small",
+                classes="mt-2",
+                v_if=(
+                    "runs[id].prompt.probe.choices.length < "
+                    "runs[id].max_choices && runs[id].max_choices > 2"
+                ),
+            )
+
+
 class Probe:
     class Title:
         def __init__(self):
@@ -442,22 +600,59 @@ class Probe:
 
             RowWithLabel(run_content=run_content, label="Scenario")
 
-    class Text:
-        def __init__(self):
+    class Text(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
-                ProbeLayout("runs[id].prompt.probe")
+                vuetify3.VSelect(
+                    label="Scenario",
+                    items=("base_scenarios",),
+                    model_value=("runs[id].prompt.probe.scenario_id",),
+                    update_modelValue=(
+                        self.server.controller.update_run_scenario,
+                        r"[id, $event]",
+                    ),
+                    hide_details="auto",
+                    classes="mb-2",
+                )
+                vuetify3.VSelect(
+                    label="Scene",
+                    items=("runs[id].scene_items",),
+                    model_value=("runs[id].prompt.probe.scene_id",),
+                    update_modelValue=(
+                        self.server.controller.update_run_scene,
+                        r"[id, $event]",
+                    ),
+                    hide_details="auto",
+                )
+                EditableProbeLayoutForRun(self.server)
 
             RowWithLabel(run_content=run_content)
 
 
 class Decision:
-    class Title:
-        def __init__(self):
+    class Title(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def render_run_decision():
                 html.Span(
                     "{{runs[id].decision.unstructured}}", v_if=("runs[id].decision",)
                 )
-                vuetify3.VProgressCircular(v_else=True, indeterminate=True, size=20)
+                with html.Template(v_else=True):
+                    vuetify3.VProgressCircular(
+                        v_if=("runs_computing.includes(id)",),
+                        indeterminate=True,
+                        size=20,
+                    )
+                    with vuetify3.VBtn(
+                        v_else=True,
+                        click=(self.server.controller.execute_run_decision, "[id]"),
+                        append_icon="mdi-send",
+                        raw_attrs=["@click.stop"],
+                    ):
+                        html.Span("Choose")
 
             RowWithLabel(run_content=render_run_decision, label="Decision")
 
@@ -481,7 +676,12 @@ class ChoiceInfo:
                         "runs[id].decision && runs[id].decision.choice_info_readable_keys",
                     ),
                 )
-                vuetify3.VProgressCircular(v_else=True, indeterminate=True, size=20)
+                with html.Template(v_else=True):
+                    vuetify3.VProgressCircular(
+                        v_if=("runs_computing.includes(id)",),
+                        indeterminate=True,
+                        size=20,
+                    )
 
             RowWithLabel(run_content=render_choice_info, label="Choice Info")
 
@@ -804,8 +1004,14 @@ class AlignLayout(SinglePageLayout):
 
             with layout.content:
                 with vuetify3.VContainer(fluid=True, classes="overflow-y-auto"):
-                    with vuetify3.VRow():
-                        with vuetify3.VCol(cols=8):
+                    with vuetify3.VRow(classes="overflow-x-auto flex-nowrap"):
+                        with vuetify3.VCol(
+                            style=f"min-width: calc({RUN_COLUMN_MIN_WIDTH} * 3);",
+                            classes="flex-grow-1 flex-shrink-0",
+                        ):
                             ResultsComparison()
-                        with vuetify3.VCol(cols=4):
+                        with vuetify3.VCol(
+                            style=f"min-width: {RUN_COLUMN_MIN_WIDTH};",
+                            classes="flex-grow-0 flex-shrink-0",
+                        ):
                             PromptInput()
