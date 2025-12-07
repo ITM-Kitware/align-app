@@ -596,11 +596,17 @@ class Probe:
 
             def run_content():
                 with html.Div(
-                    classes="d-flex ga-2",
+                    classes="d-flex ga-2 align-center",
                     style="width: 100%;",
                     raw_attrs=["@click.stop", "@mousedown.stop"],
                 ):
+                    RunSearchField(
+                        v_bind=(
+                            "{ style: run_search_expanded_id === id ? 'flex: 1;' : 'width: 48px;' }",
+                        ),
+                    )
                     vuetify3.VSelect(
+                        v_if=("run_search_expanded_id !== id",),
                         label="Scenario",
                         items=("base_scenarios",),
                         model_value=("runs[id].prompt.probe.scenario_id",),
@@ -612,6 +618,7 @@ class Probe:
                         style="flex: 1;",
                     )
                     vuetify3.VSelect(
+                        v_if=("run_search_expanded_id !== id",),
                         label="Scene",
                         items=("runs[id].scene_items",),
                         model_value=("runs[id].prompt.probe.scene_id",),
@@ -792,8 +799,8 @@ class EditableProbePanel(vuetify3.VExpansionPanel):
                 EditableProbeLayout()
 
 
-class SearchField(html.Div):
-    """Search field with dropdown results menu."""
+class RunSearchField(html.Div):
+    """Search field for runs with dropdown results menu."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -801,29 +808,33 @@ class SearchField(html.Div):
             with vuetify3.VMenu(
                 v_model=("search_menu_open",),
                 close_on_content_click=False,
-                location="left",
+                location="bottom",
                 offset=(8,),
             ):
                 with vuetify3.Template(v_slot_activator=("{ props }",)):
                     vuetify3.VTextField(
                         v_model=("search_query",),
-                        label="Search scenarios",
+                        placeholder="Search",
                         prepend_inner_icon="mdi-magnify",
-                        clearable=True,
+                        clearable=("run_search_expanded_id === id",),
                         hide_details="auto",
                         v_bind="props",
+                        focus="run_search_expanded_id = id",
+                        click_clear="run_search_expanded_id = null; search_query = ''",
                     )
-                with vuetify3.VCard():
+                with vuetify3.VCard(
+                    v_if=("run_search_expanded_id === id",),
+                    raw_attrs=["@mousedown.prevent"],
+                ):
                     with vuetify3.VList(density="compact"):
                         with vuetify3.VListItem(
                             v_for="(result, index) in search_results",
                             key="result.id",
                             click=(
-                                self.server.controller.select_search_result,
-                                "[index]",
+                                self.server.controller.select_run_search_result,
+                                "[id, index]",
                             ),
                             disabled=("result.id === null",),
-                            active=("result.id === prompt_probe_id",),
                         ):
                             with vuetify3.VListItemTitle():
                                 html.Span(
@@ -843,7 +854,6 @@ class PromptInput(html.Div):
         super().__init__(**kwargs)
         with self:
             with vuetify3.VCardText():
-                SearchField(classes="mb-4")
                 vuetify3.VSelect(
                     label="Scenario",
                     items=("base_scenarios",),

@@ -124,9 +124,11 @@ class RunsStateAdapter:
 
         Minimal - just coordinates registry call and UI sync.
         All complexity delegated to registry → core layers.
+        Returns the new run ID (may differ from input if run was recreated).
         """
         new_run = self.runs_registry.update_run_scenario(run_id, scenario_id)
         self._handle_run_update(run_id, new_run)
+        return new_run.id if new_run else run_id
 
     @controller.set("update_run_decider")
     def update_run_decider(self, run_id: str, decider_name: str):
