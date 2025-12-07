@@ -740,15 +740,36 @@ class RunNumber:
             super().__init__(**kwargs)
 
             def run_content():
-                vuetify3.VSelect(
-                    items=("Object.keys(runs).map((_, i) => i + 1)",),
-                    model_value=("Object.keys(runs).indexOf(id) + 1",),
-                    update_modelValue=(
-                        self.server.controller.update_run_to_compare,
-                        r"[$event, column]",
-                    ),
-                    hide_details="auto",
-                )
+                with vuetify3.VRow(no_gutters=True, classes="align-center"):
+                    with vuetify3.VCol(classes="flex-grow-1"):
+                        vuetify3.VSelect(
+                            items=("Object.keys(runs).map((_, i) => i + 1)",),
+                            model_value=("Object.keys(runs).indexOf(id) + 1",),
+                            update_modelValue=(
+                                self.server.controller.update_run_to_compare,
+                                r"[$event, column]",
+                            ),
+                            hide_details="auto",
+                        )
+                    with vuetify3.VCol(classes="flex-grow-0 d-flex ga-2 ml-2"):
+                        with vuetify3.VBtn(
+                            icon=True,
+                            size="small",
+                            variant="tonal",
+                            disabled=("runs_to_compare.length <= 1",),
+                            click=(
+                                self.server.controller.delete_run_from_compare,
+                                "[column]",
+                            ),
+                        ):
+                            vuetify3.VIcon("mdi-close")
+                        with vuetify3.VBtn(
+                            icon=True,
+                            size="small",
+                            variant="tonal",
+                            click=(self.server.controller.copy_run, "[id, column]"),
+                        ):
+                            vuetify3.VIcon("mdi-plus")
 
             def no_runs():
                 html.Div("No Runs")
