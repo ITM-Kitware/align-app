@@ -63,7 +63,9 @@ class RunsStateAdapter:
         decider_options = self.decider_registry.get_decider_options(
             first_probe_id, decider_name
         )
-        llm_backbones = decider_options.get("llm_backbones", []) if decider_options else []
+        llm_backbones = (
+            decider_options.get("llm_backbones", []) if decider_options else []
+        )
         llm_backbone = llm_backbones[0] if llm_backbones else ""
 
         resolved_config = self.decider_registry.get_decider_config(
@@ -101,7 +103,25 @@ class RunsStateAdapter:
         self.state.runs_to_compare[run_column_index] = runs[run_index - 1]
         self.state.dirty("runs_to_compare")
 
-    def _sync_run_to_state(self, run: Run):
+    @controller.set("delete_run_from_compare")
+    def delete_run_from_compare(self, column_index):
+        runs_to_compare = list(self.state.runs_to_compare)
+        if len(runs_to_compare) > 1:
+            runs_to_compare.pop(column_index)
+            self.state.runs_to_compare = runs_to_compare
+
+    @controller.set("copy_run")
+    def copy_run(self, run_id, column_index):
+        source_run = self.runs_registry.get_run(run_id)
+        if not source_run:
+            return
+
+        new_run = source_run.model_copy(update={"id": get_id(), "decision": None})
+
+        self.runs_registry.add_run(new_run)
+        self._sync_run_to_state(new_run, insert_at_index=column_index + 1)
+
+    def _sync_run_to_state(self, run: Run, insert_at_index=None):
         run_dict = runs_presentation.run_to_state_dict(
             run, self.probe_registry, self.decider_registry
         )
@@ -113,7 +133,12 @@ class RunsStateAdapter:
             }
             if run.id not in self.state.runs:
                 self.state.runs = {**self.state.runs, run.id: run_dict}
-                self.state.runs_to_compare = self.state.runs_to_compare + [run.id]
+                runs_to_compare = list(self.state.runs_to_compare)
+                if insert_at_index is None:
+                    runs_to_compare.append(run.id)
+                else:
+                    runs_to_compare.insert(insert_at_index, run.id)
+                self.state.runs_to_compare = runs_to_compare
 
     async def create_and_execute_run(self):
         prompt_context = self.prompt_controller.get_prompt()
