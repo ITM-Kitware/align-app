@@ -7,6 +7,7 @@ from ..adm.decider.types import DeciderParams
 from ..utils.utils import get_id
 from .prompt import extract_base_scenarios
 from . import runs_presentation
+from align_utils.models import AlignmentTarget
 
 
 @TrameApp()
@@ -44,6 +45,55 @@ class RunsStateAdapter:
     def reset_state(self):
         self.runs_registry.clear_runs()
         self._sync_from_runs_data({})
+        self.create_default_run()
+
+    def create_default_run(self):
+        probes = self.probe_registry.get_probes()
+        if not probes:
+            return
+
+        first_probe_id = next(iter(probes))
+        first_probe = probes[first_probe_id]
+
+        all_deciders = self.decider_registry.get_all_deciders()
+        if not all_deciders:
+            return
+
+        decider_name = next(iter(all_deciders))
+        decider_options = self.decider_registry.get_decider_options(
+            first_probe_id, decider_name
+        )
+        llm_backbones = decider_options.get("llm_backbones", []) if decider_options else []
+        llm_backbone = llm_backbones[0] if llm_backbones else ""
+
+        resolved_config = self.decider_registry.get_decider_config(
+            probe_id=first_probe_id,
+            decider=decider_name,
+            llm_backbone=llm_backbone,
+        )
+
+        if resolved_config is None:
+            return
+
+        alignment_target = AlignmentTarget(id="ad_hoc", kdma_values=[])
+
+        decider_params = DeciderParams(
+            scenario_input=first_probe.item.input,
+            alignment_target=alignment_target,
+            resolved_config=resolved_config,
+        )
+
+        run = Run(
+            id=get_id(),
+            decider_params=decider_params,
+            probe_id=first_probe_id,
+            decider_name=decider_name,
+            llm_backbone_name=llm_backbone,
+            system_prompt="",
+        )
+
+        self.runs_registry.add_run(run)
+        self._sync_run_to_state(run)
 
     @controller.set("update_run_to_compare")
     def update_run_to_compare(self, run_index, run_column_index):
