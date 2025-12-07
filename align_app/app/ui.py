@@ -826,48 +826,53 @@ class RunSearchField(html.Div):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self:
-            with vuetify3.VMenu(
-                v_model=("search_menu_open",),
-                close_on_content_click=False,
-                location="bottom",
-                offset=(8,),
+            with html.Div(
+                raw_attrs=[
+                    "v-click-outside=\"() => { "
+                    "if (run_search_expanded_id === id) run_search_expanded_id = null }\""
+                ],
             ):
-                with vuetify3.Template(v_slot_activator=("{ props }",)):
-                    vuetify3.VTextField(
-                        v_model=("search_query",),
-                        placeholder="Search",
-                        prepend_inner_icon="mdi-magnify",
-                        clearable=("run_search_expanded_id === id",),
-                        hide_details="auto",
-                        v_bind="props",
-                        focus="run_search_expanded_id = id",
-                        click_clear="run_search_expanded_id = null; search_query = ''",
-                    )
-                with vuetify3.VCard(
-                    v_if=("run_search_expanded_id === id",),
-                    raw_attrs=["@mousedown.prevent"],
+                with vuetify3.VMenu(
+                    v_model=("search_menu_open",),
+                    close_on_content_click=False,
+                    location="bottom",
+                    offset=(8,),
                 ):
-                    with vuetify3.VList(density="compact"):
-                        with vuetify3.VListItem(
-                            v_for="(result, index) in search_results",
-                            key="result.id",
-                            click=(
-                                self.server.controller.select_run_search_result,
-                                "[id, index]",
-                            ),
-                            disabled=("result.id === null",),
-                        ):
-                            with vuetify3.VListItemTitle():
-                                html.Span(
-                                    "{{ result.scenario_id }} - {{ result.scene_id }}",
-                                    classes="font-weight-medium",
-                                    v_if=("result.id !== null",),
-                                )
-                            with vuetify3.VListItemSubtitle():
-                                html.Span(
-                                    "{{ result.display_text }}",
-                                    classes="text-caption",
-                                )
+                    with vuetify3.Template(v_slot_activator=("{ props }",)):
+                        vuetify3.VTextField(
+                            v_model=("search_query",),
+                            placeholder="Search",
+                            prepend_inner_icon="mdi-magnify",
+                            clearable=("run_search_expanded_id === id",),
+                            hide_details="auto",
+                            v_bind="props",
+                            focus="run_search_expanded_id = id",
+                            click_clear="run_search_expanded_id = null; search_query = ''",
+                        )
+                    with vuetify3.VCard(
+                        v_if=("run_search_expanded_id === id",),
+                    ):
+                        with vuetify3.VList(density="compact"):
+                            with vuetify3.VListItem(
+                                v_for="(result, index) in search_results",
+                                key="result.id",
+                                click=(
+                                    self.server.controller.select_run_search_result,
+                                    "[id, index]",
+                                ),
+                                disabled=("result.id === null",),
+                            ):
+                                with vuetify3.VListItemTitle():
+                                    html.Span(
+                                        "{{ result.scenario_id }} - {{ result.scene_id }}",
+                                        classes="font-weight-medium",
+                                        v_if=("result.id !== null",),
+                                    )
+                                with vuetify3.VListItemSubtitle():
+                                    html.Span(
+                                        "{{ result.display_text }}",
+                                        classes="text-caption",
+                                    )
 
 
 class PromptInput(html.Div):
