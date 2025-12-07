@@ -481,12 +481,17 @@ class SearchController:
     def __init__(self, server, probe_registry):
         self.server = server
         self.probe_registry = probe_registry
+        self.runs_state_adapter = None
         self.server.state.search_query = ""
         self.server.state.search_results = []
         self.server.state.search_menu_open = False
+        self.server.state.run_search_expanded_id = None
         self.server.state.change("search_query")(
             debounce(0.2, self.server.state)(self.update_search_results)
         )
+
+    def set_runs_state_adapter(self, runs_state_adapter):
+        self.runs_state_adapter = runs_state_adapter
 
     def _create_search_result(self, probe_id, probe: Probe):
         display_state = probe.display_state or ""
@@ -541,14 +546,15 @@ class SearchController:
         ]
         self.server.state.search_menu_open = True
 
-    @controller.add("select_search_result")
-    def select_search_result(self, index):
+    @controller.add("select_run_search_result")
+    def select_run_search_result(self, run_id, index):
         if 0 <= index < len(self.server.state.search_results):
             result = self.server.state.search_results[index]
-            if result.get("id") is not None:
-                self.server.state.update(
-                    {
-                        "scenario_id": result.get("scenario_id"),
-                        "scene_id": result.get("scene_id"),
-                    }
+            if result.get("id") is not None and self.runs_state_adapter:
+                new_run_id = self.runs_state_adapter.update_run_scenario(
+                    run_id, result.get("scenario_id")
                 )
+                self.runs_state_adapter.update_run_scene(
+                    new_run_id, result.get("scene_id")
+                )
+                self.server.state.run_search_expanded_id = None

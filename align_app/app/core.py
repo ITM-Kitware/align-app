@@ -38,6 +38,9 @@ class AlignApp:
         self._runsController = RunsStateAdapter(
             self.server, self._promptController, self._runs_registry
         )
+        self._promptController.search_controller.set_runs_state_adapter(
+            self._runsController
+        )
 
         if self.server.hot_reload:
             self.server.controller.on_server_reload.add(self._build_ui)
