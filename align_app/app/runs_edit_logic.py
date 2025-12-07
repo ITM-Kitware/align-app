@@ -10,7 +10,7 @@ from .prompt_logic import (
     get_llm_backbones_from_config,
     get_max_alignment_attributes,
 )
-from .prompt import get_scenes_for_base_scenario
+from .runs_presentation import get_scenes_for_base_scenario
 from align_utils.models import AlignmentTarget, KDMAValue
 
 

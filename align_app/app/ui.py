@@ -474,62 +474,6 @@ class ProbeLayout:
             html.Li("{{choice.unstructured}}", v_for=(f"choice in {probe}.choices"))
 
 
-class EditableProbeLayout(html.Div):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        with self:
-            html.Div("Situation", classes="text-h6")
-            vuetify3.VTextarea(
-                v_model=("edited_probe_text",),
-                auto_grow=True,
-                rows=3,
-                hide_details="auto",
-            )
-            html.Div("Choices", classes="text-h6 pt-4")
-            with html.Div(classes="ml-4"):
-                with html.Ul(classes="pa-0", style="list-style: none"):
-                    with html.Li(
-                        v_for=("(choice, index) in edited_choices",),
-                        key=("index",),
-                        classes="d-flex align-center mb-2",
-                    ):
-                        html.Span(
-                            "{{String.fromCharCode(65 + index)}}.", classes="mr-2"
-                        )
-                        vuetify3.VTextarea(
-                            model_value=("edited_choices[index]",),
-                            update_modelValue=(
-                                self.server.controller.update_choice,
-                                "[index, $event]",
-                            ),
-                            auto_grow=True,
-                            rows=1,
-                            hide_details="auto",
-                            density="compact",
-                            classes="flex-grow-1",
-                        )
-                        with vuetify3.VBtn(
-                            icon=True,
-                            size="small",
-                            classes="ml-2",
-                            disabled=("edited_choices.length <= 2",),
-                            click=(
-                                self.server.controller.delete_choice,
-                                "[index]",
-                            ),
-                            v_if=("max_choices > 2",),
-                        ):
-                            vuetify3.VIcon("mdi-close", size="small")
-                vuetify3.VBtn(
-                    "Add Choice",
-                    click=self.server.controller.add_choice,
-                    variant="outlined",
-                    size="small",
-                    classes="mt-2",
-                    v_if=("edited_choices.length < max_choices && max_choices > 2",),
-                )
-
-
 class EditableProbeLayoutForRun:
     def __init__(self, server):
         ctrl = server.controller
@@ -756,6 +700,13 @@ class RunNumber:
                             icon=True,
                             size="small",
                             variant="tonal",
+                            click=(self.server.controller.copy_run, "[id, column]"),
+                        ):
+                            vuetify3.VIcon("mdi-plus")
+                        with vuetify3.VBtn(
+                            icon=True,
+                            size="small",
+                            variant="tonal",
                             disabled=("runs_to_compare.length <= 1",),
                             click=(
                                 self.server.controller.delete_run_from_compare,
@@ -763,13 +714,6 @@ class RunNumber:
                             ),
                         ):
                             vuetify3.VIcon("mdi-close")
-                        with vuetify3.VBtn(
-                            icon=True,
-                            size="small",
-                            variant="tonal",
-                            click=(self.server.controller.copy_run, "[id, column]"),
-                        ):
-                            vuetify3.VIcon("mdi-plus")
 
             def no_runs():
                 html.Div("No Runs")
@@ -806,20 +750,6 @@ class ProbePanel(vuetify3.VExpansionPanel):
                 ProbeLayout(probe)
 
 
-class EditableProbePanel(vuetify3.VExpansionPanel):
-    def __init__(self, probe, **kwargs):
-        super().__init__(**kwargs)
-        with self:
-            with vuetify3.VExpansionPanelTitle():
-                with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
-                    html.Span(
-                        f"{{{{{probe}.scene_id}}}} - "
-                        f"{{{{{probe}.full_state.unstructured}}}}",
-                    )
-            with vuetify3.VExpansionPanelText():
-                EditableProbeLayout()
-
-
 class RunSearchField(html.Div):
     """Search field for runs with dropdown results menu."""
 
@@ -828,8 +758,8 @@ class RunSearchField(html.Div):
         with self:
             with html.Div(
                 raw_attrs=[
-                    "v-click-outside=\"() => { "
-                    "if (run_search_expanded_id === id) run_search_expanded_id = null }\""
+                    'v-click-outside="() => { '
+                    'if (run_search_expanded_id === id) run_search_expanded_id = null }"'
                 ],
             ):
                 with vuetify3.VMenu(
@@ -873,141 +803,6 @@ class RunSearchField(html.Div):
                                         "{{ result.display_text }}",
                                         classes="text-caption",
                                     )
-
-
-class PromptInput(html.Div):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        with self:
-            with vuetify3.VCardText():
-                vuetify3.VSelect(
-                    label="Scenario",
-                    items=("base_scenarios",),
-                    v_model=("scenario_id",),
-                )
-                vuetify3.VSelect(
-                    label="Scene",
-                    items=("scene_items",),
-                    v_model=("scene_id",),
-                )
-                with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
-                    EditableProbePanel("prompt_probe")
-
-                vuetify3.VSelect(
-                    classes="mt-6",
-                    label="Decider",
-                    items=("deciders",),
-                    v_model=("decider",),
-                    error_messages=("decider_messages",),
-                )
-                with html.Template(
-                    v_for=("alignment_attribute in alignment_attributes",),
-                    key=("alignment_attribute.id",),
-                ):
-                    with vuetify3.VRow(no_gutters=True):
-                        with vuetify3.VSelect(
-                            label="Alignment",
-                            items=("possible_alignment_attributes",),
-                            model_value=("alignment_attribute",),
-                            update_modelValue=(
-                                self.server.controller.update_value_alignment_attribute,
-                                r"[alignment_attribute.id, $event]",
-                            ),
-                            no_data_text="No available alignments",
-                            hide_details="auto",
-                        ):
-                            with vuetify3.Template(v_slot_append_inner=""):
-                                TooltipIcon("alignment_attribute.description")
-                        with vuetify3.VBtn(
-                            classes="ml-2 mt-1",
-                            icon=True,
-                            click=(
-                                self.server.controller.delete_alignment_attribute,
-                                "[alignment_attribute.id]",
-                            ),
-                        ):
-                            vuetify3.VIcon("mdi-delete")
-
-                    with vuetify3.VRow(
-                        v_if=("alignment_attribute.possible_scores.length > 1",),
-                        align="center",
-                        justify="center",
-                        classes="mb-2",
-                    ):
-                        with html.Template(
-                            v_if=(
-                                "alignment_attribute.possible_scores === 'continuous'",
-                            )
-                        ):
-                            html.Span("0")
-                            vuetify3.VSlider(
-                                classes="px-4",
-                                style="max-width: 300px",
-                                model_value=("alignment_attribute.score",),
-                                update_modelValue=(
-                                    self.server.controller.update_score_alignment_attribute,
-                                    r"[alignment_attribute.id, $event]",
-                                ),
-                                max=(1,),
-                                thumb_label=True,
-                                hide_details="auto",
-                            )
-                            html.Span("1")
-                        vuetify3.VSlider(
-                            v_else=True,
-                            style="max-width: 300px",
-                            model_value=("alignment_attribute.score",),
-                            update_modelValue=(
-                                self.server.controller.update_score_alignment_attribute,
-                                r"[alignment_attribute.id, $event]",
-                            ),
-                            max=("alignment_attribute.possible_scores.length - 1",),
-                            ticks=(
-                                r"Object.fromEntries(alignment_attribute.possible_scores.map((s, i) => [i, s]))",
-                            ),
-                            show_ticks="always",
-                            step="1",
-                            tick_size="4",
-                            hide_details="auto",
-                        )
-
-                vuetify3.VBtn(
-                    "Add Alignment Attribute",
-                    click=self.server.controller.add_alignment_attribute,
-                    v_if=(
-                        "alignment_attributes.length < max_alignment_attributes"
-                        " && possible_alignment_attributes.length > 0"
-                    ),
-                    classes="my-2",
-                )
-
-                with vuetify3.VExpansionPanels(
-                    classes="mb-6 mt-4", multiple=True, variant="accordion"
-                ):
-                    with vuetify3.VExpansionPanel():
-                        with vuetify3.VExpansionPanelTitle():
-                            with html.Div(
-                                classes="text-subtitle-1 text-no-wrap text-truncate"
-                            ):
-                                html.Span("System Prompt:")
-                                html.Span("{{system_prompt}}")
-                        with vuetify3.VExpansionPanelText():
-                            html.Div("{{system_prompt}}")
-
-                vuetify3.VSelect(
-                    disabled=("llm_backbones.length <= 1",),
-                    label="LLM Backbone",
-                    items=("llm_backbones",),
-                    v_model=("llm_backbone",),
-                    hide_details="auto",
-                )
-
-            with vuetify3.VCardActions():
-                with vuetify3.VBtn(
-                    click=self.server.controller.submit_prompt,
-                    disabled=("send_button_disabled",),
-                ):
-                    vuetify3.VIcon("mdi-send")
 
 
 class AlignLayout(SinglePageLayout):
@@ -1054,8 +849,3 @@ class AlignLayout(SinglePageLayout):
                             classes="flex-grow-1 flex-shrink-0",
                         ):
                             ResultsComparison()
-                        with vuetify3.VCol(
-                            style=f"min-width: {RUN_COLUMN_MIN_WIDTH};",
-                            classes="flex-grow-0 flex-shrink-0",
-                        ):
-                            PromptInput()
