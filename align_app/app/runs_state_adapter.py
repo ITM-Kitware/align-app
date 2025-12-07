@@ -5,19 +5,18 @@ from .run_models import Run
 from .runs_registry import RunsRegistry
 from ..adm.decider.types import DeciderParams
 from ..utils.utils import get_id
-from .prompt import extract_base_scenarios
+from .runs_presentation import extract_base_scenarios
 from . import runs_presentation
 from align_utils.models import AlignmentTarget
 
 
 @TrameApp()
 class RunsStateAdapter:
-    def __init__(self, server, prompt_controller, runs_registry: RunsRegistry):
+    def __init__(self, server, probe_registry, decider_registry, runs_registry: RunsRegistry):
         self.server = server
-        self.prompt_controller = prompt_controller
         self.runs_registry = runs_registry
-        self.probe_registry = prompt_controller.probe_registry
-        self.decider_registry = prompt_controller.decider_api
+        self.probe_registry = probe_registry
+        self.decider_registry = decider_registry
         self.server.state.runs_computing = []
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
@@ -139,41 +138,6 @@ class RunsStateAdapter:
                 else:
                     runs_to_compare.insert(insert_at_index, run.id)
                 self.state.runs_to_compare = runs_to_compare
-
-    async def create_and_execute_run(self):
-        prompt_context = self.prompt_controller.get_prompt()
-        run_id = get_id()
-
-        decider_params = DeciderParams(
-            scenario_input=prompt_context["probe"].item.input,
-            alignment_target=prompt_context["alignment_target"],
-            resolved_config=prompt_context["resolved_config"],
-        )
-
-        run = Run(
-            id=run_id,
-            decider_params=decider_params,
-            probe_id=prompt_context["probe"].probe_id,
-            decider_name=prompt_context.get("decider_params", {}).get("decider", ""),
-            llm_backbone_name=prompt_context.get("decider_params", {}).get(
-                "llm_backbone", ""
-            ),
-            system_prompt=prompt_context.get("system_prompt", ""),
-        )
-
-        self.runs_registry.add_run(run)
-        self._sync_run_to_state(run)
-
-        await self.server.network_completion  # show spinner
-
-        probe_choices = prompt_context["probe"].choices or []
-        updated_run = await self.runs_registry.execute_decision(run, probe_choices)
-
-        self._sync_run_to_state(updated_run)
-
-    @controller.set("submit_prompt")
-    def submit_prompt(self):
-        asynchronous.create_task(self.create_and_execute_run())
 
     def _handle_run_update(self, old_run_id: str, new_run: Optional[Run]):
         if new_run:

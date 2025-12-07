@@ -3,15 +3,39 @@
 from typing import Dict, Any, List
 from .run_models import Run, RunDecision
 from .ui import prep_decision_for_state
-from .prompt import get_scenes_for_base_scenario
 from .prompt_logic import (
     get_llm_backbones_from_config,
     get_max_alignment_attributes,
     compute_possible_attributes,
 )
+from ..adm.probe import Probe
 from ..utils.utils import readable
 import json
 import copy
+
+
+def extract_base_scenarios(probes: Dict[str, Probe]) -> List[Dict]:
+    """Extract unique base scenario IDs from all probes."""
+    unique_bases = sorted(set(probe.scenario_id for probe in probes.values()))
+    return [{"value": id, "title": id} for id in unique_bases]
+
+
+def get_scenes_for_base_scenario(
+    probes: Dict[str, Probe], scenario_id: str
+) -> List[Dict]:
+    scene_map = {
+        probe.scene_id: (probe.display_state or "").split("\n")[0]
+        for probe in probes.values()
+        if probe.scenario_id == scenario_id
+    }
+
+    return [
+        {
+            "value": scene_id,
+            "title": f"{scene_id} - {text[:50]}{'...' if len(text) > 50 else ''}",
+        }
+        for scene_id, text in scene_map.items()
+    ]
 
 
 def kdma_values_to_alignment_attributes(
