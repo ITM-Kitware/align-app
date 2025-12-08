@@ -269,8 +269,43 @@ class PanelSection(vuetify3.VExpansionPanel):
 
 
 class RowWithLabel:
-    def __init__(self, run_content=noop, label="", no_runs=None):
+    def __init__(self, run_content=noop, label="", no_runs=None, compare_expr=None):
         title = bool(label)
+        base_style = (
+            f"min-width: {RUN_COLUMN_MIN_WIDTH}; "
+            f"flex-basis: {RUN_COLUMN_MIN_WIDTH}; flex-grow: 1;"
+        )
+        if compare_expr:
+            prev_expr = compare_expr.replace(
+                "runs[id]", "runs[runs_to_compare[column - 1]]"
+            )
+            next_expr = compare_expr.replace(
+                "runs[id]", "runs[runs_to_compare[column + 1]]"
+            )
+            diff_from_prev = (
+                f"column > 0 && JSON.stringify({compare_expr}) "
+                f"!== JSON.stringify({prev_expr})"
+            )
+            diff_from_next = (
+                f"column < runs_to_compare.length - 1 && JSON.stringify({compare_expr}) "
+                f"!== JSON.stringify({next_expr})"
+            )
+            left_shadow = "inset 4px 0 4px -4px rgba(0,0,0,0.3)"
+            right_shadow = "inset -4px 0 4px -4px rgba(0,0,0,0.3)"
+            both_shadows = f"{left_shadow}, {right_shadow}"
+            shadow_expr = (
+                f"({diff_from_prev} && {diff_from_next}) ? '{both_shadows}' : "
+                f"({diff_from_prev} ? '{left_shadow}' : "
+                f"({diff_from_next} ? '{right_shadow}' : 'none'))"
+            )
+            border_color = f"({diff_from_prev}) ? 'rgba(0,0,0,0.25)' : 'transparent'"
+            col_style = (
+                f"`{base_style} border-left: 2px solid ${{({border_color})}}; "
+                f"box-shadow: ${{({shadow_expr})}}`",
+            )
+        else:
+            col_style = f"{base_style}; border-left: 2px solid transparent;"
+
         with vuetify3.VRow(
             no_gutters=False,
             classes="flex-nowrap",
@@ -285,11 +320,11 @@ class RowWithLabel:
                 v_for=("(id, column) in runs_to_compare",),
                 key=("id",),
                 v_if=("runs_to_compare.length > 0",),
-                style=f"min-width: {RUN_COLUMN_MIN_WIDTH}; flex-basis: {RUN_COLUMN_MIN_WIDTH}; flex-grow: 1;",
+                style=col_style,
                 classes=(
-                    "text-subtitle-1 text-no-wrap text-truncate align-self-center flex-shrink-0 pe-8"
+                    "text-subtitle-1 text-no-wrap text-truncate d-flex align-center flex-shrink-0 ps-4 pe-4"
                     if title
-                    else "align-self-start text-break flex-shrink-0 pe-8"
+                    else "align-self-start text-break flex-shrink-0 ps-4 pe-4"
                 ),
             ):
                 run_content()
@@ -322,7 +357,11 @@ class LlmBackbone:
                     hide_details="auto",
                 )
 
-            RowWithLabel(run_content=run_content, label="LLM")
+            RowWithLabel(
+                run_content=run_content,
+                label="LLM",
+                compare_expr="runs[id].prompt.decider_params.llm_backbone",
+            )
 
 
 class Decider:
@@ -342,7 +381,11 @@ class Decider:
                     hide_details="auto",
                 )
 
-            RowWithLabel(run_content=run_content, label="Decider")
+            RowWithLabel(
+                run_content=run_content,
+                label="Decider",
+                compare_expr="runs[id].prompt.decider_params.decider",
+            )
 
 
 class Alignment:
@@ -355,7 +398,11 @@ class Alignment:
                     "'No Alignment' }}"
                 )
 
-            RowWithLabel(run_content=run_content, label="Alignment")
+            RowWithLabel(
+                run_content=run_content,
+                label="Alignment",
+                compare_expr="runs[id].alignment_attributes",
+            )
 
     class Text(html.Template):
         def __init__(self, **kwargs):
@@ -454,12 +501,16 @@ class SystemPrompt:
                     "{{runs[id].prompt.system_prompt}}",
                 )
 
-            RowWithLabel(run_content=run_content, label="System Prompt")
+            RowWithLabel(
+                run_content=run_content,
+                label="System Prompt",
+                compare_expr="runs[id].prompt.system_prompt",
+            )
 
     class Text:
         def __init__(self):
             def run_content():
-                html.Div("{{runs[id].prompt.system_prompt}}")
+                html.P("{{runs[id].prompt.system_prompt}}")
 
             RowWithLabel(run_content=run_content)
 
@@ -573,7 +624,11 @@ class Probe:
                         style="flex: 1;",
                     )
 
-            RowWithLabel(run_content=run_content, label="Scenario")
+            RowWithLabel(
+                run_content=run_content,
+                label="Scenario",
+                compare_expr="runs[id].prompt.probe.scenario_id + '/' + runs[id].prompt.probe.scene_id",
+            )
 
     class Text(html.Template):
         def __init__(self, **kwargs):
@@ -608,7 +663,11 @@ class Decision:
                     ):
                         html.Span("Choose")
 
-            RowWithLabel(run_content=render_run_decision, label="Decision")
+            RowWithLabel(
+                run_content=render_run_decision,
+                label="Decision",
+                compare_expr="runs[id].decision?.unstructured",
+            )
 
     class Text:
         def __init__(self):
