@@ -47,7 +47,9 @@ def test_llm_preserved_when_available_in_new_decider(
     first_llm_decider, first_decider_name = align_page.find_decider_in_open_list(
         exclude=["pipeline_random"]
     )
-    assert first_llm_decider is not None, "Test requires at least one LLM-using decider"
+    assert first_llm_decider is not None and first_decider_name is not None, (
+        "Test requires at least one LLM-using decider"
+    )
 
     first_llm_decider.click()
     expect(decider_listbox).not_to_be_visible()
@@ -68,8 +70,6 @@ def test_llm_preserved_when_available_in_new_decider(
     second_llm_text = second_llm.text_content()
     second_llm.click()
     expect(llm_listbox).not_to_be_visible()
-
-    selected_llm = align_page.get_results_llm_value()
 
     align_page.results_decider_dropdown.click()
     expect(decider_listbox).to_be_visible()
