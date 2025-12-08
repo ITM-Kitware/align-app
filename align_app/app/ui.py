@@ -45,7 +45,7 @@ def reload(m=None):
 
 SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
 
-RUN_COLUMN_MIN_WIDTH = "20rem"
+RUN_COLUMN_MIN_WIDTH = "28rem"
 
 CHOICE_INFO_DESCRIPTIONS = {
     "Predicted KDMA values": "Key Decision-Making Attributes associated with each choice",
@@ -271,26 +271,25 @@ class PanelSection(vuetify3.VExpansionPanel):
 class RowWithLabel:
     def __init__(self, run_content=noop, label="", no_runs=None):
         title = bool(label)
-        with vuetify3.VRow(no_gutters=False, classes="flex-nowrap"):
+        with vuetify3.VRow(
+            no_gutters=False,
+            classes="flex-nowrap",
+            style="display: inline-flex; min-width: 100%;",
+        ):
             with vuetify3.VCol(
-                cols=2,
-                classes="align-self-center flex-shrink-0",
-                style="position: sticky; left: 0; z-index: 10; background-color: white;",
+                classes="align-self-center flex-shrink-0 flex-grow-0",
+                style="width: 12rem; min-width: 12rem; max-width: 12rem;",
             ):
                 html.Span(label, classes="text-h6")
             with vuetify3.VCol(
                 v_for=("(id, column) in runs_to_compare",),
                 key=("id",),
                 v_if=("runs_to_compare.length > 0",),
-                style=(
-                    # width: 0 forces flex-grow to distribute space equally
-                    # instead of basing on content width
-                    f"min-width: {RUN_COLUMN_MIN_WIDTH}; width: 0;"
-                ),
+                style=f"min-width: {RUN_COLUMN_MIN_WIDTH}; flex-basis: {RUN_COLUMN_MIN_WIDTH}; flex-grow: 1;",
                 classes=(
-                    "text-subtitle-1 text-no-wrap text-truncate align-self-center flex-grow-1 flex-shrink-0 pe-8"
+                    "text-subtitle-1 text-no-wrap text-truncate align-self-center flex-shrink-0 pe-8"
                     if title
-                    else "align-self-start text-break flex-grow-1 flex-shrink-0 pe-8"
+                    else "align-self-start text-break flex-shrink-0 pe-8"
                 ),
             ):
                 run_content()
@@ -723,7 +722,7 @@ class RunNumber:
 
 class ResultsComparison(html.Div):
     def __init__(self, **kwargs):
-        super().__init__(classes="d-flex flex-wrap ga-4 pa-1", **kwargs)
+        super().__init__(classes="d-inline-flex flex-wrap ga-4 pa-1", **kwargs)
         with self:
             with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
                 PanelSection(child=RunNumber)
@@ -818,6 +817,7 @@ class AlignLayout(SinglePageLayout):
         self.state.choiceInfoDescriptions = CHOICE_INFO_DESCRIPTIONS
         self.title.set_text("Align App")
         self.icon.hide()
+        self.footer.hide()
 
         with self as layout:
             with layout.toolbar:
@@ -838,14 +838,21 @@ class AlignLayout(SinglePageLayout):
                     html.Span("Clear Runs")
 
             with layout.content:
-                # Prevent scrollbar flicker on auto-grow VTextarea
                 html.Div(
-                    v_html="'<style>.v-textarea .v-field__input { overflow-y: hidden !important; }</style>'"
+                    v_html=(
+                        "'<style>"
+                        "html { overflow: hidden !important; }"
+                        ".v-textarea .v-field__input { overflow-y: hidden !important; }"
+                        ".v-expansion-panel { max-width: none !important; }"
+                        "</style>'"
+                    )
                 )
-                with vuetify3.VContainer(fluid=True, classes="overflow-y-auto"):
-                    with vuetify3.VRow(classes="overflow-x-auto flex-nowrap"):
-                        with vuetify3.VCol(
-                            style=f"min-width: calc({RUN_COLUMN_MIN_WIDTH} * 3);",
-                            classes="flex-grow-1 flex-shrink-0",
-                        ):
-                            ResultsComparison()
+                with vuetify3.VContainer(
+                    fluid=True,
+                    classes="overflow-auto pa-0",
+                    style="height: calc(100vh - 64px);",
+                ):
+                    with html.Div(
+                        style="min-width: 100%; width: fit-content; padding: 16px;",
+                    ):
+                        ResultsComparison()
