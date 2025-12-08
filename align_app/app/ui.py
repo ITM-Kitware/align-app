@@ -46,6 +46,12 @@ def reload(m=None):
 SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
 
 RUN_COLUMN_MIN_WIDTH = "28rem"
+LABEL_COLUMN_WIDTH = "12rem"
+INDICATOR_SPACE = "3rem"
+TITLE_TRUNCATE_STYLE = (
+    "overflow: hidden; text-overflow: ellipsis; "
+    f"white-space: nowrap; width: calc(100% - {INDICATOR_SPACE});"
+)
 
 CHOICE_INFO_DESCRIPTIONS = {
     "Predicted KDMA values": "Key Decision-Making Attributes associated with each choice",
@@ -314,18 +320,18 @@ class RowWithLabel:
         else:
             col_style = f"{base_style}; border-left: 2px solid transparent;"
 
-        indicator_space = "3rem"
         with vuetify3.VRow(
             no_gutters=False,
             classes="flex-nowrap",
             style=(
                 f"`display: inline-flex; min-width: 100%; "
-                f"width: calc(12rem + ${{runs_to_compare.length}} * {RUN_COLUMN_MIN_WIDTH} - {indicator_space});`",
+                f"width: calc({LABEL_COLUMN_WIDTH} + ${{runs_to_compare.length}} * "
+                f"{RUN_COLUMN_MIN_WIDTH} - {INDICATOR_SPACE});`",
             ),
         ):
             with vuetify3.VCol(
                 classes="align-self-center flex-shrink-0 flex-grow-0",
-                style="width: 12rem; min-width: 12rem; max-width: 12rem;",
+                style=f"width: {LABEL_COLUMN_WIDTH}; min-width: {LABEL_COLUMN_WIDTH}; max-width: {LABEL_COLUMN_WIDTH};",
             ):
                 html.Span(label, classes="text-h6")
             with vuetify3.VCol(
@@ -406,10 +412,11 @@ class Alignment:
     class Title:
         def __init__(self):
             def run_content():
-                html.Span(
+                html.Div(
                     "{{ runs[id].alignment_attributes.length ? "
                     "runs[id].alignment_attributes.map(att => `${att.title} ${att.score}`).join(' - ') : "
-                    "'No Alignment' }}"
+                    "'No Alignment' }}",
+                    style=TITLE_TRUNCATE_STYLE,
                 )
 
             RowWithLabel(
@@ -515,7 +522,7 @@ class SystemPrompt:
             def run_content():
                 html.Div(
                     "{{runs[id].prompt.system_prompt}}",
-                    style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: calc(100% - 2rem);",
+                    style=TITLE_TRUNCATE_STYLE,
                 )
 
             RowWithLabel(
@@ -610,7 +617,7 @@ class Probe:
             def run_content():
                 with html.Div(
                     classes="d-flex ga-2 align-center",
-                    style="width: 100%;",
+                    style=f"width: calc(100% - {INDICATOR_SPACE});",
                     raw_attrs=["@click.stop", "@mousedown.stop"],
                 ):
                     RunSearchField(
@@ -667,8 +674,10 @@ class Decision:
             super().__init__(**kwargs)
 
             def render_run_decision():
-                html.Span(
-                    "{{runs[id].decision.unstructured}}", v_if=("runs[id].decision",)
+                html.Div(
+                    "{{runs[id].decision.unstructured}}",
+                    v_if=("runs[id].decision",),
+                    style=TITLE_TRUNCATE_STYLE,
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
@@ -706,11 +715,12 @@ class ChoiceInfo:
     class Title:
         def __init__(self):
             def render_choice_info():
-                html.Span(
+                html.Div(
                     "{{runs[id].decision.choice_info_readable_keys.join(', ')}}",
                     v_if=(
                         "runs[id].decision && runs[id].decision.choice_info_readable_keys",
                     ),
+                    style=TITLE_TRUNCATE_STYLE,
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
