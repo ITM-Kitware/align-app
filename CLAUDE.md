@@ -133,6 +133,43 @@ E2e tests use Playwright to test the full application stack. The test infrastruc
 
 - Run ruff format after changes
 
+## Debugging UI Layout Issues
+
+For CSS/layout issues in Trame/Vuetify apps, use Playwright MCP to inspect the live DOM:
+
+1. **Start the server (restart after code changes):**
+   ```bash
+   poetry run align-app --server
+   ```
+
+2. **Navigate and interact:**
+   - Use `mcp__playwright__browser_navigate` to open `http://localhost:8080`
+   - Use `mcp__playwright__browser_click` to interact with elements
+   - Use `mcp__playwright__browser_take_screenshot` to capture visual state
+
+3. **Inspect computed styles:**
+   ```javascript
+   // Use mcp__playwright__browser_evaluate to inspect DOM
+   () => {
+     const element = document.querySelector('.your-selector');
+     const style = getComputedStyle(element);
+     return {
+       width: element.offsetWidth,
+       computedWidth: style.width,
+       minWidth: style.minWidth,
+       flexBasis: style.flexBasis,
+       flexGrow: style.flexGrow,
+     };
+   }
+   ```
+
+4. **Compare elements:** When alignment is off, compare computed styles between elements that should match (e.g., title row vs content row columns).
+
+5. **Common Vuetify gotchas:**
+   - VCol with empty content may collapse despite explicit `width` - add `min-width` to prevent
+   - Vuetify's default `max-width: 100%` on expansion panels may need override
+   - `flex-basis: 0` with `flex-grow` makes `max-content` calculation return 0
+
 ## Development Guidelines
 
 - **ALWAYS** do not add descriptive comments
