@@ -115,7 +115,7 @@ class RunsStateAdapter:
         if not source_run:
             return
 
-        new_run = source_run.model_copy(update={"id": get_id(), "decision": None})
+        new_run = source_run.model_copy(update={"id": get_id()})
 
         self.runs_registry.add_run(new_run)
         self._sync_run_to_state(new_run, insert_at_index=column_index + 1)
@@ -347,8 +347,8 @@ class RunsStateAdapter:
         updated_run = await self.runs_registry.execute_run_decision(run_id)
 
         with self.state:
-            if updated_run:
-                self._sync_run_to_state(updated_run)
+            all_runs = self.runs_registry.get_all_runs()
+            self._sync_from_runs_data(all_runs)
             self._remove_pending_cache_key(cache_key)
 
     @controller.set("execute_run_decision")
