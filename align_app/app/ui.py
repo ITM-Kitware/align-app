@@ -290,8 +290,16 @@ class RowWithLabel:
                 f"column < runs_to_compare.length - 1 && JSON.stringify({compare_expr}) "
                 f"!== JSON.stringify({next_expr})"
             )
-            left_shadow = "inset 4px 0 4px -4px rgba(0,0,0,0.3)"
-            right_shadow = "inset -4px 0 4px -4px rgba(0,0,0,0.3)"
+            left_shadow = (
+                "inset 1px 0 0 0 rgba(0,0,0,0.12), "
+                "inset 2px 0 0 0 rgba(0,0,0,0.08), "
+                "inset 3px 0 0 0 rgba(0,0,0,0.04)"
+            )
+            right_shadow = (
+                "inset -1px 0 0 0 rgba(0,0,0,0.12), "
+                "inset -2px 0 0 0 rgba(0,0,0,0.08), "
+                "inset -3px 0 0 0 rgba(0,0,0,0.04)"
+            )
             both_shadows = f"{left_shadow}, {right_shadow}"
             shadow_expr = (
                 f"({diff_from_prev} && {diff_from_next}) ? '{both_shadows}' : "
@@ -328,7 +336,7 @@ class RowWithLabel:
                 classes=(
                     "text-subtitle-1 text-no-wrap text-truncate d-flex align-center flex-shrink-0 ps-4 pe-4"
                     if title
-                    else "align-self-start text-break flex-shrink-0 ps-4 pe-4"
+                    else "align-self-stretch text-break flex-shrink-0 ps-4 pe-4"
                 ),
             ):
                 run_content()
@@ -393,6 +401,8 @@ class Decider:
 
 
 class Alignment:
+    COMPARE_EXPR = "runs[id].alignment_attributes"
+
     class Title:
         def __init__(self):
             def run_content():
@@ -405,7 +415,7 @@ class Alignment:
             RowWithLabel(
                 run_content=run_content,
                 label="Alignment",
-                compare_expr="runs[id].alignment_attributes",
+                compare_expr=Alignment.COMPARE_EXPR,
             )
 
     class Text(html.Template):
@@ -494,10 +504,12 @@ class Alignment:
                     classes="my-2",
                 )
 
-            RowWithLabel(run_content=run_content)
+            RowWithLabel(run_content=run_content, compare_expr=Alignment.COMPARE_EXPR)
 
 
 class SystemPrompt:
+    COMPARE_EXPR = "runs[id].prompt.system_prompt"
+
     class Title:
         def __init__(self):
             def run_content():
@@ -509,7 +521,7 @@ class SystemPrompt:
             RowWithLabel(
                 run_content=run_content,
                 label="System Prompt",
-                compare_expr="runs[id].prompt.system_prompt",
+                compare_expr=SystemPrompt.COMPARE_EXPR,
             )
 
     class Text:
@@ -517,7 +529,7 @@ class SystemPrompt:
             def run_content():
                 html.P("{{runs[id].prompt.system_prompt}}")
 
-            RowWithLabel(run_content=run_content)
+            RowWithLabel(run_content=run_content, compare_expr=SystemPrompt.COMPARE_EXPR)
 
 
 class ProbeLayout:
@@ -589,6 +601,8 @@ class EditableProbeLayoutForRun:
 
 
 class Probe:
+    COMPARE_EXPR = "runs[id].prompt.probe.scenario_id + '/' + runs[id].prompt.probe.scene_id"
+
     class Title(html.Template):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
@@ -632,7 +646,7 @@ class Probe:
             RowWithLabel(
                 run_content=run_content,
                 label="Scenario",
-                compare_expr="runs[id].prompt.probe.scenario_id + '/' + runs[id].prompt.probe.scene_id",
+                compare_expr=Probe.COMPARE_EXPR,
             )
 
     class Text(html.Template):
@@ -642,10 +656,12 @@ class Probe:
             def run_content():
                 EditableProbeLayoutForRun(self.server)
 
-            RowWithLabel(run_content=run_content)
+            RowWithLabel(run_content=run_content, compare_expr=Probe.COMPARE_EXPR)
 
 
 class Decision:
+    COMPARE_EXPR = "runs[id].decision?.unstructured"
+
     class Title(html.Template):
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
@@ -671,7 +687,7 @@ class Decision:
             RowWithLabel(
                 run_content=render_run_decision,
                 label="Decision",
-                compare_expr="runs[id].decision?.unstructured",
+                compare_expr=Decision.COMPARE_EXPR,
             )
 
     class Text:
@@ -681,10 +697,12 @@ class Decision:
                     html.Div("Justification", classes="text-h6")
                     html.P("{{runs[id].decision.justification}}")
 
-            RowWithLabel(run_content=render_run_decision_text)
+            RowWithLabel(run_content=render_run_decision_text, compare_expr=Decision.COMPARE_EXPR)
 
 
 class ChoiceInfo:
+    COMPARE_EXPR = "runs[id].decision?.choice_info_readable"
+
     class Title:
         def __init__(self):
             def render_choice_info():
@@ -701,7 +719,11 @@ class ChoiceInfo:
                         size=20,
                     )
 
-            RowWithLabel(run_content=render_choice_info, label="Choice Info")
+            RowWithLabel(
+                run_content=render_choice_info,
+                label="Choice Info",
+                compare_expr=ChoiceInfo.COMPARE_EXPR,
+            )
 
     class Text:
         def __init__(self):
@@ -738,7 +760,7 @@ class ChoiceInfo:
                             with html.Template(v_else=True):
                                 UnorderedObject("value")
 
-            RowWithLabel(run_content=render_choice_info_text)
+            RowWithLabel(run_content=render_choice_info_text, compare_expr=ChoiceInfo.COMPARE_EXPR)
 
 
 class RunNumber:
