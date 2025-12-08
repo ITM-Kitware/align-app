@@ -17,7 +17,7 @@ class RunsStateAdapter:
         self.runs_registry = runs_registry
         self.probe_registry = probe_registry
         self.decider_registry = decider_registry
-        self.server.state.runs_computing = []
+        self.server.state.pending_cache_keys = []
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
     @property
@@ -314,31 +314,42 @@ class RunsStateAdapter:
         )
         return new_probe.probe_id
 
-    async def _execute_run_decision(self, run_id: str):
-        with self.state:
-            self.state.runs_computing = list(set(self.state.runs_computing + [run_id]))
+    def _add_pending_cache_key(self, cache_key: str):
+        if cache_key and cache_key not in self.state.pending_cache_keys:
+            self.state.pending_cache_keys = [*self.state.pending_cache_keys, cache_key]
 
+    def _remove_pending_cache_key(self, cache_key: str):
+        if cache_key:
+            self.state.pending_cache_keys = [
+                k for k in self.state.pending_cache_keys if k != cache_key
+            ]
+
+    async def _execute_run_decision(self, run_id: str):
         if self._is_probe_edited(run_id):
             new_probe_id = self._create_edited_probe_for_run(run_id)
             run = self.runs_registry.get_run(run_id)
             updated_run = run.model_copy(update={"probe_id": new_probe_id})
             self.runs_registry.add_run(updated_run)
+            self._sync_run_to_state(updated_run)
             self.state.runs_to_compare = [
                 updated_run.id if rid == run_id else rid
                 for rid in self.state.runs_to_compare
             ]
             run_id = updated_run.id
 
-        await self.server.network_completion  # show spinner
+        cache_key = self.state.runs.get(run_id, {}).get("cache_key")
+
+        with self.state:
+            self._add_pending_cache_key(cache_key)
+
+        await self.server.network_completion
 
         updated_run = await self.runs_registry.execute_run_decision(run_id)
 
-        if updated_run:
-            self._sync_run_to_state(updated_run)
-
-        self.state.runs_computing = [
-            rid for rid in self.state.runs_computing if rid != run_id
-        ]
+        with self.state:
+            if updated_run:
+                self._sync_run_to_state(updated_run)
+            self._remove_pending_cache_key(cache_key)
 
     @controller.set("execute_run_decision")
     def execute_run_decision(self, run_id: str):
