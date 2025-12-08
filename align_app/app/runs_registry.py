@@ -98,7 +98,18 @@ def create_runs_registry(probe_registry, decider_registry):
 
     async def execute_decision(run: Run, probe_choices: List[Dict]) -> Run:
         nonlocal data
-        data, updated_run = await runs_core.compute_decision(data, run, probe_choices)
+        cache_key = run.compute_cache_key()
+
+        cached = runs_core.get_cached_decision(data, cache_key)
+        if cached:
+            updated_run = run.model_copy(update={"decision": cached})
+            data = runs_core.add_run(data, updated_run)
+            return updated_run
+
+        decision = await runs_core.fetch_decision(run, probe_choices)
+        updated_run = run.model_copy(update={"decision": decision})
+        data = runs_core.add_run(data, updated_run)
+        data = runs_core.add_cached_decision(data, cache_key, decision)
         return updated_run
 
     async def execute_run_decision(run_id: str) -> Optional[Run]:
@@ -113,19 +124,42 @@ def create_runs_registry(probe_registry, decider_registry):
             return None
 
         probe_choices = probe.choices or []
-        data, updated_run = await runs_core.compute_decision(data, run, probe_choices)
+        cache_key = run.compute_cache_key()
+
+        cached = runs_core.get_cached_decision(data, cache_key)
+        if cached:
+            updated_run = run.model_copy(update={"decision": cached})
+            data = runs_core.add_run(data, updated_run)
+            return updated_run
+
+        decision = await runs_core.fetch_decision(run, probe_choices)
+
+        updated_run = run.model_copy(update={"decision": decision})
+        data = runs_core.add_run(data, updated_run)
+        data = runs_core.add_cached_decision(data, cache_key, decision)
         return updated_run
 
     async def create_and_execute_run(run: Run, probe_choices: List[Dict]):
         nonlocal data
-        data, updated_run = await runs_core.compute_decision(data, run, probe_choices)
+        cache_key = run.compute_cache_key()
+
+        cached = runs_core.get_cached_decision(data, cache_key)
+        if cached:
+            updated_run = run.model_copy(update={"decision": cached})
+            data = runs_core.add_run(data, updated_run)
+            return data, updated_run
+
+        decision = await runs_core.fetch_decision(run, probe_choices)
+        updated_run = run.model_copy(update={"decision": decision})
+        data = runs_core.add_run(data, updated_run)
+        data = runs_core.add_cached_decision(data, cache_key, decision)
         return data, updated_run
 
     def get_run(run_id: str) -> Optional[Run]:
         return runs_core.get_run(data, run_id)
 
     def get_all_runs() -> Dict[str, Run]:
-        return dict(runs_core.get_all_runs(data))
+        return dict(runs_core.get_all_runs_with_cached_decisions(data))
 
     def clear_runs():
         nonlocal data
