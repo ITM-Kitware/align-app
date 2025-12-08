@@ -672,7 +672,7 @@ class Decision:
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
-                        v_if=("runs_computing.includes(id)",),
+                        v_if=("pending_cache_keys.includes(runs[id].cache_key)",),
                         indeterminate=True,
                         size=20,
                     )
@@ -714,7 +714,7 @@ class ChoiceInfo:
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
-                        v_if=("runs_computing.includes(id)",),
+                        v_if=("pending_cache_keys.includes(runs[id].cache_key)",),
                         indeterminate=True,
                         size=20,
                     )

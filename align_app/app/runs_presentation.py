@@ -1,7 +1,7 @@
 """Transform domain models to UI state dictionaries and export formats."""
 
 from typing import Dict, Any, List
-from .run_models import Run, RunDecision
+from .run_models import Run, RunDecision, hash_run_params
 from .ui import prep_decision_for_state
 from .prompt_logic import (
     get_llm_backbones_from_config,
@@ -190,8 +190,16 @@ def run_to_state_dict(
             run, probe_registry, decider_registry
         )
 
+    cache_key = hash_run_params(
+        probe_id=run.probe_id,
+        decider_name=run.decider_name,
+        llm_backbone_name=run.llm_backbone_name,
+        decider_params=run.decider_params,
+    )
+
     result = {
         "id": run.id,
+        "cache_key": cache_key,
         "scene_items": scene_items,
         "decider_items": decider_items,
         "llm_backbone_items": llm_backbone_items,
