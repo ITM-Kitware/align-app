@@ -306,10 +306,14 @@ class RowWithLabel:
         else:
             col_style = f"{base_style}; border-left: 2px solid transparent;"
 
+        indicator_space = "3rem"
         with vuetify3.VRow(
             no_gutters=False,
             classes="flex-nowrap",
-            style="display: inline-flex; min-width: 100%;",
+            style=(
+                f"`display: inline-flex; min-width: 100%; "
+                f"width: calc(12rem + ${{runs_to_compare.length}} * {RUN_COLUMN_MIN_WIDTH} - {indicator_space});`",
+            ),
         ):
             with vuetify3.VCol(
                 classes="align-self-center flex-shrink-0 flex-grow-0",
@@ -497,8 +501,9 @@ class SystemPrompt:
     class Title:
         def __init__(self):
             def run_content():
-                html.Span(
+                html.Div(
                     "{{runs[id].prompt.system_prompt}}",
+                    style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: calc(100% - 2rem);",
                 )
 
             RowWithLabel(
