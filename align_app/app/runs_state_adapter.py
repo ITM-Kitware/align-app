@@ -12,7 +12,9 @@ from align_utils.models import AlignmentTarget
 
 @TrameApp()
 class RunsStateAdapter:
-    def __init__(self, server, probe_registry, decider_registry, runs_registry: RunsRegistry):
+    def __init__(
+        self, server, probe_registry, decider_registry, runs_registry: RunsRegistry
+    ):
         self.server = server
         self.runs_registry = runs_registry
         self.probe_registry = probe_registry

@@ -11,9 +11,9 @@ import urllib.error
 
 SERVER_STARTUP_TIMEOUT = 30
 SERVER_HEALTH_CHECK_INTERVAL = 0.5
-DECISION_TIMEOUT = 10000
-DEFAULT_WAIT_TIMEOUT = 10000
-SPINNER_APPEAR_TIMEOUT = 5000
+
+DEFAULT_DECIDER = "pipeline_random"
+ALIGNMENT_DECIDER = "phase2_pipeline_zeroshot_comparative_regression"
 
 
 def get_free_port() -> int:
@@ -185,3 +185,15 @@ def browser_type_launch_args(browser_type_launch_args):
         **browser_type_launch_args,
         "headless": True,
     }
+
+
+@pytest.fixture
+def align_page_with_decision(page, align_app_server):
+    """Setup fixture: navigates to app, runs pipeline_random, and returns align_page."""
+    from .page_objects.align_page import AlignPage
+
+    align_page = AlignPage(page)
+    align_page.goto(align_app_server)
+    align_page.select_decider(DEFAULT_DECIDER)
+    align_page.click_and_wait_for_decision()
+    return align_page

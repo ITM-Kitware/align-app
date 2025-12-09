@@ -37,8 +37,7 @@ def get_all_runs(data: Runs) -> Dict[str, Run]:
 
 def get_all_runs_with_cached_decisions(data: Runs) -> Dict[str, Run]:
     return {
-        run_id: apply_cached_decision(data, run)
-        for run_id, run in data.runs.items()
+        run_id: apply_cached_decision(data, run) for run_id, run in data.runs.items()
     }
 
 
@@ -60,9 +59,7 @@ def add_cached_decision(data: Runs, cache_key: str, decision: RunDecision) -> Ru
     return replace(data, decision_cache={**data.decision_cache, cache_key: decision})
 
 
-async def fetch_decision(
-    run: Run, probe_choices: List[Dict]
-) -> RunDecision:
+async def fetch_decision(run: Run, probe_choices: List[Dict]) -> RunDecision:
     """Async function that just fetches the decision without modifying data.
 
     This separation is critical for concurrency: the caller should add the

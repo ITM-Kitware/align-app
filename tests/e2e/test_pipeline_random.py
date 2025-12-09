@@ -1,6 +1,6 @@
 import re
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import expect
 
 from .page_objects.align_page import AlignPage
 
@@ -9,32 +9,17 @@ def decision_starts_with_choice_letter():
     return re.compile(r"^[A-Z].+")
 
 
-def test_pipeline_random_decision_flow(page: Page, align_app_server: str):
-    align_page = AlignPage(page)
-
-    align_page.goto(align_app_server)
-
-    align_page.select_decider("Pipeline Random")
-
-    align_page.click_send_button()
-
-    align_page.wait_for_decision()
-
-    expect(align_page.decision_text).to_have_text(decision_starts_with_choice_letter())
+def test_pipeline_random_decision_flow(align_page_with_decision: AlignPage):
+    expect(align_page_with_decision.decision_text).to_have_text(
+        decision_starts_with_choice_letter()
+    )
 
 
-def test_pipeline_random_scene_change_rerun(page: Page, align_app_server: str):
-    align_page = AlignPage(page)
+def test_pipeline_random_scene_change_rerun(align_page_with_decision: AlignPage):
+    align_page = align_page_with_decision
+    page = align_page.page
 
-    align_page.goto(align_app_server)
-
-    align_page.select_decider("Pipeline Random")
-
-    align_page.click_send_button()
-
-    align_page.wait_for_decision()
-
-    page.get_by_role("button").filter(has_text="Scenario").click()
+    align_page.expand_scenario_panel()
 
     align_page.scene_dropdown.click()
     scene_items = page.locator(".v-list-item")
@@ -45,29 +30,18 @@ def test_pipeline_random_scene_change_rerun(page: Page, align_app_server: str):
     expect(align_page.decision_send_button).to_be_visible()
 
     align_page.click_decision_send_button()
-
-    expect(align_page.spinner).to_be_visible()
-
     align_page.wait_for_decision()
 
     expect(align_page.decision_text).to_be_visible()
     expect(align_page.decision_text).to_have_text(decision_starts_with_choice_letter())
 
 
-def test_pipeline_random_scenario_change_rerun(page: Page, align_app_server: str):
-    align_page = AlignPage(page)
-
-    align_page.goto(align_app_server)
-
-    align_page.select_decider("Pipeline Random")
-
-    align_page.click_send_button()
-
-    align_page.wait_for_decision()
-
-    page.get_by_role("button").filter(has_text="Scenario").click()
+def test_pipeline_random_scenario_change_rerun(align_page_with_decision: AlignPage):
+    align_page = align_page_with_decision
+    page = align_page.page
 
     align_page.scenario_dropdown.click()
+    page.wait_for_selector(".v-list-item", state="visible")
     scenario_items = page.locator(".v-list-item")
     scenario_count = scenario_items.count()
 
@@ -77,9 +51,10 @@ def test_pipeline_random_scenario_change_rerun(page: Page, align_app_server: str
     second_scenario_text = second_scenario.text_content()
     second_scenario.click()
 
-    page.wait_for_timeout(500)
+    listbox = page.get_by_role("listbox", name="Scenario-list")
+    expect(listbox).not_to_be_visible()
 
-    current_scenario = align_page.scenario_dropdown.locator("input").input_value()
+    current_scenario = align_page.get_scenario_dropdown_value()
     assert second_scenario_text in current_scenario, (
         f"Expected scenario to be '{second_scenario_text}' but got '{current_scenario}'"
     )
@@ -95,7 +70,7 @@ def test_pipeline_random_scenario_change_rerun(page: Page, align_app_server: str
 
 
 def test_pipeline_random_decider_change_restores_cache(
-    page: Page, align_app_server: str
+    align_page_with_decision: AlignPage,
 ):
     """Test that cached decision is restored when changing decider back.
 
@@ -107,30 +82,19 @@ def test_pipeline_random_decider_change_restores_cache(
     Expected: Decision is restored (no Choose button)
     Actual (bug): Choose button shows (cache not found)
     """
-    align_page = AlignPage(page)
-
-    align_page.goto(align_app_server)
-
-    align_page.select_decider("Pipeline Random")
-
-    align_page.click_send_button()
-
-    align_page.wait_for_decision()
+    align_page = align_page_with_decision
+    page = align_page.page
 
     original_decision_text = align_page.get_decision_text()
 
     align_page.results_decider_dropdown.click()
-    decider_items = page.locator(".v-list-item")
+    page.wait_for_selector(".v-list-item", state="visible")
 
-    non_random_decider = None
-    for i in range(decider_items.count()):
-        item_text = decider_items.nth(i).text_content()
-        if item_text and "Pipeline Random" not in item_text:
-            non_random_decider = decider_items.nth(i)
-            break
-
+    non_random_decider, _ = align_page.find_decider_in_open_list(
+        exclude=["pipeline_random"]
+    )
     assert non_random_decider is not None, (
-        "Test requires at least one non-Pipeline Random decider"
+        "Test requires at least one non-pipeline_random decider"
     )
 
     non_random_decider.click()
@@ -139,22 +103,11 @@ def test_pipeline_random_decider_change_restores_cache(
     expect(align_page.decision_send_button).to_be_visible()
 
     align_page.results_decider_dropdown.click()
-    decider_items_again = page.locator(".v-list-item")
-
     page.wait_for_selector(".v-list-item", state="visible")
 
-    pipeline_random_item = None
-    for i in range(decider_items_again.count()):
-        item_text = decider_items_again.nth(i).text_content()
-        if item_text and "pipeline_random" in item_text:
-            pipeline_random_item = decider_items_again.nth(i)
-            break
-
-    assert pipeline_random_item is not None, (
-        "Could not find pipeline_random in decider list"
-    )
-
-    pipeline_random_item.click()
+    pipeline_random_option = page.get_by_role("option", name="pipeline_random")
+    expect(pipeline_random_option).to_be_visible()
+    pipeline_random_option.click()
 
     expect(align_page.decision_text).to_be_visible()
     expect(align_page.decision_text).to_have_text(original_decision_text)

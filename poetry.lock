@@ -320,14 +320,14 @@ resolved_reference = "7705074498591c9d20a4c6d098a0a4f7d5747613"
 
 [[package]]
 name = "align-utils"
-version = "1.2.0"
+version = "1.4.0"
 description = "Utilities for parsing and processing align-system experiment data"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "align_utils-1.2.0-py3-none-any.whl", hash = "sha256:dcf74e75a9a70d03c5ae96035450b49ceb7190ef7587e5a00f0a922fc4180bd2"},
-    {file = "align_utils-1.2.0.tar.gz", hash = "sha256:341da5e068a6fccb8c02a8f79dd86273f53a3442fe694e9189dfd04b445eae0e"},
+    {file = "align_utils-1.4.0-py3-none-any.whl", hash = "sha256:0d4545eed5dd59ced11626beb6b871a7325e0b109ecd8d4c580f269d3638ab40"},
+    {file = "align_utils-1.4.0.tar.gz", hash = "sha256:e72bed6abffd5f9dc0be0a21a5b0c40021b0f32dd17c3694f239620d5d8b4487"},
 ]
 
 [package.dependencies]
