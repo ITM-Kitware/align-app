@@ -13,7 +13,6 @@ from align_system.utils import call_with_coerced_args
 from align_system.utils.alignment_utils import attributes_in_alignment_target
 from align_utils.models import AlignmentTarget
 from .config import get_decider_config
-from .experiment_config_loader import load_experiment_adm_config
 
 
 def get_icl_data_paths():
@@ -180,52 +179,12 @@ def create_runtime_decider_entry(config_path):
     )
 
 
-def _extract_experiment_llm(experiment_path: Path) -> str | None:
-    """Extract LLM model name from experiment's resolved config."""
-    adm = load_experiment_adm_config(experiment_path)
-    if adm is None:
-        return None
-    sie = adm.get("structured_inference_engine", {})
-    return sie.get("model_name")
-
-
-def create_experiment_decider_entry(experiment_path: Path) -> Dict[str, Any]:
-    """Create a decider entry from a pre-resolved experiment config.
-
-    Extracts the configured LLM from the experiment and adds it to the
-    available backbones list (at the front, as the default).
-    """
-    experiment_llm = _extract_experiment_llm(experiment_path)
-
-    # Put experiment's LLM first, then add defaults (excluding duplicates)
-    llm_backbones = (
-        [experiment_llm] + [llm for llm in LLM_BACKBONES if llm != experiment_llm]
-        if experiment_llm
-        else list(LLM_BACKBONES)
-    )
-
-    return {
-        "experiment_path": str(experiment_path),
-        "experiment_config": True,
-        "llm_backbones": llm_backbones,
-        "model_path_keys": ["structured_inference_engine", "model_name"],
-    }
-
-
 def get_runtime_deciders(config_paths):
     """Get runtime deciders from CLI config paths."""
     return {
         Path(config_path).stem: create_runtime_decider_entry(config_path)
         for config_path in config_paths
     }
-
-
-def get_all_deciders(config_paths=[]):
-    """Get all deciders, merging runtime configs from paths with base deciders.
-
-    Priority (highest wins): CLI runtime configs > built-in base deciders
-    """
-    return {**_BASE_DECIDERS, **get_runtime_deciders(config_paths)}
 
 
 def get_system_prompt(
