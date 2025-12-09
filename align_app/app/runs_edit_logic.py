@@ -1,7 +1,7 @@
 """Update runs with new scenes and scenarios."""
 
 from typing import Optional, Dict, Any
-from .run_models import Run
+from ..adm.run_models import Run
 from ..adm.probe import Probe
 import copy
 from .prompt_logic import (

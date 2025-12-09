@@ -3,14 +3,23 @@
 import copy
 import hashlib
 import json
+import uuid
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
-from align_utils.models import ExperimentItem, ExperimentData
+from align_utils.models import (
+    ExperimentItem,
+    ExperimentData,
+    ADMResult,
+    Decision,
+    ChoiceInfo,
+)
 
-from .probe import Probe
+from .probe import Probe, get_probe_id
 from .decider_definitions import LLM_BACKBONES
 from .experiment_config_loader import load_experiment_adm_config
+from .decider.types import DeciderParams
+from .run_models import Run, RunDecision
 
 
 def probes_from_experiment_items(items: List[ExperimentItem]) -> List[Probe]:
@@ -60,6 +69,9 @@ def deciders_from_experiments(
                 "experiment_config": True,
                 "llm_backbones": llm_backbones,
                 "model_path_keys": ["structured_inference_engine", "model_name"],
+                "config_overrides": {
+                    "max_alignment_attributes": 10,
+                },
             }
             seen_hashes[config_hash] = (exp_name, decider_entry)
 
@@ -93,3 +105,47 @@ def _hash_config(config: Dict[str, Any]) -> str:
     """Create deterministic hash of config dict."""
     config_str = json.dumps(config, sort_keys=True)
     return hashlib.sha256(config_str.encode()).hexdigest()[:16]
+
+
+def run_from_experiment_item(item: ExperimentItem) -> Optional[Run]:
+    """Convert ExperimentItem to Run with decision populated."""
+    if not item.item.output:
+        return None
+
+    probe_id = get_probe_id(item.item)
+
+    resolved_config = load_experiment_adm_config(item.experiment_path) or {}
+    decider_params = DeciderParams(
+        scenario_input=item.item.input,
+        alignment_target=item.config.alignment_target,
+        resolved_config=resolved_config,
+    )
+
+    output = item.item.output
+    decision = RunDecision(
+        adm_result=ADMResult(
+            decision=Decision(
+                unstructured=output.action.unstructured,
+                justification=output.action.justification or "",
+            ),
+            choice_info=item.item.choice_info or ChoiceInfo(),
+        ),
+        choice_index=output.choice,
+    )
+
+    decider_name = item.experiment_path.parent.name
+
+    return Run(
+        id=str(uuid.uuid4()),
+        probe_id=probe_id,
+        decider_name=decider_name,
+        llm_backbone_name=item.config.adm.llm_backbone,
+        system_prompt="",
+        decider_params=decider_params,
+        decision=decision,
+    )
+
+
+def runs_from_experiment_items(items: List[ExperimentItem]) -> List[Run]:
+    """Convert experiment items to runs, filtering out items without output."""
+    return [run for item in items if (run := run_from_experiment_item(item))]

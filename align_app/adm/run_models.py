@@ -2,7 +2,7 @@ from typing import Dict, Optional, List
 from pydantic import BaseModel
 import hashlib
 import json
-from ..adm.decider.types import DeciderParams
+from .decider.types import DeciderParams
 from align_utils.models import ADMResult
 
 
@@ -12,11 +12,14 @@ def hash_run_params(
     llm_backbone_name: str,
     decider_params: DeciderParams,
 ) -> str:
+    alignment_target = decider_params.alignment_target
+    kdma_values = [kv.model_dump() for kv in alignment_target.kdma_values]
+
     cache_key_data = {
         "probe_id": probe_id,
         "decider": decider_name,
         "llm_backbone": llm_backbone_name,
-        "alignment_target": decider_params.alignment_target.model_dump(),
+        "kdma_values": kdma_values,
         "state": decider_params.scenario_input.state,
         "choices": decider_params.scenario_input.choices,
     }
