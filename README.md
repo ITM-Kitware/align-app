@@ -77,6 +77,20 @@ poetry run align-app --scenarios /data/shared/evaluation_outputs/Ph2-JulyCollab/
 poetry run align-app --scenarios /path/to/scenarios1.json /path/to/scenarios2.json /path/to/scenarios_dir
 ```
 
+### Load Experiment Results
+
+You can load pre-computed experiment results using the `--experiments` flag. This extracts unique ADM configurations from experiment directories and adds them to the decider dropdown:
+
+```console
+# Load experiment results from a directory
+poetry run align-app --experiments /path/to/experiment-results
+
+# Use test fixtures (download first by running: poetry run pytest tests/test_experiment_deciders.py -k download)
+poetry run align-app --experiments tests/fixtures/.cache/experiments
+```
+
+The experiment directory should contain subdirectories with `.hydra/config.yaml` and `input_output.json` files from align-system experiment runs.
+
 ### Optionally Configure Network Port or Host
 
 The web server is from Trame. To configure the port, use the `--port` or `-p` arg

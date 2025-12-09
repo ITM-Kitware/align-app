@@ -8,6 +8,7 @@ from .runs_state_adapter import RunsStateAdapter
 from ..adm.decider_registry import create_decider_registry
 from ..adm.probe_registry import create_probe_registry
 from ..adm.experiment_results_registry import create_experiment_results_registry
+from ..adm.decider_definitions import create_experiment_decider_entry
 
 
 @TrameApp()
@@ -50,13 +51,20 @@ class AlignApp:
             else None
         )
 
+        experiment_deciders = {}
         if self._experiment_results_registry:
             self._probe_registry.add_probes_from_experiments(
                 self._experiment_results_registry.get_all_items()
             )
+            experiment_deciders = {
+                name: create_experiment_decider_entry(path)
+                for name, path in self._experiment_results_registry.get_unique_deciders().items()
+            }
 
         self._decider_registry = create_decider_registry(
-            args.deciders or [], self._probe_registry
+            args.deciders or [],
+            self._probe_registry,
+            experiment_deciders=experiment_deciders,
         )
         self._runs_registry = create_runs_registry(
             self._probe_registry,
