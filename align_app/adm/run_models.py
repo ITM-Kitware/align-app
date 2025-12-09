@@ -22,6 +22,7 @@ def hash_run_params(
         "kdma_values": kdma_values,
         "state": decider_params.scenario_input.state,
         "choices": decider_params.scenario_input.choices,
+        "resolved_config": decider_params.resolved_config,
     }
     json_str = json.dumps(cache_key_data, sort_keys=True)
     return hashlib.md5(json_str.encode()).hexdigest()
