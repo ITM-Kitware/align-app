@@ -388,21 +388,40 @@ class Decider:
             super().__init__(**kwargs)
 
             def run_content():
-                vuetify3.VSelect(
-                    label="Decider",
-                    items=("runs[id].decider_items",),
-                    model_value=("runs[id].prompt.decider_params.decider",),
-                    update_modelValue=(
-                        self.server.controller.update_run_decider,
-                        r"[id, $event]",
-                    ),
-                    hide_details="auto",
-                )
+                with html.Div(
+                    style=f"width: calc(100% - {INDICATOR_SPACE});",
+                    raw_attrs=["@click.stop", "@mousedown.stop"],
+                ):
+                    vuetify3.VSelect(
+                        label="Decider",
+                        items=("runs[id].decider_items",),
+                        model_value=("runs[id].prompt.decider_params.decider",),
+                        update_modelValue=(
+                            self.server.controller.update_run_decider,
+                            r"[id, $event]",
+                        ),
+                        hide_details="auto",
+                    )
 
             RowWithLabel(
                 run_content=run_content,
                 label="Decider",
                 compare_expr="runs[id].prompt.decider_params.decider",
+            )
+
+    class Text:
+        def __init__(self):
+            def run_content():
+                with html.Div(style="align-self: flex-start; width: 100%;"):
+                    html.Pre(
+                        "{{ runs[id].prompt.resolved_config_yaml }}",
+                        style="white-space: pre-wrap; font-size: 0.85em; margin: 0;",
+                    )
+
+            RowWithLabel(
+                run_content=run_content,
+                label="Config",
+                compare_expr="runs[id].prompt.resolved_config_yaml",
             )
 
 
