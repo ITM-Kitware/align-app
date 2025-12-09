@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 from trame.app import asynchronous
 from trame.decorators import TrameApp, controller, change
-from .run_models import Run
+from ..adm.run_models import Run
 from .runs_registry import RunsRegistry
 from ..adm.decider.types import DeciderParams
 from ..utils.utils import get_id

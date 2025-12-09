@@ -1,6 +1,5 @@
 from typing import Any, Tuple
 import gc
-import torch
 from functools import partial
 from align_system.utils.hydra_utils import initialize_with_custom_references
 from align_system.utils.hydrate_state import p2triage_hydrate_scenario_state
@@ -96,6 +95,8 @@ def instantiate_adm(decider_config):
     adm = initialize_with_custom_references({"adm": decider_config})["adm"]
 
     def cleanup(_):
+        import torch
+
         gc.collect()
         torch.cuda.empty_cache()
 
