@@ -207,6 +207,7 @@ def run_to_state_dict(
     result = {
         "id": run.id,
         "cache_key": cache_key,
+        "config_dirty": False,
         "scene_items": scene_items,
         "decider_items": decider_items,
         "llm_backbone_items": llm_backbone_items,

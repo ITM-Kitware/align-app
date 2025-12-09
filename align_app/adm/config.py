@@ -30,6 +30,7 @@ def get_decider_config(
     Two-layer merge: base YAML config + (config_overrides + dataset_overrides)
 
     For experiment configs (experiment_config: True), loads pre-resolved YAML directly.
+    For edited configs (edited_config: True), returns the stored resolved_config directly.
 
     Args:
         probe_id: The probe ID to get config for
@@ -44,7 +45,11 @@ def get_decider_config(
     if not decider_cfg:
         return None
 
+    is_edited_config = decider_cfg.get("edited_config", False)
     is_experiment_config = decider_cfg.get("experiment_config", False)
+
+    if is_edited_config:
+        return copy.deepcopy(decider_cfg["resolved_config"])
 
     # Layer 1: Load base config - either pre-resolved experiment YAML or Hydra compose.
     # Both produce same structure with ${ref:...} that initialize_with_custom_references handles.
