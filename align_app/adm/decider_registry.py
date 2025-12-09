@@ -33,16 +33,9 @@ def _get_decider_options(
     if not decider_cfg:
         return None
 
-    config_overrides = decider_cfg.get("config_overrides", {})
-    dataset_overrides = decider_cfg.get("dataset_overrides", {}).get(dataset_name, {})
-
     metadata = {
         "llm_backbones": decider_cfg.get("llm_backbones", []),
-        "model_path_keys": decider_cfg.get("model_path_keys", []),
-        "max_alignment_attributes": config_overrides.get(
-            "max_alignment_attributes",
-            dataset_overrides.get("max_alignment_attributes", 0),
-        ),
+        "max_alignment_attributes": decider_cfg.get("max_alignment_attributes", 0),
         "config_path": decider_cfg.get("config_path"),
         "exists": True,
     }

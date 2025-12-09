@@ -14,14 +14,11 @@ import json
 import copy
 import yaml
 
-METADATA_KEYS = {"llm_backbones", "model_path_keys", "max_alignment_attributes"}
-
 
 def resolved_config_to_yaml(resolved_config: Dict[str, Any] | None) -> str:
     if not resolved_config:
         return ""
-    filtered = {k: v for k, v in resolved_config.items() if k not in METADATA_KEYS}
-    return yaml.dump(filtered, default_flow_style=False, sort_keys=False)
+    return yaml.dump(resolved_config, default_flow_style=False, sort_keys=False)
 
 
 def extract_base_scenarios(probes: Dict[str, Probe]) -> List[Dict]:
