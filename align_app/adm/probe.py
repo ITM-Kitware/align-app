@@ -3,6 +3,19 @@ from pydantic import BaseModel
 from align_utils.models import InputOutputItem
 
 
+def get_probe_id(item: InputOutputItem) -> str:
+    """Extract probe_id from InputOutputItem in format '{scenario_id}.{scene_id}'."""
+    if not item.input or not item.input.full_state:
+        raise ValueError("InputOutputItem must have input and full_state")
+
+    full_state = item.input.full_state
+    if "meta_info" not in full_state or "scene_id" not in full_state["meta_info"]:
+        raise ValueError("InputOutputItem missing required meta_info.scene_id")
+
+    scene_id = full_state["meta_info"]["scene_id"]
+    return f"{item.input.scenario_id}.{scene_id}"
+
+
 class Probe(BaseModel):
     """
     Wrapper around InputOutputItem that adds derived fields for convenient access.
@@ -41,21 +54,12 @@ class Probe(BaseModel):
         Raises:
             ValueError: If required fields are missing from the input data
         """
-        if not item.input or not item.input.full_state:
-            raise ValueError("InputOutputItem must have input and full_state")
+        probe_id = get_probe_id(item)
+        full_state = item.input.full_state
+        assert full_state is not None
+        scene_id = full_state["meta_info"]["scene_id"]
 
-        if (
-            "meta_info" not in item.input.full_state
-            or "scene_id" not in item.input.full_state["meta_info"]
-        ):
-            raise ValueError("InputOutputItem missing required meta_info.scene_id")
-
-        scene_id = item.input.full_state["meta_info"]["scene_id"]
-        probe_id = f"{item.input.scenario_id}.{scene_id}"
-
-        display_state = None
-        if "unstructured" in item.input.full_state:
-            display_state = item.input.full_state["unstructured"]
+        display_state = full_state.get("unstructured")
 
         return cls(
             item=item,
