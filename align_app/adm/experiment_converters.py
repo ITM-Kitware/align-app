@@ -68,10 +68,7 @@ def deciders_from_experiments(
                 "experiment_path": str(exp.experiment_path),
                 "experiment_config": True,
                 "llm_backbones": llm_backbones,
-                "model_path_keys": ["structured_inference_engine", "model_name"],
-                "config_overrides": {
-                    "max_alignment_attributes": 10,
-                },
+                "max_alignment_attributes": 10,
             }
             seen_hashes[config_hash] = (exp_name, decider_entry)
 

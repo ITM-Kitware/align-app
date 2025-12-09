@@ -10,19 +10,13 @@ from .types import DeciderParams
 
 
 def extract_cache_key(resolved_config: Dict[str, Any]) -> str:
-    llm_backbone = resolved_config.get("llm_backbone", {})
-    model_path_keys = resolved_config.get("model_path_keys", [])
+    engine = resolved_config.get("structured_inference_engine", {})
+    model_name = engine.get("model_name") if isinstance(engine, dict) else None
+    if model_name:
+        return model_name
 
-    cache_parts = []
-    for key in model_path_keys:
-        if key in llm_backbone:
-            cache_parts.append(f"{key}={llm_backbone[key]}")
-
-    if not cache_parts:
-        cache_str = json.dumps(resolved_config, sort_keys=True)
-        return hashlib.md5(cache_str.encode()).hexdigest()
-
-    return "_".join(cache_parts)
+    cache_str = json.dumps(resolved_config, sort_keys=True)
+    return hashlib.md5(cache_str.encode()).hexdigest()
 
 
 def decider_worker_func(task_queue: Queue, result_queue: Queue):

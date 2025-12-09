@@ -63,22 +63,12 @@ def get_decider_config(
     config_overrides = decider_cfg.get("config_overrides", {})
     dataset_overrides = decider_cfg.get("dataset_overrides", {}).get(dataset_name, {})
 
-    # Extract metadata fields from decider entry
-    metadata = {
-        k: v
-        for k, v in decider_cfg.items()
-        if k in ["llm_backbones", "model_path_keys"]
-    }
-
-    # Single deep merge: base + config_overrides + dataset_overrides + metadata
+    # Deep merge: base + config_overrides + dataset_overrides
     merged_config = copy.deepcopy(decider_base)
     merged_config = merge_dicts(merged_config, config_overrides)
     merged_config = merge_dicts(merged_config, dataset_overrides)
-    merged_config = merge_dicts(merged_config, metadata)
 
-    if llm_backbone:
-        merged_config["llm_backbone"] = llm_backbone
-        if "structured_inference_engine" in merged_config:
-            merged_config["structured_inference_engine"]["model_name"] = llm_backbone
+    if llm_backbone and "structured_inference_engine" in merged_config:
+        merged_config["structured_inference_engine"]["model_name"] = llm_backbone
 
     return merged_config
