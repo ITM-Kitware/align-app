@@ -48,6 +48,9 @@ SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
 RUN_COLUMN_MIN_WIDTH = "28rem"
 LABEL_COLUMN_WIDTH = "12rem"
 INDICATOR_SPACE = "3rem"
+PENDING_SPINNER_CONDITION = (
+    "pending_cache_keys.includes(runs[id].cache_key) && !runs[id].config_dirty"
+)
 TITLE_TRUNCATE_STYLE = (
     "overflow: hidden; text-overflow: ellipsis; "
     f"white-space: nowrap; width: calc(100% - {INDICATOR_SPACE});"
@@ -716,10 +719,7 @@ class Decision:
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
-                        v_if=(
-                            "pending_cache_keys.includes(runs[id].cache_key) "
-                            "&& !runs[id].config_dirty"
-                        ),
+                        v_if=(PENDING_SPINNER_CONDITION,),
                         indeterminate=True,
                         size=20,
                     )
@@ -764,10 +764,7 @@ class ChoiceInfo:
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
-                        v_if=(
-                            "pending_cache_keys.includes(runs[id].cache_key) "
-                            "&& !runs[id].config_dirty"
-                        ),
+                        v_if=(PENDING_SPINNER_CONDITION,),
                         indeterminate=True,
                         size=20,
                     )
