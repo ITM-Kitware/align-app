@@ -409,13 +409,25 @@ class Decider:
                 compare_expr="runs[id].prompt.decider_params.decider",
             )
 
-    class Text:
-        def __init__(self):
+    class Text(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
             def run_content():
                 with html.Div(style="align-self: flex-start; width: 100%;"):
-                    html.Pre(
-                        "{{ runs[id].prompt.resolved_config_yaml }}",
-                        style="white-space: pre-wrap; font-size: 0.85em; margin: 0;",
+                    vuetify3.VTextarea(
+                        model_value=("runs[id].prompt.resolved_config_yaml",),
+                        update_modelValue=(
+                            self.server.controller.update_run_config_yaml,
+                            r"[id, $event]",
+                        ),
+                        auto_grow=True,
+                        rows=1,
+                        variant="outlined",
+                        density="compact",
+                        hide_details="auto",
+                        classes="config-textarea",
+                        style="font-family: monospace; font-size: 0.85em;",
                     )
 
             RowWithLabel(
@@ -699,12 +711,15 @@ class Decision:
             def render_run_decision():
                 html.Div(
                     "{{runs[id].decision.unstructured}}",
-                    v_if=("runs[id].decision",),
+                    v_if=("runs[id].decision && !runs[id].config_dirty",),
                     style=TITLE_TRUNCATE_STYLE,
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
-                        v_if=("pending_cache_keys.includes(runs[id].cache_key)",),
+                        v_if=(
+                            "pending_cache_keys.includes(runs[id].cache_key) "
+                            "&& !runs[id].config_dirty"
+                        ),
                         indeterminate=True,
                         size=20,
                     )
@@ -749,7 +764,10 @@ class ChoiceInfo:
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
-                        v_if=("pending_cache_keys.includes(runs[id].cache_key)",),
+                        v_if=(
+                            "pending_cache_keys.includes(runs[id].cache_key) "
+                            "&& !runs[id].config_dirty"
+                        ),
                         indeterminate=True,
                         size=20,
                     )
@@ -968,6 +986,7 @@ class AlignLayout(SinglePageLayout):
                         "html { overflow: hidden !important; }"
                         ".v-textarea .v-field__input { overflow-y: hidden !important; }"
                         ".v-expansion-panel { max-width: none !important; }"
+                        ".config-textarea textarea { white-space: pre; overflow-x: auto; }"
                         "</style>'"
                     )
                 )
