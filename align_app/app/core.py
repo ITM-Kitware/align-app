@@ -11,6 +11,7 @@ from ..adm.experiment_results_registry import create_experiment_results_registry
 from ..adm.experiment_converters import (
     probes_from_experiment_items,
     deciders_from_experiments,
+    runs_from_experiment_items,
 )
 
 
@@ -74,6 +75,13 @@ class AlignApp:
             self._probe_registry,
             self._decider_registry,
         )
+
+        if self._experiment_results_registry:
+            experiment_runs = runs_from_experiment_items(
+                self._experiment_results_registry.get_all_items()
+            )
+            self._runs_registry.populate_cache_bulk(experiment_runs)
+
         self._search_controller = SearchController(self.server, self._probe_registry)
         self._runsController = RunsStateAdapter(
             self.server,
