@@ -37,18 +37,30 @@ class AlignApp:
 
         args, _ = self.server.cli.parse_known_args()
 
-        self._probe_registry = create_probe_registry(args.scenarios)
+        # Skip default probes if either --scenarios or --experiments is provided
+        scenarios_paths = args.scenarios
+        if args.experiments and scenarios_paths is None:
+            scenarios_paths = []
+
+        self._probe_registry = create_probe_registry(scenarios_paths)
+
+        self._experiment_results_registry = (
+            create_experiment_results_registry(Path(args.experiments))
+            if args.experiments
+            else None
+        )
+
+        if self._experiment_results_registry:
+            self._probe_registry.add_probes_from_experiments(
+                self._experiment_results_registry.get_all_items()
+            )
+
         self._decider_registry = create_decider_registry(
             args.deciders or [], self._probe_registry
         )
         self._runs_registry = create_runs_registry(
             self._probe_registry,
             self._decider_registry,
-        )
-        self._experiment_results_registry = (
-            create_experiment_results_registry(Path(args.experiments))
-            if args.experiments
-            else None
         )
         self._search_controller = SearchController(self.server, self._probe_registry)
         self._runsController = RunsStateAdapter(
