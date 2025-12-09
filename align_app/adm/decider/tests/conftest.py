@@ -60,7 +60,6 @@ def resolved_random_config():
                 "${ref:adm.step_definitions.populate_choice_info}",
             ],
         },
-        "model_path_keys": ["structured_inference_engine", "model_name"],
     }
 
 
