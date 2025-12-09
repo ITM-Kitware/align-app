@@ -1,7 +1,11 @@
 from functools import partial
 from collections import namedtuple
 from typing import Dict, Any
-from .decider_definitions import get_all_deciders, get_system_prompt
+from .decider_definitions import (
+    get_runtime_deciders,
+    get_system_prompt,
+    _BASE_DECIDERS,
+)
 from .config import get_decider_config, _get_dataset_name
 
 
@@ -57,12 +61,21 @@ DeciderRegistry = namedtuple(
 )
 
 
-def create_decider_registry(config_paths, scenario_registry):
+def create_decider_registry(config_paths, scenario_registry, experiment_deciders=None):
     """
     Takes config paths and scenario_registry, returns a DeciderRegistry namedtuple
     with all_deciders and datasets pre-bound using partial application.
+
+    Args:
+        config_paths: List of paths to runtime decider configs
+        scenario_registry: Registry for scenarios/probes
+        experiment_deciders: Optional dict of experiment deciders to merge
     """
-    all_deciders = get_all_deciders(config_paths)
+    all_deciders = {
+        **_BASE_DECIDERS,
+        **(experiment_deciders or {}),
+        **get_runtime_deciders(config_paths),
+    }
     datasets = scenario_registry.get_datasets()
 
     return DeciderRegistry(

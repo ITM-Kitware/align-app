@@ -3,6 +3,7 @@ import copy
 from pathlib import Path
 import align_system
 from align_app.adm.hydra_config_loader import load_adm_config
+from align_app.adm.experiment_config_loader import load_experiment_adm_config
 from align_app.utils.utils import merge_dicts
 
 
@@ -28,6 +29,8 @@ def get_decider_config(
     Merges base decider config with app-level overrides.
     Two-layer merge: base YAML config + (config_overrides + dataset_overrides)
 
+    For experiment configs (experiment_config: True), loads pre-resolved YAML directly.
+
     Args:
         probe_id: The probe ID to get config for
         all_deciders: Dict of all available deciders
@@ -41,14 +44,20 @@ def get_decider_config(
     if not decider_cfg:
         return None
 
-    config_path = decider_cfg["config_path"]
+    is_experiment_config = decider_cfg.get("experiment_config", False)
 
-    # Layer 1: Load base config from align-system YAML
-    full_cfg = load_adm_config(
-        config_path,
-        str(base_align_system_config_dir),
-    )
-    decider_base = full_cfg.get("adm", {})
+    # Layer 1: Load base config - either pre-resolved experiment YAML or Hydra compose.
+    # Both produce same structure with ${ref:...} that initialize_with_custom_references handles.
+    if is_experiment_config:
+        experiment_path = Path(decider_cfg["experiment_path"])
+        decider_base = load_experiment_adm_config(experiment_path) or {}
+    else:
+        config_path = decider_cfg["config_path"]
+        full_cfg = load_adm_config(
+            config_path,
+            str(base_align_system_config_dir),
+        )
+        decider_base = full_cfg.get("adm", {})
 
     # Layer 2: Prepare app-level overrides
     config_overrides = decider_cfg.get("config_overrides", {})
