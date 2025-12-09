@@ -6,7 +6,6 @@ import align_system
 from align_utils.models import (
     InputOutputItem,
     InputData,
-    ExperimentItem,
 )
 from align_utils.discovery import load_input_output_files
 from align_app.adm.probe import Probe
@@ -47,7 +46,7 @@ ProbeRegistry = namedtuple(
         "get_datasets",
         "get_attributes",
         "add_edited_probe",
-        "add_probes_from_experiments",
+        "add_probes",
     ],
 )
 
@@ -148,10 +147,9 @@ def create_probe_registry(scenarios_paths=None):
 
         return new_probe
 
-    def add_probes_from_experiments(experiment_items: List[ExperimentItem]):
-        """Add probes from ExperimentItem list, skipping duplicates."""
-        for exp_item in experiment_items:
-            probe = Probe.from_input_output_item(exp_item.item)
+    def add_probes(new_probes: List[Probe]):
+        """Add probes to registry, skipping duplicates."""
+        for probe in new_probes:
             if probe.probe_id not in probes:
                 probes[probe.probe_id] = probe
                 datasets["phase2"]["probes"][probe.probe_id] = probe
@@ -163,5 +161,5 @@ def create_probe_registry(scenarios_paths=None):
         get_datasets=lambda: datasets,
         get_attributes=get_attributes,
         add_edited_probe=add_edited_probe,
-        add_probes_from_experiments=add_probes_from_experiments,
+        add_probes=add_probes,
     )
