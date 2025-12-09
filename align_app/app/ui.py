@@ -536,7 +536,9 @@ class SystemPrompt:
             def run_content():
                 html.P("{{runs[id].prompt.system_prompt}}")
 
-            RowWithLabel(run_content=run_content, compare_expr=SystemPrompt.COMPARE_EXPR)
+            RowWithLabel(
+                run_content=run_content, compare_expr=SystemPrompt.COMPARE_EXPR
+            )
 
 
 class ProbeLayout:
@@ -608,7 +610,9 @@ class EditableProbeLayoutForRun:
 
 
 class Probe:
-    COMPARE_EXPR = "runs[id].prompt.probe.scenario_id + '/' + runs[id].prompt.probe.scene_id"
+    COMPARE_EXPR = (
+        "runs[id].prompt.probe.scenario_id + '/' + runs[id].prompt.probe.scene_id"
+    )
 
     class Title(html.Template):
         def __init__(self, **kwargs):
@@ -706,7 +710,9 @@ class Decision:
                     html.Div("Justification", classes="text-h6")
                     html.P("{{runs[id].decision.justification}}")
 
-            RowWithLabel(run_content=render_run_decision_text, compare_expr=Decision.COMPARE_EXPR)
+            RowWithLabel(
+                run_content=render_run_decision_text, compare_expr=Decision.COMPARE_EXPR
+            )
 
 
 class ChoiceInfo:
@@ -770,7 +776,10 @@ class ChoiceInfo:
                             with html.Template(v_else=True):
                                 UnorderedObject("value")
 
-            RowWithLabel(run_content=render_choice_info_text, compare_expr=ChoiceInfo.COMPARE_EXPR)
+            RowWithLabel(
+                run_content=render_choice_info_text,
+                compare_expr=ChoiceInfo.COMPARE_EXPR,
+            )
 
 
 class RunNumber:

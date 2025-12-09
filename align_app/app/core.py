@@ -40,7 +40,10 @@ class AlignApp:
         )
         self._search_controller = SearchController(self.server, self._probe_registry)
         self._runsController = RunsStateAdapter(
-            self.server, self._probe_registry, self._decider_registry, self._runs_registry
+            self.server,
+            self._probe_registry,
+            self._decider_registry,
+            self._runs_registry,
         )
         self._search_controller.set_runs_state_adapter(self._runsController)
 
