@@ -24,3 +24,6 @@ pnpm-debug.log*
 __pycache__
 *egg-info
 *pyc
+
+# Test fixtures cache (downloaded experiment data)
+tests/fixtures/.cache/
