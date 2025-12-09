@@ -2,7 +2,7 @@
 
 from collections import namedtuple
 from typing import Optional, Dict, List, Any, Callable
-from .run_models import Run
+from ..adm.run_models import Run
 from . import runs_core
 from . import runs_edit_logic
 from ..utils.utils import get_id
@@ -12,6 +12,8 @@ RunsRegistry = namedtuple(
     "RunsRegistry",
     [
         "add_run",
+        "add_runs_bulk",
+        "populate_cache_bulk",
         "execute_decision",
         "execute_run_decision",
         "create_and_execute_run",
@@ -96,6 +98,14 @@ def create_runs_registry(probe_registry, decider_registry):
         data = runs_core.add_run(data, run)
         return run
 
+    def add_runs_bulk(runs: List[Run]) -> None:
+        nonlocal data
+        data = runs_core.add_runs_bulk(data, runs)
+
+    def populate_cache_bulk(runs: List[Run]) -> None:
+        nonlocal data
+        data = runs_core.populate_cache_bulk(data, runs)
+
     async def execute_decision(run: Run, probe_choices: List[Dict]) -> Run:
         nonlocal data
         cache_key = run.compute_cache_key()
@@ -156,7 +166,10 @@ def create_runs_registry(probe_registry, decider_registry):
         return data, updated_run
 
     def get_run(run_id: str) -> Optional[Run]:
-        return runs_core.get_run(data, run_id)
+        run = runs_core.get_run(data, run_id)
+        if run:
+            run = runs_core.apply_cached_decision(data, run)
+        return run
 
     def get_all_runs() -> Dict[str, Run]:
         return dict(runs_core.get_all_runs_with_cached_decisions(data))
@@ -193,6 +206,8 @@ def create_runs_registry(probe_registry, decider_registry):
 
     return RunsRegistry(
         add_run=add_run,
+        add_runs_bulk=add_runs_bulk,
+        populate_cache_bulk=populate_cache_bulk,
         execute_decision=execute_decision,
         execute_run_decision=execute_run_decision,
         create_and_execute_run=create_and_execute_run,
