@@ -50,8 +50,58 @@ DeciderRegistry = namedtuple(
         "get_decider_options",
         "get_system_prompt",
         "get_all_deciders",
+        "add_edited_decider",
     ],
 )
+
+
+def _get_root_decider_name(decider_name: str) -> str:
+    """Extract the root decider name without any ' - edit N' suffix."""
+    import re
+
+    match = re.match(r"^(.+?) - edit \d+$", decider_name)
+    if match:
+        return _get_root_decider_name(match.group(1))
+    return decider_name
+
+
+def _add_edited_decider(
+    base_decider_name: str,
+    resolved_config: Dict[str, Any],
+    llm_backbones: list,
+    all_deciders: Dict[str, Any],
+) -> str:
+    """
+    Add an edited decider to the registry.
+
+    Args:
+        base_decider_name: Original decider name this was edited from
+        resolved_config: The edited resolved config
+        llm_backbones: Available LLM backbones for this decider
+        all_deciders: The mutable deciders dictionary (pre-bound via partial)
+
+    Returns:
+        The new decider name "{root_decider_name} - edit {n}"
+    """
+    root_name = _get_root_decider_name(base_decider_name)
+
+    edit_count = 1
+    for name in all_deciders:
+        if name.startswith(f"{root_name} - edit "):
+            try:
+                n = int(name.split(" - edit ")[-1])
+                edit_count = max(edit_count, n + 1)
+            except ValueError:
+                pass
+
+    new_name = f"{root_name} - edit {edit_count}"
+    all_deciders[new_name] = {
+        "edited_config": True,
+        "resolved_config": resolved_config,
+        "llm_backbones": llm_backbones,
+        "max_alignment_attributes": 10,
+    }
+    return new_name
 
 
 def create_decider_registry(config_paths, scenario_registry, experiment_deciders=None):
@@ -88,4 +138,8 @@ def create_decider_registry(config_paths, scenario_registry, experiment_deciders
             datasets=datasets,
         ),
         get_all_deciders=lambda: all_deciders,
+        add_edited_decider=partial(
+            _add_edited_decider,
+            all_deciders=all_deciders,
+        ),
     )
