@@ -1,11 +1,6 @@
-from typing import Any, Dict, cast
-import copy
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
-from ..adm.types import Prompt, SerializedPrompt, SerializedAlignmentTarget
-from ..adm.probe import Probe as ProbeModel
-from ..utils.utils import noop, readable, readable_sentence, sentence_lines
-from .prompt_logic import get_alignment_descriptions_map
+from ..utils.utils import noop, readable, readable_sentence
 from .unordered_object import (
     UnorderedObject,
     ValueWithProgressBar,
@@ -15,35 +10,10 @@ from .unordered_object import (
 )
 
 
-def serialize_prompt(prompt: Prompt) -> SerializedPrompt:
-    """Serialize a prompt for JSON/state storage, removing non-serializable fields.
-
-    This is THE serialization boundary - converts Probe to dict for UI state.
-    Input: prompt["probe"] is Probe model
-    Output: prompt["probe"] is dict
-    """
-    probe: ProbeModel = prompt["probe"]
-    alignment_target = cast(
-        SerializedAlignmentTarget, prompt["alignment_target"].model_dump()
-    )
-
-    system_prompt: str = prompt.get("system_prompt", "")  # type: ignore[assignment]
-    result: SerializedPrompt = {
-        "probe": probe.to_dict(),
-        "alignment_target": alignment_target,
-        "decider_params": prompt["decider_params"],
-        "system_prompt": system_prompt,
-    }
-
-    return copy.deepcopy(result)
-
-
 def reload(m=None):
     if m:
         m.__loader__.exec_module(m)
 
-
-SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
 
 RUN_COLUMN_MIN_WIDTH = "28rem"
 LABEL_COLUMN_WIDTH = "12rem"
@@ -109,58 +79,6 @@ class AlignmentInfoRenderer(html.Ul):
                     PerKDMARenderer("value")
                 with html.Template(v_else=True):
                     PlainObjectProperty("value")
-
-
-def readable_probe(probe):
-    full_state = probe.full_state or {}
-    characters = full_state.get("characters", [])
-    readable_characters = [
-        {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
-        for c in characters
-    ]
-
-    return {
-        "probe_id": probe.probe_id,
-        "scene_id": probe.scene_id,
-        "scenario_id": probe.scenario_id,
-        "display_state": probe.display_state,
-        "full_state": {**full_state, "characters": readable_characters},
-        "choices": probe.choices,
-        "state": probe.state,
-    }
-
-
-def readable_attribute(kdma_value, descriptions):
-    return {
-        **kdma_value,
-        "description": descriptions.get(kdma_value.get("kdma"), {}).get(
-            "description",
-            f"No description for {kdma_value.get('kdma')}",
-        ),
-        "kdma": readable(kdma_value.get("kdma")),
-        "value": round(kdma_value.get("value"), 2),
-    }
-
-
-def prep_for_state(prompt: Prompt):
-    descriptions = get_alignment_descriptions_map(prompt)
-    p = serialize_prompt(prompt)
-    result: Dict[str, Any] = {
-        **p,
-        "alignment_target": {
-            **p["alignment_target"],
-            "kdma_values": [
-                readable_attribute(a, descriptions)
-                for a in p["alignment_target"]["kdma_values"]
-            ],
-        },
-        "decider_params": {
-            **p["decider_params"],
-            "decider": readable(p["decider_params"]["decider"]),
-        },
-        "probe": readable_probe(prompt["probe"]),
-    }
-    return result
 
 
 def make_keys_readable(obj, max_depth=2, current_depth=0):

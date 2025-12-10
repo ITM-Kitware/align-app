@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 from trame.decorators import TrameApp, controller
 from rapidfuzz import fuzz, process, utils
 from ..adm.probe import Probe
@@ -8,10 +9,10 @@ from ..utils.utils import debounce
 class SearchController:
     """Controller for search functionality with dropdown menu."""
 
-    def __init__(self, server, probe_registry):
+    def __init__(self, server, probe_registry, on_search_select=None):
         self.server = server
         self.probe_registry = probe_registry
-        self.runs_state_adapter = None
+        self._on_search_select = on_search_select
         self.server.state.search_query = ""
         self.server.state.search_results = []
         self.server.state.search_menu_open = False
@@ -19,9 +20,6 @@ class SearchController:
         self.server.state.change("search_query")(
             debounce(0.2, self.server.state)(self.update_search_results)
         )
-
-    def set_runs_state_adapter(self, runs_state_adapter):
-        self.runs_state_adapter = runs_state_adapter
 
     def _create_search_result(self, probe_id, probe: Probe):
         display_state = probe.display_state or ""
@@ -76,15 +74,19 @@ class SearchController:
         ]
         self.server.state.search_menu_open = True
 
+    def _get_search_selection(self, index: int) -> Optional[Tuple[str, str]]:
+        """Extract scenario_id and scene_id from search result at index."""
+        if not (0 <= index < len(self.server.state.search_results)):
+            return None
+        result = self.server.state.search_results[index]
+        if result.get("id") is None:
+            return None
+        return (result.get("scenario_id"), result.get("scene_id"))
+
     @controller.add("select_run_search_result")
     def select_run_search_result(self, run_id, index):
-        if 0 <= index < len(self.server.state.search_results):
-            result = self.server.state.search_results[index]
-            if result.get("id") is not None and self.runs_state_adapter:
-                new_run_id = self.runs_state_adapter.update_run_scenario(
-                    run_id, result.get("scenario_id")
-                )
-                self.runs_state_adapter.update_run_scene(
-                    new_run_id, result.get("scene_id")
-                )
-                self.server.state.run_search_expanded_id = None
+        selection = self._get_search_selection(index)
+        if selection and self._on_search_select:
+            scenario_id, scene_id = selection
+            self._on_search_select(run_id, scenario_id, scene_id)
+            self.server.state.run_search_expanded_id = None
