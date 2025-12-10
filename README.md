@@ -82,9 +82,6 @@ poetry run align-app --scenarios /path/to/scenarios1.json /path/to/scenarios2.js
 You can load pre-computed experiment results using the `--experiments` flag. This extracts unique ADM configurations from experiment directories and adds them to the decider dropdown:
 
 ```console
-# Load experiment results from a directory
-poetry run align-app --experiments /path/to/experiment-results
-
 # Use test fixtures (download first by running: poetry run pytest tests/test_experiment_deciders.py -k download)
 poetry run align-app --experiments tests/fixtures/.cache/experiments
 ```

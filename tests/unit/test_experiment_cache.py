@@ -5,7 +5,7 @@ import pytest
 
 from align_app.adm.run_models import Run
 from align_app.adm.decider.types import DeciderParams
-from align_app.app.runs_registry import create_runs_registry
+from align_app.app.runs_registry import RunsRegistry
 from align_app.app.runs_core import Runs, populate_cache_bulk
 from align_app.adm.experiment_converters import runs_from_experiment_items
 from align_utils.models import AlignmentTarget, KDMAValue, get_experiment_items
@@ -15,7 +15,11 @@ from align_utils.discovery import parse_experiments_directory
 @pytest.fixture
 def single_experiment_path(experiments_fixtures_path: Path) -> Path:
     """Return path to a single experiment for faster tests."""
-    return experiments_fixtures_path / "pipeline_baseline_greedy_w_cache" / "affiliation-0.0"
+    return (
+        experiments_fixtures_path
+        / "pipeline_baseline_greedy_w_cache"
+        / "affiliation-0.0"
+    )
 
 
 def test_cache_populated_from_experiment(single_experiment_path: Path):
@@ -23,7 +27,8 @@ def test_cache_populated_from_experiment(single_experiment_path: Path):
     experiments = parse_experiments_directory(single_experiment_path.parent.parent)
 
     target_experiments = [
-        exp for exp in experiments
+        exp
+        for exp in experiments
         if "pipeline_baseline_greedy_w_cache" in str(exp.experiment_path)
         and "affiliation-0.0" in str(exp.experiment_path)
     ]
@@ -47,7 +52,8 @@ def test_cache_hit_with_matching_params(single_experiment_path: Path):
     experiments = parse_experiments_directory(single_experiment_path.parent.parent)
 
     target_experiments = [
-        exp for exp in experiments
+        exp
+        for exp in experiments
         if "pipeline_baseline_greedy_w_cache" in str(exp.experiment_path)
         and "affiliation-0.0" in str(exp.experiment_path)
     ]
@@ -59,6 +65,7 @@ def test_cache_hit_with_matching_params(single_experiment_path: Path):
     class MockProbeRegistry:
         def get_probe(self, probe_id):
             return None
+
         def get_probes(self):
             return {}
 
@@ -66,12 +73,11 @@ def test_cache_hit_with_matching_params(single_experiment_path: Path):
         def get_system_prompt(self, **kwargs):
             return ""
 
-    runs_registry = create_runs_registry(MockProbeRegistry(), MockDeciderRegistry())
+    runs_registry = RunsRegistry(MockProbeRegistry(), MockDeciderRegistry())
     runs_registry.populate_cache_bulk(cached_runs)
 
     ui_alignment_target = AlignmentTarget(
-        id="ad_hoc",
-        kdma_values=[KDMAValue(kdma="affiliation", value=0.0)]
+        id="ad_hoc", kdma_values=[KDMAValue(kdma="affiliation", value=0.0)]
     )
 
     ui_run = Run(
@@ -92,7 +98,10 @@ def test_cache_hit_with_matching_params(single_experiment_path: Path):
 
     assert fetched is not None
     assert fetched.decision is not None
-    assert fetched.decision.adm_result.decision.unstructured == cached_run.decision.adm_result.decision.unstructured
+    assert (
+        fetched.decision.adm_result.decision.unstructured
+        == cached_run.decision.adm_result.decision.unstructured
+    )
 
 
 def test_cache_miss_with_different_params(single_experiment_path: Path):
@@ -100,7 +109,8 @@ def test_cache_miss_with_different_params(single_experiment_path: Path):
     experiments = parse_experiments_directory(single_experiment_path.parent.parent)
 
     target_experiments = [
-        exp for exp in experiments
+        exp
+        for exp in experiments
         if "pipeline_baseline_greedy_w_cache" in str(exp.experiment_path)
         and "affiliation-0.0" in str(exp.experiment_path)
     ]
@@ -112,6 +122,7 @@ def test_cache_miss_with_different_params(single_experiment_path: Path):
     class MockProbeRegistry:
         def get_probe(self, probe_id):
             return None
+
         def get_probes(self):
             return {}
 
@@ -119,12 +130,11 @@ def test_cache_miss_with_different_params(single_experiment_path: Path):
         def get_system_prompt(self, **kwargs):
             return ""
 
-    runs_registry = create_runs_registry(MockProbeRegistry(), MockDeciderRegistry())
+    runs_registry = RunsRegistry(MockProbeRegistry(), MockDeciderRegistry())
     runs_registry.populate_cache_bulk(cached_runs)
 
     different_alignment_target = AlignmentTarget(
-        id="ad_hoc",
-        kdma_values=[KDMAValue(kdma="affiliation", value=0.5)]
+        id="ad_hoc", kdma_values=[KDMAValue(kdma="affiliation", value=0.5)]
     )
 
     ui_run = Run(
@@ -152,7 +162,8 @@ def test_cache_preserved_after_clear_runs(single_experiment_path: Path):
     experiments = parse_experiments_directory(single_experiment_path.parent.parent)
 
     target_experiments = [
-        exp for exp in experiments
+        exp
+        for exp in experiments
         if "pipeline_baseline_greedy_w_cache" in str(exp.experiment_path)
         and "affiliation-0.0" in str(exp.experiment_path)
     ]
@@ -164,6 +175,7 @@ def test_cache_preserved_after_clear_runs(single_experiment_path: Path):
     class MockProbeRegistry:
         def get_probe(self, probe_id):
             return None
+
         def get_probes(self):
             return {}
 
@@ -171,14 +183,13 @@ def test_cache_preserved_after_clear_runs(single_experiment_path: Path):
         def get_system_prompt(self, **kwargs):
             return ""
 
-    runs_registry = create_runs_registry(MockProbeRegistry(), MockDeciderRegistry())
+    runs_registry = RunsRegistry(MockProbeRegistry(), MockDeciderRegistry())
     runs_registry.populate_cache_bulk(cached_runs)
 
     runs_registry.clear_runs()
 
     ui_alignment_target = AlignmentTarget(
-        id="ad_hoc",
-        kdma_values=[KDMAValue(kdma="affiliation", value=0.0)]
+        id="ad_hoc", kdma_values=[KDMAValue(kdma="affiliation", value=0.0)]
     )
 
     ui_run = Run(
