@@ -3,7 +3,7 @@ from trame.app import get_server
 from trame.decorators import TrameApp, controller
 from . import ui
 from .search import SearchController
-from .runs_registry import create_runs_registry
+from .runs_registry import RunsRegistry
 from .runs_state_adapter import RunsStateAdapter
 from ..adm.decider_registry import create_decider_registry
 from ..adm.probe_registry import create_probe_registry
@@ -71,7 +71,7 @@ class AlignApp:
             self._probe_registry,
             experiment_deciders=experiment_deciders,
         )
-        self._runs_registry = create_runs_registry(
+        self._runs_registry = RunsRegistry(
             self._probe_registry,
             self._decider_registry,
         )
@@ -82,20 +82,27 @@ class AlignApp:
             )
             self._runs_registry.populate_cache_bulk(experiment_runs)
 
-        self._search_controller = SearchController(self.server, self._probe_registry)
         self._runsController = RunsStateAdapter(
             self.server,
             self._probe_registry,
             self._decider_registry,
             self._runs_registry,
         )
-        self._search_controller.set_runs_state_adapter(self._runsController)
+        self._search_controller = SearchController(
+            self.server,
+            self._probe_registry,
+            on_search_select=self._handle_search_select,
+        )
 
         if self.server.hot_reload:
             self.server.controller.on_server_reload.add(self._build_ui)
 
         self._build_ui()
         self.reset_state()
+
+    def _handle_search_select(self, run_id: str, scenario_id: str, scene_id: str):
+        new_run_id = self._runsController.update_run_scenario(run_id, scenario_id)
+        self._runsController.update_run_scene(new_run_id, scene_id)
 
     @controller.set("reset_state")
     def reset_state(self):

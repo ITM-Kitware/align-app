@@ -1,6 +1,5 @@
 """Service layer managing run state and coordinating domain operations."""
 
-from collections import namedtuple
 from typing import Optional, Dict, List, Any, Callable
 from ..adm.run_models import Run
 from . import runs_core
@@ -8,68 +7,31 @@ from . import runs_edit_logic
 from ..utils.utils import get_id
 
 
-RunsRegistry = namedtuple(
-    "RunsRegistry",
-    [
-        "add_run",
-        "add_runs_bulk",
-        "populate_cache_bulk",
-        "execute_decision",
-        "execute_run_decision",
-        "create_and_execute_run",
-        "get_run",
-        "get_all_runs",
-        "clear_runs",
-        "update_run_scene",
-        "update_run_scenario",
-        "update_run_decider",
-        "update_run_llm_backbone",
-        "add_run_alignment_attribute",
-        "update_run_alignment_attribute_value",
-        "update_run_alignment_attribute_score",
-        "delete_run_alignment_attribute",
-        "update_run_probe_text",
-        "update_run_choice_text",
-        "add_run_choice",
-        "delete_run_choice",
-    ],
-)
-
-
-def create_runs_registry(probe_registry, decider_registry):
-    """Create runs service with methods for managing run lifecycle."""
-    data = runs_core.init_runs()
+class RunsRegistry:
+    def __init__(self, probe_registry, decider_registry):
+        self._probe_registry = probe_registry
+        self._decider_registry = decider_registry
+        self._runs = runs_core.init_runs()
 
     def _create_update_method(
+        self,
         prepare_fn: Callable[..., Optional[Run]],
     ) -> Callable[[str, Any], Optional[Run]]:
-        """Factory that generates registry update methods.
-
-        Args:
-            prepare_fn: Orchestration helper that prepares updated run.
-                       Signature: (run, value, *, probe_registry, decider_registry) -> Optional[Run]
-
-        Returns:
-            Update method with signature: (run_id, value) -> Optional[Run]
-        """
-
         def update_method(run_id: str, value: Any) -> Optional[Run]:
-            nonlocal data
-
-            run = runs_core.get_run(data, run_id)
+            run = runs_core.get_run(self._runs, run_id)
             if not run:
                 return None
 
             updated_run = prepare_fn(
                 run,
                 value,
-                probe_registry=probe_registry,
-                decider_registry=decider_registry,
+                probe_registry=self._probe_registry,
+                decider_registry=self._decider_registry,
             )
             if not updated_run:
                 return None
 
-            system_prompt = decider_registry.get_system_prompt(
+            system_prompt = self._decider_registry.get_system_prompt(
                 decider=updated_run.decider_name,
                 alignment_target=updated_run.decider_params.alignment_target,
                 probe_id=updated_run.probe_id,
@@ -83,147 +45,128 @@ def create_runs_registry(probe_registry, decider_registry):
                     "system_prompt": system_prompt,
                 }
             )
-            new_run = runs_core.apply_cached_decision(data, new_run)
+            new_run = runs_core.apply_cached_decision(self._runs, new_run)
 
             if run.decision is None:
-                data = runs_core.remove_run(data, run_id)
-            data = runs_core.add_run(data, new_run)
+                self._runs = runs_core.remove_run(self._runs, run_id)
+            self._runs = runs_core.add_run(self._runs, new_run)
 
             return new_run
 
         return update_method
 
-    def add_run(run: Run) -> Run:
-        nonlocal data
-        data = runs_core.add_run(data, run)
+    def add_run(self, run: Run) -> Run:
+        self._runs = runs_core.add_run(self._runs, run)
         return run
 
-    def add_runs_bulk(runs: List[Run]) -> None:
-        nonlocal data
-        data = runs_core.add_runs_bulk(data, runs)
+    def add_runs_bulk(self, runs: List[Run]) -> None:
+        self._runs = runs_core.add_runs_bulk(self._runs, runs)
 
-    def populate_cache_bulk(runs: List[Run]) -> None:
-        nonlocal data
-        data = runs_core.populate_cache_bulk(data, runs)
+    def populate_cache_bulk(self, runs: List[Run]) -> None:
+        self._runs = runs_core.populate_cache_bulk(self._runs, runs)
 
-    async def execute_decision(run: Run, probe_choices: List[Dict]) -> Run:
-        nonlocal data
+    async def _execute_with_cache(self, run: Run, probe_choices: List[Dict]) -> Run:
         cache_key = run.compute_cache_key()
 
-        cached = runs_core.get_cached_decision(data, cache_key)
+        cached = runs_core.get_cached_decision(self._runs, cache_key)
         if cached:
             updated_run = run.model_copy(update={"decision": cached})
-            data = runs_core.add_run(data, updated_run)
+            self._runs = runs_core.add_run(self._runs, updated_run)
             return updated_run
 
         decision = await runs_core.fetch_decision(run, probe_choices)
         updated_run = run.model_copy(update={"decision": decision})
-        data = runs_core.add_run(data, updated_run)
-        data = runs_core.add_cached_decision(data, cache_key, decision)
+        self._runs = runs_core.add_run(self._runs, updated_run)
+        self._runs = runs_core.add_cached_decision(self._runs, cache_key, decision)
         return updated_run
 
-    async def execute_run_decision(run_id: str) -> Optional[Run]:
-        nonlocal data
+    async def execute_decision(self, run: Run, probe_choices: List[Dict]) -> Run:
+        return await self._execute_with_cache(run, probe_choices)
 
-        run = runs_core.get_run(data, run_id)
+    async def execute_run_decision(self, run_id: str) -> Optional[Run]:
+        run = runs_core.get_run(self._runs, run_id)
         if not run:
             return None
 
-        probe = probe_registry.get_probe(run.probe_id)
+        probe = self._probe_registry.get_probe(run.probe_id)
         if not probe:
             return None
 
-        probe_choices = probe.choices or []
-        cache_key = run.compute_cache_key()
+        return await self._execute_with_cache(run, probe.choices or [])
 
-        cached = runs_core.get_cached_decision(data, cache_key)
-        if cached:
-            updated_run = run.model_copy(update={"decision": cached})
-            data = runs_core.add_run(data, updated_run)
-            return updated_run
-
-        decision = await runs_core.fetch_decision(run, probe_choices)
-
-        updated_run = run.model_copy(update={"decision": decision})
-        data = runs_core.add_run(data, updated_run)
-        data = runs_core.add_cached_decision(data, cache_key, decision)
-        return updated_run
-
-    async def create_and_execute_run(run: Run, probe_choices: List[Dict]):
-        nonlocal data
-        cache_key = run.compute_cache_key()
-
-        cached = runs_core.get_cached_decision(data, cache_key)
-        if cached:
-            updated_run = run.model_copy(update={"decision": cached})
-            data = runs_core.add_run(data, updated_run)
-            return data, updated_run
-
-        decision = await runs_core.fetch_decision(run, probe_choices)
-        updated_run = run.model_copy(update={"decision": decision})
-        data = runs_core.add_run(data, updated_run)
-        data = runs_core.add_cached_decision(data, cache_key, decision)
-        return data, updated_run
-
-    def get_run(run_id: str) -> Optional[Run]:
-        run = runs_core.get_run(data, run_id)
+    def get_run(self, run_id: str) -> Optional[Run]:
+        run = runs_core.get_run(self._runs, run_id)
         if run:
-            run = runs_core.apply_cached_decision(data, run)
+            run = runs_core.apply_cached_decision(self._runs, run)
         return run
 
-    def get_all_runs() -> Dict[str, Run]:
-        return dict(runs_core.get_all_runs_with_cached_decisions(data))
+    def get_all_runs(self) -> Dict[str, Run]:
+        return dict(runs_core.get_all_runs_with_cached_decisions(self._runs))
 
-    def clear_runs():
-        nonlocal data
-        data = runs_core.clear_runs(data)
-        return data
+    def clear_runs(self):
+        self._runs = runs_core.clear_runs(self._runs)
+        return self._runs
 
-    update_run_scene = _create_update_method(runs_edit_logic.prepare_scene_update)
-    update_run_scenario = _create_update_method(runs_edit_logic.prepare_scenario_update)
-    update_run_decider = _create_update_method(runs_edit_logic.prepare_decider_update)
-    update_run_llm_backbone = _create_update_method(runs_edit_logic.prepare_llm_update)
-    add_run_alignment_attribute = _create_update_method(
-        runs_edit_logic.prepare_add_alignment_attribute
-    )
-    update_run_alignment_attribute_value = _create_update_method(
-        runs_edit_logic.prepare_update_alignment_attribute_value
-    )
-    update_run_alignment_attribute_score = _create_update_method(
-        runs_edit_logic.prepare_update_alignment_attribute_score
-    )
-    delete_run_alignment_attribute = _create_update_method(
-        runs_edit_logic.prepare_delete_alignment_attribute
-    )
-    update_run_probe_text = _create_update_method(
-        runs_edit_logic.prepare_update_probe_text
-    )
-    update_run_choice_text = _create_update_method(
-        runs_edit_logic.prepare_update_choice_text
-    )
-    add_run_choice = _create_update_method(runs_edit_logic.prepare_add_run_choice)
-    delete_run_choice = _create_update_method(runs_edit_logic.prepare_delete_run_choice)
+    def update_run_scene(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(runs_edit_logic.prepare_scene_update)(
+            run_id, value
+        )
 
-    return RunsRegistry(
-        add_run=add_run,
-        add_runs_bulk=add_runs_bulk,
-        populate_cache_bulk=populate_cache_bulk,
-        execute_decision=execute_decision,
-        execute_run_decision=execute_run_decision,
-        create_and_execute_run=create_and_execute_run,
-        get_run=get_run,
-        get_all_runs=get_all_runs,
-        clear_runs=clear_runs,
-        update_run_scene=update_run_scene,
-        update_run_scenario=update_run_scenario,
-        update_run_decider=update_run_decider,
-        update_run_llm_backbone=update_run_llm_backbone,
-        add_run_alignment_attribute=add_run_alignment_attribute,
-        update_run_alignment_attribute_value=update_run_alignment_attribute_value,
-        update_run_alignment_attribute_score=update_run_alignment_attribute_score,
-        delete_run_alignment_attribute=delete_run_alignment_attribute,
-        update_run_probe_text=update_run_probe_text,
-        update_run_choice_text=update_run_choice_text,
-        add_run_choice=add_run_choice,
-        delete_run_choice=delete_run_choice,
-    )
+    def update_run_scenario(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(runs_edit_logic.prepare_scenario_update)(
+            run_id, value
+        )
+
+    def update_run_decider(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(runs_edit_logic.prepare_decider_update)(
+            run_id, value
+        )
+
+    def update_run_llm_backbone(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(runs_edit_logic.prepare_llm_update)(
+            run_id, value
+        )
+
+    def add_run_alignment_attribute(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(
+            runs_edit_logic.prepare_add_alignment_attribute
+        )(run_id, value)
+
+    def update_run_alignment_attribute_value(
+        self, run_id: str, value: Any
+    ) -> Optional[Run]:
+        return self._create_update_method(
+            runs_edit_logic.prepare_update_alignment_attribute_value
+        )(run_id, value)
+
+    def update_run_alignment_attribute_score(
+        self, run_id: str, value: Any
+    ) -> Optional[Run]:
+        return self._create_update_method(
+            runs_edit_logic.prepare_update_alignment_attribute_score
+        )(run_id, value)
+
+    def delete_run_alignment_attribute(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(
+            runs_edit_logic.prepare_delete_alignment_attribute
+        )(run_id, value)
+
+    def update_run_probe_text(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(runs_edit_logic.prepare_update_probe_text)(
+            run_id, value
+        )
+
+    def update_run_choice_text(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(runs_edit_logic.prepare_update_choice_text)(
+            run_id, value
+        )
+
+    def add_run_choice(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(runs_edit_logic.prepare_add_run_choice)(
+            run_id, value
+        )
+
+    def delete_run_choice(self, run_id: str, value: Any) -> Optional[Run]:
+        return self._create_update_method(runs_edit_logic.prepare_delete_run_choice)(
+            run_id, value
+        )

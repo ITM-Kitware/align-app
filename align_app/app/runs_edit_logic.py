@@ -4,14 +4,34 @@ from typing import Optional, Dict, Any
 from ..adm.run_models import Run
 from ..adm.probe import Probe
 import copy
-from .prompt_logic import (
-    create_default_choice,
-    find_probe_by_base_and_scene,
+from .runs_presentation import (
+    get_scenes_for_base_scenario,
     get_llm_backbones_from_config,
     get_max_alignment_attributes,
 )
-from .runs_presentation import get_scenes_for_base_scenario
 from align_utils.models import AlignmentTarget, KDMAValue
+
+
+def create_default_choice(index: int, text: str) -> Dict[str, Any]:
+    return {
+        "action_id": f"action-{index}",
+        "unstructured": text,
+        "action_type": "APPLY_TREATMENT",
+        "intent_action": True,
+        "parameters": {},
+        "justification": None,
+    }
+
+
+def find_probe_by_scenario_and_scene(
+    probes: Dict[str, Probe], scenario_id: str, scene_id: str
+) -> str:
+    matches = [
+        probe_id
+        for probe_id, probe in probes.items()
+        if probe.scenario_id == scenario_id and probe.scene_id == scene_id
+    ]
+    return matches[0] if matches else ""
 
 
 def get_first_scene_for_scenario(probes: Dict[str, Probe], scenario_id: str) -> str:
@@ -49,7 +69,7 @@ def prepare_scene_update(
     base_scenario_id = current_probe.scenario_id
 
     probes = probe_registry.get_probes()
-    new_probe_id = find_probe_by_base_and_scene(probes, base_scenario_id, scene_id)
+    new_probe_id = find_probe_by_scenario_and_scene(probes, base_scenario_id, scene_id)
     new_probe = probe_registry.get_probe(new_probe_id)
 
     if not new_probe:
@@ -73,7 +93,7 @@ def prepare_scenario_update(
     if not first_scene_id:
         return None
 
-    new_probe_id = find_probe_by_base_and_scene(probes, scenario_id, first_scene_id)
+    new_probe_id = find_probe_by_scenario_and_scene(probes, scenario_id, first_scene_id)
     new_probe = probe_registry.get_probe(new_probe_id)
 
     if not new_probe:

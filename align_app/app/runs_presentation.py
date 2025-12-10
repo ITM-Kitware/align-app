@@ -3,16 +3,39 @@
 from typing import Dict, Any, List
 from ..adm.run_models import Run, RunDecision, hash_run_params
 from .ui import prep_decision_for_state
-from .prompt_logic import (
-    get_llm_backbones_from_config,
-    get_max_alignment_attributes,
-    compute_possible_attributes,
-)
 from ..adm.probe import Probe
 from ..utils.utils import readable
 import json
 import copy
 import yaml
+
+
+def get_max_alignment_attributes(decider_configs: Dict) -> int:
+    if not decider_configs:
+        return 0
+    return decider_configs.get("max_alignment_attributes", 0)
+
+
+def get_llm_backbones_from_config(decider_configs: Dict) -> List[str]:
+    if decider_configs and "llm_backbones" in decider_configs:
+        return decider_configs["llm_backbones"]
+    return ["N/A"]
+
+
+def compute_possible_attributes(
+    all_attrs: Dict, used_attrs: set, descriptions: Dict
+) -> List[Dict]:
+    return [
+        {
+            "value": key,
+            **details,
+            "description": descriptions.get(key, {}).get(
+                "description", f"No description available for {key}"
+            ),
+        }
+        for key, details in all_attrs.items()
+        if key not in used_attrs
+    ]
 
 
 def resolved_config_to_yaml(resolved_config: Dict[str, Any] | None) -> str:

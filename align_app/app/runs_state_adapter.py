@@ -267,8 +267,12 @@ class RunsStateAdapter:
             return
 
         new_probe_id = self._create_edited_probe_for_run(run_id)
+        if not new_probe_id:
+            return
         new_probe = self.probe_registry.get_probe(new_probe_id)
         run = self.runs_registry.get_run(run_id)
+        if not run:
+            return
 
         updated_params = run.decider_params.model_copy(
             update={"scenario_input": new_probe.item.input}
@@ -322,9 +326,11 @@ class RunsStateAdapter:
 
         return False
 
-    def _create_edited_probe_for_run(self, run_id: str) -> str:
+    def _create_edited_probe_for_run(self, run_id: str) -> Optional[str]:
         """Create new probe from UI state edited content. Returns new probe_id."""
         run = self.runs_registry.get_run(run_id)
+        if not run:
+            return None
         ui_run = self.state.runs[run_id]
         edited_text = ui_run["prompt"]["probe"].get("display_state", "")
         edited_choices = list(ui_run["prompt"]["probe"].get("choices", []))
@@ -346,11 +352,13 @@ class RunsStateAdapter:
         )
         return ui_yaml != original_yaml
 
-    def _create_run_with_edited_config(self, run_id: str) -> str:
+    def _create_run_with_edited_config(self, run_id: str) -> Optional[str]:
         """Create new run with edited config. Returns new run_id."""
         import yaml
 
         run = self.runs_registry.get_run(run_id)
+        if not run:
+            return None
         ui_yaml = self.state.runs[run_id]["prompt"]["resolved_config_yaml"]
         new_config = yaml.safe_load(ui_yaml)
 
@@ -398,7 +406,11 @@ class RunsStateAdapter:
     async def _execute_run_decision(self, run_id: str):
         if self._is_probe_edited(run_id):
             new_probe_id = self._create_edited_probe_for_run(run_id)
+            if not new_probe_id:
+                return
             run = self.runs_registry.get_run(run_id)
+            if not run:
+                return
             updated_run = run.model_copy(update={"probe_id": new_probe_id})
             self.runs_registry.add_run(updated_run)
             self._sync_run_to_state(updated_run)
@@ -409,7 +421,10 @@ class RunsStateAdapter:
             run_id = updated_run.id
 
         if self._is_config_edited(run_id):
-            run_id = self._create_run_with_edited_config(run_id)
+            edited_run_id = self._create_run_with_edited_config(run_id)
+            if not edited_run_id:
+                return
+            run_id = edited_run_id
 
         cache_key = self.state.runs.get(run_id, {}).get("cache_key")
 
@@ -418,7 +433,7 @@ class RunsStateAdapter:
 
         await self.server.network_completion
 
-        updated_run = await self.runs_registry.execute_run_decision(run_id)
+        await self.runs_registry.execute_run_decision(run_id)
 
         with self.state:
             all_runs = self.runs_registry.get_all_runs()
