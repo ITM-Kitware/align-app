@@ -1,5 +1,34 @@
 import multiprocessing as mp
 from align_app.adm.decider.types import DeciderParams
+from align_app.adm.decider.worker import extract_cache_key
+
+
+class TestExtractCacheKey:
+    def test_same_config_produces_same_key(self):
+        config = {"model_name": "test-model", "temperature": 0.7}
+        key1 = extract_cache_key(config)
+        key2 = extract_cache_key(config)
+        assert key1 == key2
+
+    def test_different_configs_produce_different_keys(self):
+        config1 = {"model_name": "test-model", "temperature": 0.7}
+        config2 = {"model_name": "test-model", "temperature": 0.8}
+        key1 = extract_cache_key(config1)
+        key2 = extract_cache_key(config2)
+        assert key1 != key2
+
+    def test_same_model_different_settings_produce_different_keys(self):
+        config1 = {
+            "structured_inference_engine": {"model_name": "same-model"},
+            "setting_a": "value1",
+        }
+        config2 = {
+            "structured_inference_engine": {"model_name": "same-model"},
+            "setting_a": "value2",
+        }
+        key1 = extract_cache_key(config1)
+        key2 = extract_cache_key(config2)
+        assert key1 != key2
 
 
 class TestDeciderWorker:
