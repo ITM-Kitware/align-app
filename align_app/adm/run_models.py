@@ -17,7 +17,9 @@ def hash_run_params(
 
     # Exclude alignment_target from resolved_config since it's already in kdma_values
     resolved_config = decider_params.resolved_config or {}
-    config_for_hash = {k: v for k, v in resolved_config.items() if k != "alignment_target"}
+    config_for_hash = {
+        k: v for k, v in resolved_config.items() if k != "alignment_target"
+    }
 
     cache_key_data = {
         "probe_id": probe_id,

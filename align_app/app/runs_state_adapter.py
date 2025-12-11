@@ -449,7 +449,7 @@ class RunsStateAdapter:
         return runs_presentation.export_runs_to_json(self.state.runs)
 
     @trigger("export_runs_zip")
-    def trigger_export_runs_zip(self) -> str:
+    def trigger_export_runs_zip(self) -> bytes:
         return export_runs_to_zip(self.state.runs)
 
     @change("runs")
