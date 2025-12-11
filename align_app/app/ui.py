@@ -777,6 +777,64 @@ class RunNumber:
             RowWithLabel(run_content=run_content, label="Run Number", no_runs=no_runs)
 
 
+class RunsTableModal(html.Div):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VDialog(
+                v_model=("runs_table_modal_open",),
+                fullscreen=True,
+            ):
+                with vuetify3.VCard():
+                    with vuetify3.VToolbar(density="compact"):
+                        vuetify3.VToolbarTitle("All Runs")
+                        vuetify3.VSpacer()
+                        vuetify3.VTextField(
+                            v_model=("runs_table_search",),
+                            placeholder="Search",
+                            prepend_inner_icon="mdi-magnify",
+                            clearable=True,
+                            hide_details=True,
+                            density="compact",
+                            style="max-width: 300px;",
+                            classes="mr-4",
+                        )
+                        with vuetify3.VBtn(
+                            click=(
+                                self.server.controller.add_selected_runs_to_compare,
+                            ),
+                            disabled=("runs_table_selected.length === 0",),
+                            prepend_icon="mdi-plus",
+                        ):
+                            html.Span("Add Selected to Comparison")
+                        with vuetify3.VBtn(
+                            icon=True,
+                            click=(self.server.controller.close_runs_table_modal,),
+                        ):
+                            vuetify3.VIcon("mdi-close")
+                    with vuetify3.VCardText(
+                        classes="pa-0",
+                        style="height: calc(100vh - 64px); overflow: auto;",
+                    ):
+                        vuetify3.VDataTable(
+                            items=("runs_table_items",),
+                            headers=("runs_table_headers",),
+                            model_value=("runs_table_selected",),
+                            update_modelValue=(
+                                self.server.controller.update_runs_table_selected,
+                                "[$event]",
+                            ),
+                            item_value="id",
+                            show_select=True,
+                            hover=True,
+                            search=("runs_table_search",),
+                            click_row=(
+                                self.server.controller.on_table_row_click,
+                                "[$event, item]",
+                            ),
+                        )
+
+
 class ResultsComparison(html.Div):
     def __init__(self, **kwargs):
         super().__init__(classes="d-inline-flex flex-wrap ga-4 pa-1", **kwargs)
@@ -883,6 +941,12 @@ class AlignLayout(SinglePageLayout):
                     with vuetify3.VBtn(icon=True, click=reload):
                         vuetify3.VIcon("mdi-refresh")
                 with vuetify3.VBtn(
+                    click=self.server.controller.open_runs_table_modal,
+                    disabled=("Object.keys(runs).length === 0",),
+                    prepend_icon="mdi-table",
+                ):
+                    html.Span("Browse Runs")
+                with vuetify3.VBtn(
                     click="utils.download('align-app-experiments.zip', trigger('export_runs_zip'), 'application/zip')",
                     disabled=("Object.keys(runs).length === 0",),
                     prepend_icon="mdi-folder-zip",
@@ -914,3 +978,4 @@ class AlignLayout(SinglePageLayout):
                         style="min-width: 100%; width: fit-content; padding: 16px;",
                     ):
                         ResultsComparison()
+                    RunsTableModal()
