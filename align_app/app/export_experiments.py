@@ -1,6 +1,5 @@
 """Export runs as Pydantic Experiment structures in ZIP format."""
 
-import base64
 import io
 import json
 import zipfile
@@ -126,17 +125,17 @@ def _build_experiment_config(
     ]
 
     return {
-        "adm": {**resolved_config, "name": decider_name},
+        "adm": resolved_config,
         "alignment_target": {"id": alignment_target_id, "kdma_values": kdma_values},
     }
 
 
-def export_runs_to_zip(runs_dict: Dict[str, Dict[str, Any]]) -> str:
-    """Export runs to ZIP file as base64-encoded string for browser download."""
+def export_runs_to_zip(runs_dict: Dict[str, Dict[str, Any]]) -> bytes:
+    """Export runs to ZIP file as bytes for browser download."""
     groups = _group_runs_by_experiment(runs_dict)
 
     if not groups:
-        return ""
+        return b""
 
     zip_buffer = io.BytesIO()
 
@@ -163,4 +162,4 @@ def export_runs_to_zip(runs_dict: Dict[str, Dict[str, Any]]) -> str:
             zf.writestr(f"{base_path}/.hydra/config.yaml", config_yaml)
 
     zip_buffer.seek(0)
-    return base64.b64encode(zip_buffer.read()).decode("utf-8")
+    return zip_buffer.read()
