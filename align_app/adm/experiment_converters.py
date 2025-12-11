@@ -53,16 +53,19 @@ def deciders_from_experiments(
 
         if config_hash not in seen_hashes:
             exp_name = exp.experiment_path.parent.name
-            experiment_llm = adm_config.get("structured_inference_engine", {}).get(
-                "model_name"
-            )
 
-            llm_backbones = (
-                [experiment_llm]
-                + [llm for llm in LLM_BACKBONES if llm != experiment_llm]
-                if experiment_llm
-                else list(LLM_BACKBONES)
-            )
+            if "structured_inference_engine" in adm_config:
+                experiment_llm = adm_config["structured_inference_engine"].get(
+                    "model_name"
+                )
+                llm_backbones = (
+                    [experiment_llm]
+                    + [llm for llm in LLM_BACKBONES if llm != experiment_llm]
+                    if experiment_llm
+                    else list(LLM_BACKBONES)
+                )
+            else:
+                llm_backbones = ["no_llm"]
 
             decider_entry = {
                 "experiment_path": str(exp.experiment_path),
