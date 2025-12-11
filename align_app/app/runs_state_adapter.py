@@ -1,12 +1,13 @@
 from typing import Dict, Optional
 from trame.app import asynchronous
-from trame.decorators import TrameApp, controller, change
+from trame.decorators import TrameApp, controller, change, trigger
 from ..adm.run_models import Run
 from .runs_registry import RunsRegistry
 from ..adm.decider.types import DeciderParams
 from ..utils.utils import get_id
 from .runs_presentation import extract_base_scenarios
 from . import runs_presentation
+from .export_experiments import export_runs_to_zip
 from align_utils.models import AlignmentTarget
 
 
@@ -446,6 +447,10 @@ class RunsStateAdapter:
 
     def export_runs_to_json(self) -> str:
         return runs_presentation.export_runs_to_json(self.state.runs)
+
+    @trigger("export_runs_zip")
+    def trigger_export_runs_zip(self) -> str:
+        return export_runs_to_zip(self.state.runs)
 
     @change("runs")
     def update_runs_json(self, **_):
