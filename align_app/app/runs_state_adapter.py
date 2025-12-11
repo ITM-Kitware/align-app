@@ -21,6 +21,17 @@ class RunsStateAdapter:
         self.probe_registry = probe_registry
         self.decider_registry = decider_registry
         self.server.state.pending_cache_keys = []
+        self.server.state.runs_table_modal_open = False
+        self.server.state.runs_table_selected = []
+        self.server.state.runs_table_search = ""
+        self.server.state.runs_table_headers = [
+            {"title": "Scenario", "key": "scenario_id"},
+            {"title": "Scene", "key": "scene_id"},
+            {"title": "Decider", "key": "decider_name"},
+            {"title": "LLM", "key": "llm_backbone_name"},
+            {"title": "Alignment", "key": "alignment_summary"},
+            {"title": "Decision", "key": "decision_text"},
+        ]
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
     @property
@@ -45,6 +56,10 @@ class RunsStateAdapter:
                     )
             new_runs[run_id] = new_run
         self.state.runs = new_runs
+        self.state.runs_table_items = [
+            runs_presentation.run_to_table_row(run_dict)
+            for run_dict in new_runs.values()
+        ]
 
         probes = self.probe_registry.get_probes()
         self.state.base_scenarios = extract_base_scenarios(probes)
@@ -451,6 +466,41 @@ class RunsStateAdapter:
     @trigger("export_runs_zip")
     def trigger_export_runs_zip(self) -> bytes:
         return export_runs_to_zip(self.state.runs)
+
+    @controller.set("update_runs_table_selected")
+    def update_runs_table_selected(self, selected):
+        self.state.runs_table_selected = selected if selected else []
+
+    @controller.set("open_runs_table_modal")
+    def open_runs_table_modal(self):
+        self.state.runs_table_modal_open = True
+
+    @controller.set("close_runs_table_modal")
+    def close_runs_table_modal(self):
+        self.state.runs_table_modal_open = False
+        self.state.runs_table_selected = []
+
+    @controller.set("add_selected_runs_to_compare")
+    def add_selected_runs_to_compare(self):
+        selected = self.state.runs_table_selected
+        if not selected:
+            return
+        selected_ids = [
+            item["id"] if isinstance(item, dict) else item for item in selected
+        ]
+        existing = list(self.state.runs_to_compare)
+        for run_id in selected_ids:
+            if run_id not in existing:
+                existing.append(run_id)
+        self.state.runs_to_compare = existing
+        self.state.runs_table_modal_open = False
+        self.state.runs_table_selected = []
+
+    @controller.set("on_table_row_click")
+    def on_table_row_click(self, _event, item):
+        run_id = item.get("id") if isinstance(item, dict) else item
+        if run_id and run_id not in self.state.runs_to_compare:
+            self.state.runs_to_compare = [*self.state.runs_to_compare, run_id]
 
     @change("runs")
     def update_runs_json(self, **_):
