@@ -49,7 +49,10 @@ def get_decider_config(
     is_experiment_config = decider_cfg.get("experiment_config", False)
 
     if is_edited_config:
-        return copy.deepcopy(decider_cfg["resolved_config"])
+        config = copy.deepcopy(decider_cfg["resolved_config"])
+        if llm_backbone and "structured_inference_engine" in config:
+            config["structured_inference_engine"]["model_name"] = llm_backbone
+        return config
 
     # Layer 1: Load base config - either pre-resolved experiment YAML or Hydra compose.
     # Both produce same structure with ${ref:...} that initialize_with_custom_references handles.
