@@ -249,6 +249,29 @@ def run_to_state_dict(
     return result
 
 
+def run_to_table_row(run_dict: Dict[str, Any]) -> Dict[str, Any]:
+    prompt = run_dict.get("prompt", {})
+    probe = prompt.get("probe", {})
+    decision = run_dict.get("decision")
+
+    alignment_attrs = run_dict.get("alignment_attributes", [])
+    alignment_summary = (
+        ", ".join(f"{a['title']} {a['score']}" for a in alignment_attrs)
+        if alignment_attrs
+        else "None"
+    )
+
+    return {
+        "id": run_dict["id"],
+        "scenario_id": probe.get("scenario_id", ""),
+        "scene_id": probe.get("scene_id", ""),
+        "decider_name": prompt.get("decider_params", {}).get("decider", ""),
+        "llm_backbone_name": prompt.get("decider_params", {}).get("llm_backbone", ""),
+        "alignment_summary": alignment_summary,
+        "decision_text": decision.get("unstructured", "") if decision else "",
+    }
+
+
 def export_runs_to_json(runs_dict: Dict[str, Dict[str, Any]]) -> str:
     exported_runs = []
 
