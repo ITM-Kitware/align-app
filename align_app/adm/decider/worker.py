@@ -10,11 +10,6 @@ from .types import DeciderParams
 
 
 def extract_cache_key(resolved_config: Dict[str, Any]) -> str:
-    engine = resolved_config.get("structured_inference_engine", {})
-    model_name = engine.get("model_name") if isinstance(engine, dict) else None
-    if model_name:
-        return model_name
-
     cache_str = json.dumps(resolved_config, sort_keys=True)
     return hashlib.md5(cache_str.encode()).hexdigest()
 
