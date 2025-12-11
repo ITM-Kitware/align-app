@@ -46,6 +46,7 @@ ProbeRegistry = namedtuple(
         "get_datasets",
         "get_attributes",
         "add_edited_probe",
+        "add_probes",
     ],
 )
 
@@ -146,6 +147,13 @@ def create_probe_registry(scenarios_paths=None):
 
         return new_probe
 
+    def add_probes(new_probes: List[Probe]):
+        """Add probes to registry, skipping duplicates."""
+        for probe in new_probes:
+            if probe.probe_id not in probes:
+                probes[probe.probe_id] = probe
+                datasets["phase2"]["probes"][probe.probe_id] = probe
+
     return ProbeRegistry(
         get_probes=lambda: probes,
         get_dataset_name=get_dataset_name,
@@ -153,4 +161,5 @@ def create_probe_registry(scenarios_paths=None):
         get_datasets=lambda: datasets,
         get_attributes=get_attributes,
         add_edited_probe=add_edited_probe,
+        add_probes=add_probes,
     )

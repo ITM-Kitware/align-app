@@ -1,6 +1,6 @@
 from dataclasses import dataclass, replace
 from typing import Dict, Optional, List
-from .run_models import Run, RunDecision
+from ..adm.run_models import Run, RunDecision
 from ..adm.decider import get_decision
 
 
@@ -20,6 +20,36 @@ def add_run(data: Runs, run: Run) -> Runs:
         cache_key = run.compute_cache_key()
         new_data = add_cached_decision(new_data, cache_key, run.decision)
     return new_data
+
+
+def add_runs_bulk(data: Runs, runs: List[Run]) -> Runs:
+    """Add multiple runs efficiently in a single operation."""
+    new_runs = {**data.runs}
+    new_cache = {**data.decision_cache}
+
+    for run in runs:
+        new_runs[run.id] = run
+        if run.decision:
+            cache_key = run.compute_cache_key()
+            new_cache[cache_key] = run.decision
+
+    return Runs(runs=new_runs, decision_cache=new_cache)
+
+
+def populate_cache_bulk(data: Runs, runs: List[Run]) -> Runs:
+    """Populate decision cache from runs without adding to runs dict.
+
+    Use for pre-computed experiment results that should populate cache
+    but not appear in UI.
+    """
+    new_cache = {**data.decision_cache}
+
+    for run in runs:
+        if run.decision:
+            cache_key = run.compute_cache_key()
+            new_cache[cache_key] = run.decision
+
+    return replace(data, decision_cache=new_cache)
 
 
 def remove_run(data: Runs, run_id: str) -> Runs:
@@ -84,5 +114,5 @@ def init_runs() -> Runs:
     return Runs.empty()
 
 
-def clear_runs(_: Runs) -> Runs:
-    return Runs.empty()
+def clear_runs(data: Runs) -> Runs:
+    return replace(data, runs={})

@@ -1,7 +1,11 @@
 from functools import partial
 from collections import namedtuple
 from typing import Dict, Any
-from .decider_definitions import get_all_deciders, get_system_prompt
+from .decider_definitions import (
+    get_runtime_deciders,
+    get_system_prompt,
+    _BASE_DECIDERS,
+)
 from .config import get_decider_config, _get_dataset_name
 
 
@@ -21,7 +25,7 @@ def _get_decider_options(
         Dict with option fields, or None if decider doesn't exist for probe's dataset
     """
     try:
-        dataset_name = _get_dataset_name(probe_id, datasets)
+        _get_dataset_name(probe_id, datasets)
     except ValueError:
         return None
 
@@ -29,16 +33,9 @@ def _get_decider_options(
     if not decider_cfg:
         return None
 
-    config_overrides = decider_cfg.get("config_overrides", {})
-    dataset_overrides = decider_cfg.get("dataset_overrides", {}).get(dataset_name, {})
-
     metadata = {
         "llm_backbones": decider_cfg.get("llm_backbones", []),
-        "model_path_keys": decider_cfg.get("model_path_keys", []),
-        "max_alignment_attributes": config_overrides.get(
-            "max_alignment_attributes",
-            dataset_overrides.get("max_alignment_attributes", 0),
-        ),
+        "max_alignment_attributes": decider_cfg.get("max_alignment_attributes", 0),
         "config_path": decider_cfg.get("config_path"),
         "exists": True,
     }
@@ -53,16 +50,75 @@ DeciderRegistry = namedtuple(
         "get_decider_options",
         "get_system_prompt",
         "get_all_deciders",
+        "add_edited_decider",
     ],
 )
 
 
-def create_decider_registry(config_paths, scenario_registry):
+def _get_root_decider_name(decider_name: str) -> str:
+    """Extract the root decider name without any ' - edit N' suffix."""
+    import re
+
+    match = re.match(r"^(.+?) - edit \d+$", decider_name)
+    if match:
+        return _get_root_decider_name(match.group(1))
+    return decider_name
+
+
+def _add_edited_decider(
+    base_decider_name: str,
+    resolved_config: Dict[str, Any],
+    llm_backbones: list,
+    all_deciders: Dict[str, Any],
+) -> str:
+    """
+    Add an edited decider to the registry.
+
+    Args:
+        base_decider_name: Original decider name this was edited from
+        resolved_config: The edited resolved config
+        llm_backbones: Available LLM backbones for this decider
+        all_deciders: The mutable deciders dictionary (pre-bound via partial)
+
+    Returns:
+        The new decider name "{root_decider_name} - edit {n}"
+    """
+    root_name = _get_root_decider_name(base_decider_name)
+
+    edit_count = 1
+    for name in all_deciders:
+        if name.startswith(f"{root_name} - edit "):
+            try:
+                n = int(name.split(" - edit ")[-1])
+                edit_count = max(edit_count, n + 1)
+            except ValueError:
+                pass
+
+    new_name = f"{root_name} - edit {edit_count}"
+    all_deciders[new_name] = {
+        "edited_config": True,
+        "resolved_config": resolved_config,
+        "llm_backbones": llm_backbones,
+        "max_alignment_attributes": 10,
+    }
+    return new_name
+
+
+def create_decider_registry(config_paths, scenario_registry, experiment_deciders=None):
     """
     Takes config paths and scenario_registry, returns a DeciderRegistry namedtuple
     with all_deciders and datasets pre-bound using partial application.
+
+    Args:
+        config_paths: List of paths to runtime decider configs
+        scenario_registry: Registry for scenarios/probes
+        experiment_deciders: Optional dict of experiment deciders to merge
     """
-    all_deciders = get_all_deciders(config_paths)
+    all_deciders = {
+        **_BASE_DECIDERS,
+        **(experiment_deciders or {}),
+        **get_runtime_deciders(config_paths),
+    }
     datasets = scenario_registry.get_datasets()
 
     return DeciderRegistry(
@@ -82,4 +138,8 @@ def create_decider_registry(config_paths, scenario_registry):
             datasets=datasets,
         ),
         get_all_deciders=lambda: all_deciders,
+        add_edited_decider=partial(
+            _add_edited_decider,
+            all_deciders=all_deciders,
+        ),
     )

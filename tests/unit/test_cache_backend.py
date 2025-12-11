@@ -2,7 +2,7 @@ from align_utils.models import InputData, AlignmentTarget, KDMAValue
 
 
 def test_hash_run_params_generates_consistent_key():
-    from align_app.app.run_models import hash_run_params
+    from align_app.adm.run_models import hash_run_params
     from align_app.adm.decider.types import DeciderParams
 
     scenario_input = InputData(
@@ -42,7 +42,7 @@ def test_hash_run_params_generates_consistent_key():
 
 
 def test_hash_run_params_different_for_changed_params():
-    from align_app.app.run_models import hash_run_params
+    from align_app.adm.run_models import hash_run_params
     from align_app.adm.decider.types import DeciderParams
 
     scenario_input = InputData(

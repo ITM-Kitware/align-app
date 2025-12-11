@@ -103,7 +103,6 @@ def create_decider_entry(config_path, overrides={}):
     return {
         "config_path": config_path,
         "llm_backbones": LLM_BACKBONES,
-        "model_path_keys": ["structured_inference_engine", "model_name"],
         "dataset_overrides": {},
         **overrides,
     }
@@ -113,9 +112,9 @@ _BASE_DECIDERS = {
     "phase2_pipeline_zeroshot_comparative_regression": create_decider_entry(
         "adm/phase2_pipeline_zeroshot_comparative_regression.yaml",
         {
+            "max_alignment_attributes": 10,
             "config_overrides": {
                 "comparative_regression_choice_schema": {"reasoning_max_length": -1},
-                "max_alignment_attributes": 10,
             },
             "system_prompt_generator": _generate_comparative_regression_pipeline_system_prompt,
         },
@@ -123,9 +122,9 @@ _BASE_DECIDERS = {
     "phase2_pipeline_fewshot_comparative_regression": create_decider_entry(
         "adm/phase2_pipeline_fewshot_comparative_regression.yaml",
         {
+            "max_alignment_attributes": 10,
             "config_overrides": {
                 "comparative_regression_choice_schema": {"reasoning_max_length": -1},
-                "max_alignment_attributes": 10,
                 "step_definitions": {
                     "regression_icl": {
                         "icl_generator_partial": {
@@ -179,13 +178,12 @@ def create_runtime_decider_entry(config_path):
     )
 
 
-def get_all_deciders(config_paths=[]):
-    """Get all deciders, merging runtime configs from paths with base deciders."""
-    runtime_deciders = {
+def get_runtime_deciders(config_paths):
+    """Get runtime deciders from CLI config paths."""
+    return {
         Path(config_path).stem: create_runtime_decider_entry(config_path)
         for config_path in config_paths
     }
-    return {**runtime_deciders, **_BASE_DECIDERS}
 
 
 def get_system_prompt(

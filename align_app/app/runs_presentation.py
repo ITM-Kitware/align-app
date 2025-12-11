@@ -1,17 +1,47 @@
 """Transform domain models to UI state dictionaries and export formats."""
 
 from typing import Dict, Any, List
-from .run_models import Run, RunDecision, hash_run_params
+from ..adm.run_models import Run, RunDecision, hash_run_params
 from .ui import prep_decision_for_state
-from .prompt_logic import (
-    get_llm_backbones_from_config,
-    get_max_alignment_attributes,
-    compute_possible_attributes,
-)
 from ..adm.probe import Probe
 from ..utils.utils import readable
 import json
 import copy
+import yaml
+
+
+def get_max_alignment_attributes(decider_configs: Dict) -> int:
+    if not decider_configs:
+        return 0
+    return decider_configs.get("max_alignment_attributes", 0)
+
+
+def get_llm_backbones_from_config(decider_configs: Dict) -> List[str]:
+    if decider_configs and "llm_backbones" in decider_configs:
+        return decider_configs["llm_backbones"]
+    return ["N/A"]
+
+
+def compute_possible_attributes(
+    all_attrs: Dict, used_attrs: set, descriptions: Dict
+) -> List[Dict]:
+    return [
+        {
+            "value": key,
+            **details,
+            "description": descriptions.get(key, {}).get(
+                "description", f"No description available for {key}"
+            ),
+        }
+        for key, details in all_attrs.items()
+        if key not in used_attrs
+    ]
+
+
+def resolved_config_to_yaml(resolved_config: Dict[str, Any] | None) -> str:
+    if not resolved_config:
+        return ""
+    return yaml.dump(resolved_config, default_flow_style=False, sort_keys=False)
 
 
 def extract_base_scenarios(probes: Dict[str, Probe]) -> List[Dict]:
@@ -62,30 +92,33 @@ def kdma_values_to_alignment_attributes(
     return result
 
 
-def compute_possible_alignment_attributes_for_run(
+def _get_attribute_descriptions(
     run: Run, probe_registry, decider_registry
-) -> List[Dict[str, Any]]:
-    """Compute available alignment attributes not currently in use for a run."""
-    all_attrs = probe_registry.get_attributes(run.probe_id)
-    used_kdmas = {kv.kdma for kv in run.decider_params.alignment_target.kdma_values}
-
-    descriptions = {}
+) -> Dict[str, Any]:
+    """Extract attribute_definitions from decider config."""
     all_deciders = decider_registry.get_all_deciders()
     datasets = probe_registry.get_datasets()
     from ..adm.config import get_decider_config as get_config
 
     config = get_config(run.probe_id, all_deciders, datasets, run.decider_name)
-    if config:
-        from omegaconf import OmegaConf
+    if not config:
+        return {}
 
-        config.pop("instance", None)
-        config.pop("step_definitions", None)
-        resolved = OmegaConf.to_container(
-            OmegaConf.create({"adm": config}), resolve=True
-        )
-        if isinstance(resolved, dict):
-            descriptions = resolved.get("adm", {}).get("attribute_definitions", {})
+    from omegaconf import OmegaConf
 
+    config.pop("instance", None)
+    config.pop("step_definitions", None)
+    resolved = OmegaConf.to_container(OmegaConf.create({"adm": config}), resolve=True)
+    if isinstance(resolved, dict):
+        return resolved.get("adm", {}).get("attribute_definitions", {})
+    return {}
+
+
+def _compute_possible_alignment_attributes(
+    run: Run, all_attrs: Dict, descriptions: Dict
+) -> List[Dict[str, Any]]:
+    """Compute available alignment attributes not currently in use."""
+    used_kdmas = {kv.kdma for kv in run.decider_params.alignment_target.kdma_values}
     possible = compute_possible_attributes(all_attrs, used_kdmas, descriptions)
     return [
         {
@@ -166,28 +199,15 @@ def run_to_state_dict(
 
     if probe_registry and decider_registry:
         all_attrs = probe_registry.get_attributes(run.probe_id)
-        datasets = probe_registry.get_datasets()
-        all_deciders = decider_registry.get_all_deciders()
-
-        from ..adm.config import get_decider_config as get_config
-        from omegaconf import OmegaConf
-
-        descriptions = {}
-        config = get_config(run.probe_id, all_deciders, datasets, run.decider_name)
-        if config:
-            config.pop("instance", None)
-            config.pop("step_definitions", None)
-            resolved = OmegaConf.to_container(
-                OmegaConf.create({"adm": config}), resolve=True
-            )
-            if isinstance(resolved, dict):
-                descriptions = resolved.get("adm", {}).get("attribute_definitions", {})
+        descriptions = _get_attribute_descriptions(
+            run, probe_registry, decider_registry
+        )
 
         alignment_attributes = kdma_values_to_alignment_attributes(
             run.decider_params.alignment_target.kdma_values, all_attrs, descriptions
         )
-        possible_alignment_attributes = compute_possible_alignment_attributes_for_run(
-            run, probe_registry, decider_registry
+        possible_alignment_attributes = _compute_possible_alignment_attributes(
+            run, all_attrs, descriptions
         )
 
     cache_key = hash_run_params(
@@ -200,6 +220,7 @@ def run_to_state_dict(
     result = {
         "id": run.id,
         "cache_key": cache_key,
+        "config_dirty": False,
         "scene_items": scene_items,
         "decider_items": decider_items,
         "llm_backbone_items": llm_backbone_items,
@@ -216,6 +237,9 @@ def run_to_state_dict(
             },
             "system_prompt": system_prompt,
             "resolved_config": run.decider_params.resolved_config,
+            "resolved_config_yaml": resolved_config_to_yaml(
+                run.decider_params.resolved_config
+            ),
             "decider": {"name": run.decider_name},
             "llm_backbone": run.llm_backbone_name,
         },

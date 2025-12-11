@@ -1,11 +1,6 @@
-from typing import Any, Dict, cast
-import copy
 from trame.ui.vuetify3 import SinglePageLayout
 from trame.widgets import vuetify3, html
-from ..adm.types import Prompt, SerializedPrompt, SerializedAlignmentTarget
-from ..adm.probe import Probe as ProbeModel
-from ..utils.utils import noop, readable, readable_sentence, sentence_lines
-from .prompt_logic import get_alignment_descriptions_map
+from ..utils.utils import noop, readable, readable_sentence
 from .unordered_object import (
     UnorderedObject,
     ValueWithProgressBar,
@@ -15,39 +10,17 @@ from .unordered_object import (
 )
 
 
-def serialize_prompt(prompt: Prompt) -> SerializedPrompt:
-    """Serialize a prompt for JSON/state storage, removing non-serializable fields.
-
-    This is THE serialization boundary - converts Probe to dict for UI state.
-    Input: prompt["probe"] is Probe model
-    Output: prompt["probe"] is dict
-    """
-    probe: ProbeModel = prompt["probe"]
-    alignment_target = cast(
-        SerializedAlignmentTarget, prompt["alignment_target"].model_dump()
-    )
-
-    system_prompt: str = prompt.get("system_prompt", "")  # type: ignore[assignment]
-    result: SerializedPrompt = {
-        "probe": probe.to_dict(),
-        "alignment_target": alignment_target,
-        "decider_params": prompt["decider_params"],
-        "system_prompt": system_prompt,
-    }
-
-    return copy.deepcopy(result)
-
-
 def reload(m=None):
     if m:
         m.__loader__.exec_module(m)
 
 
-SENTENCE_KEYS = ["intent", "unstructured"]  # Keys to apply sentence function to
-
 RUN_COLUMN_MIN_WIDTH = "28rem"
 LABEL_COLUMN_WIDTH = "12rem"
 INDICATOR_SPACE = "3rem"
+PENDING_SPINNER_CONDITION = (
+    "pending_cache_keys.includes(runs[id].cache_key) && !runs[id].config_dirty"
+)
 TITLE_TRUNCATE_STYLE = (
     "overflow: hidden; text-overflow: ellipsis; "
     f"white-space: nowrap; width: calc(100% - {INDICATOR_SPACE});"
@@ -106,58 +79,6 @@ class AlignmentInfoRenderer(html.Ul):
                     PerKDMARenderer("value")
                 with html.Template(v_else=True):
                     PlainObjectProperty("value")
-
-
-def readable_probe(probe):
-    full_state = probe.full_state or {}
-    characters = full_state.get("characters", [])
-    readable_characters = [
-        {**c, **{key: sentence_lines(c[key]) for key in SENTENCE_KEYS if key in c}}
-        for c in characters
-    ]
-
-    return {
-        "probe_id": probe.probe_id,
-        "scene_id": probe.scene_id,
-        "scenario_id": probe.scenario_id,
-        "display_state": probe.display_state,
-        "full_state": {**full_state, "characters": readable_characters},
-        "choices": probe.choices,
-        "state": probe.state,
-    }
-
-
-def readable_attribute(kdma_value, descriptions):
-    return {
-        **kdma_value,
-        "description": descriptions.get(kdma_value.get("kdma"), {}).get(
-            "description",
-            f"No description for {kdma_value.get('kdma')}",
-        ),
-        "kdma": readable(kdma_value.get("kdma")),
-        "value": round(kdma_value.get("value"), 2),
-    }
-
-
-def prep_for_state(prompt: Prompt):
-    descriptions = get_alignment_descriptions_map(prompt)
-    p = serialize_prompt(prompt)
-    result: Dict[str, Any] = {
-        **p,
-        "alignment_target": {
-            **p["alignment_target"],
-            "kdma_values": [
-                readable_attribute(a, descriptions)
-                for a in p["alignment_target"]["kdma_values"]
-            ],
-        },
-        "decider_params": {
-            **p["decider_params"],
-            "decider": readable(p["decider_params"]["decider"]),
-        },
-        "probe": readable_probe(prompt["probe"]),
-    }
-    return result
 
 
 def make_keys_readable(obj, max_depth=2, current_depth=0):
@@ -388,21 +309,52 @@ class Decider:
             super().__init__(**kwargs)
 
             def run_content():
-                vuetify3.VSelect(
-                    label="Decider",
-                    items=("runs[id].decider_items",),
-                    model_value=("runs[id].prompt.decider_params.decider",),
-                    update_modelValue=(
-                        self.server.controller.update_run_decider,
-                        r"[id, $event]",
-                    ),
-                    hide_details="auto",
-                )
+                with html.Div(
+                    style=f"width: calc(100% - {INDICATOR_SPACE});",
+                    raw_attrs=["@click.stop", "@mousedown.stop"],
+                ):
+                    vuetify3.VSelect(
+                        label="Decider",
+                        items=("runs[id].decider_items",),
+                        model_value=("runs[id].prompt.decider_params.decider",),
+                        update_modelValue=(
+                            self.server.controller.update_run_decider,
+                            r"[id, $event]",
+                        ),
+                        hide_details="auto",
+                    )
 
             RowWithLabel(
                 run_content=run_content,
                 label="Decider",
                 compare_expr="runs[id].prompt.decider_params.decider",
+            )
+
+    class Text(html.Template):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
+            def run_content():
+                with html.Div(style="align-self: flex-start; width: 100%;"):
+                    vuetify3.VTextarea(
+                        model_value=("runs[id].prompt.resolved_config_yaml",),
+                        update_modelValue=(
+                            self.server.controller.update_run_config_yaml,
+                            r"[id, $event]",
+                        ),
+                        auto_grow=True,
+                        rows=1,
+                        variant="outlined",
+                        density="compact",
+                        hide_details="auto",
+                        classes="config-textarea",
+                        style="font-family: monospace; font-size: 0.85em;",
+                    )
+
+            RowWithLabel(
+                run_content=run_content,
+                label="Config",
+                compare_expr="runs[id].prompt.resolved_config_yaml",
             )
 
 
@@ -680,12 +632,12 @@ class Decision:
             def render_run_decision():
                 html.Div(
                     "{{runs[id].decision.unstructured}}",
-                    v_if=("runs[id].decision",),
+                    v_if=("runs[id].decision && !runs[id].config_dirty",),
                     style=TITLE_TRUNCATE_STYLE,
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
-                        v_if=("pending_cache_keys.includes(runs[id].cache_key)",),
+                        v_if=(PENDING_SPINNER_CONDITION,),
                         indeterminate=True,
                         size=20,
                     )
@@ -730,7 +682,7 @@ class ChoiceInfo:
                 )
                 with html.Template(v_else=True):
                     vuetify3.VProgressCircular(
-                        v_if=("pending_cache_keys.includes(runs[id].cache_key)",),
+                        v_if=(PENDING_SPINNER_CONDITION,),
                         indeterminate=True,
                         size=20,
                     )
@@ -931,11 +883,11 @@ class AlignLayout(SinglePageLayout):
                     with vuetify3.VBtn(icon=True, click=reload):
                         vuetify3.VIcon("mdi-refresh")
                 with vuetify3.VBtn(
-                    click="utils.download('align-app-runs.json', runs_json || '[]', 'application/json')",
+                    click="utils.download('align-app-experiments.zip', trigger('export_runs_zip'), 'application/zip')",
                     disabled=("Object.keys(runs).length === 0",),
-                    prepend_icon="mdi-file-download",
+                    prepend_icon="mdi-folder-zip",
                 ):
-                    html.Span("Export Runs")
+                    html.Span("Export Experiments")
                 with vuetify3.VBtn(
                     click=self.server.controller.reset_state,
                     prepend_icon="mdi-delete-sweep",
@@ -949,6 +901,7 @@ class AlignLayout(SinglePageLayout):
                         "html { overflow: hidden !important; }"
                         ".v-textarea .v-field__input { overflow-y: hidden !important; }"
                         ".v-expansion-panel { max-width: none !important; }"
+                        ".config-textarea textarea { white-space: pre; overflow-x: auto; }"
                         "</style>'"
                     )
                 )
