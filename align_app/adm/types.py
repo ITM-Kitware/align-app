@@ -54,12 +54,20 @@ class DeciderContext(Prompt):
     resolved_config: dict
 
 
+def _alignment_target_id_from_attributes(attributes: List[Attribute]) -> str:
+    """Generate alignment target ID from attributes (e.g., 'affiliation-0.5_merit-0.3')."""
+    if not attributes:
+        return "unknown"
+    parts = [f"{a['type']}-{a['score']}" for a in attributes]
+    return "_".join(sorted(parts))
+
+
 def attributes_to_alignment_target(
     attributes: List[Attribute],
 ) -> AlignmentTarget:
     """Create AlignmentTarget Pydantic model from attributes."""
     return AlignmentTarget(
-        id="ad_hoc",
+        id=_alignment_target_id_from_attributes(attributes),
         kdma_values=[
             KDMAValue(
                 kdma=a["type"],

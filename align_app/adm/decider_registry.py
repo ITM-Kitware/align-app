@@ -25,7 +25,7 @@ def _get_decider_options(
         Dict with option fields, or None if decider doesn't exist for probe's dataset
     """
     try:
-        dataset_name = _get_dataset_name(probe_id, datasets)
+        _get_dataset_name(probe_id, datasets)
     except ValueError:
         return None
 
