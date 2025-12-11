@@ -77,7 +77,7 @@ def test_cache_hit_with_matching_params(single_experiment_path: Path):
     runs_registry.populate_cache_bulk(cached_runs)
 
     ui_alignment_target = AlignmentTarget(
-        id="ad_hoc", kdma_values=[KDMAValue(kdma="affiliation", value=0.0)]
+        id="affiliation-0.0", kdma_values=[KDMAValue(kdma="affiliation", value=0.0)]
     )
 
     ui_run = Run(
@@ -134,7 +134,7 @@ def test_cache_miss_with_different_params(single_experiment_path: Path):
     runs_registry.populate_cache_bulk(cached_runs)
 
     different_alignment_target = AlignmentTarget(
-        id="ad_hoc", kdma_values=[KDMAValue(kdma="affiliation", value=0.5)]
+        id="affiliation-0.5", kdma_values=[KDMAValue(kdma="affiliation", value=0.5)]
     )
 
     ui_run = Run(
@@ -189,7 +189,7 @@ def test_cache_preserved_after_clear_runs(single_experiment_path: Path):
     runs_registry.clear_runs()
 
     ui_alignment_target = AlignmentTarget(
-        id="ad_hoc", kdma_values=[KDMAValue(kdma="affiliation", value=0.0)]
+        id="affiliation-0.0", kdma_values=[KDMAValue(kdma="affiliation", value=0.0)]
     )
 
     ui_run = Run(

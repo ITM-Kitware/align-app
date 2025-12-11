@@ -883,11 +883,11 @@ class AlignLayout(SinglePageLayout):
                     with vuetify3.VBtn(icon=True, click=reload):
                         vuetify3.VIcon("mdi-refresh")
                 with vuetify3.VBtn(
-                    click="utils.download('align-app-runs.json', runs_json || '[]', 'application/json')",
+                    click="utils.download('align-app-experiments.zip', trigger('export_runs_zip'), 'application/zip')",
                     disabled=("Object.keys(runs).length === 0",),
-                    prepend_icon="mdi-file-download",
+                    prepend_icon="mdi-folder-zip",
                 ):
-                    html.Span("Export Runs")
+                    html.Span("Export Experiments")
                 with vuetify3.VBtn(
                     click=self.server.controller.reset_state,
                     prepend_icon="mdi-delete-sweep",
