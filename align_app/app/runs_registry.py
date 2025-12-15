@@ -5,6 +5,7 @@ from ..adm.run_models import Run
 from . import runs_core
 from . import runs_edit_logic
 from ..utils.utils import get_id
+from .import_experiments import StoredExperimentItem, run_from_stored_experiment_item
 
 
 class RunsRegistry:
@@ -12,6 +13,7 @@ class RunsRegistry:
         self._probe_registry = probe_registry
         self._decider_registry = decider_registry
         self._runs = runs_core.init_runs()
+        self._experiment_items: Dict[str, StoredExperimentItem] = {}
 
     def _create_update_method(
         self,
@@ -170,3 +172,30 @@ class RunsRegistry:
         return self._create_update_method(runs_edit_logic.prepare_delete_run_choice)(
             run_id, value
         )
+
+    def add_experiment_items(self, items: Dict[str, StoredExperimentItem]):
+        """Add experiment items (keyed by cache_key)."""
+        self._experiment_items = {**self._experiment_items, **items}
+
+    def get_experiment_item(self, cache_key: str) -> Optional[StoredExperimentItem]:
+        return self._experiment_items.get(cache_key)
+
+    def get_all_experiment_items(self) -> Dict[str, StoredExperimentItem]:
+        return self._experiment_items
+
+    def materialize_experiment_item(self, cache_key: str) -> Optional[Run]:
+        """Convert experiment item to Run on demand. Populates decision cache."""
+        stored = self._experiment_items.get(cache_key)
+        if not stored:
+            return None
+        run = run_from_stored_experiment_item(stored)
+        if run:
+            self._runs = runs_core.add_run(self._runs, run)
+        return run
+
+    def get_run_by_cache_key(self, cache_key: str) -> Optional[Run]:
+        """Find run by cache_key."""
+        for run in self._runs.runs.values():
+            if run.compute_cache_key() == cache_key:
+                return runs_core.apply_cached_decision(self._runs, run)
+        return None

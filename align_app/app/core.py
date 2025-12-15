@@ -7,12 +7,7 @@ from .runs_registry import RunsRegistry
 from .runs_state_adapter import RunsStateAdapter
 from ..adm.decider_registry import create_decider_registry
 from ..adm.probe_registry import create_probe_registry
-from ..adm.experiment_results_registry import create_experiment_results_registry
-from ..adm.experiment_converters import (
-    probes_from_experiment_items,
-    deciders_from_experiments,
-    runs_from_experiment_items,
-)
+from .import_experiments import import_experiments
 
 
 @TrameApp()
@@ -49,38 +44,23 @@ class AlignApp:
 
         self._probe_registry = create_probe_registry(scenarios_paths)
 
-        self._experiment_results_registry = (
-            create_experiment_results_registry(Path(args.experiments))
-            if args.experiments
-            else None
-        )
-
-        experiment_deciders = {}
-        if self._experiment_results_registry:
-            experiment_probes = probes_from_experiment_items(
-                self._experiment_results_registry.get_all_items()
-            )
-            self._probe_registry.add_probes(experiment_probes)
-
-            experiment_deciders = deciders_from_experiments(
-                self._experiment_results_registry.get_experiments()
-            )
+        experiment_result = None
+        if args.experiments:
+            experiment_result = import_experiments(Path(args.experiments))
+            self._probe_registry.add_probes(experiment_result.probes)
 
         self._decider_registry = create_decider_registry(
             args.deciders or [],
             self._probe_registry,
-            experiment_deciders=experiment_deciders,
+            experiment_deciders=experiment_result.deciders if experiment_result else {},
         )
         self._runs_registry = RunsRegistry(
             self._probe_registry,
             self._decider_registry,
         )
 
-        if self._experiment_results_registry:
-            experiment_runs = runs_from_experiment_items(
-                self._experiment_results_registry.get_all_items()
-            )
-            self._runs_registry.populate_cache_bulk(experiment_runs)
+        if experiment_result:
+            self._runs_registry.add_experiment_items(experiment_result.items)
 
         self._runsController = RunsStateAdapter(
             self.server,
