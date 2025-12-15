@@ -3,11 +3,65 @@
 from typing import Dict, Any, List
 from ..adm.run_models import Run, RunDecision, hash_run_params
 from .ui import prep_decision_for_state
-from ..adm.probe import Probe
+from ..adm.probe import Probe, get_probe_id
+from ..adm.decider.types import DeciderParams
 from ..utils.utils import readable
+from align_utils.models import ExperimentItem
 import json
 import copy
 import yaml
+
+
+def compute_experiment_item_cache_key(
+    item: ExperimentItem,
+    resolved_config: Dict[str, Any],
+) -> str:
+    """Compute cache_key for an experiment item (same as Run.compute_cache_key).
+
+    Takes resolved_config as param since it must be loaded while paths are valid.
+    """
+    probe_id = get_probe_id(item.item)
+    decider_name = item.experiment_path.parent.name
+    llm_backbone = item.config.adm.llm_backbone
+
+    decider_params = DeciderParams(
+        scenario_input=item.item.input,
+        alignment_target=item.config.alignment_target,
+        resolved_config=resolved_config,
+    )
+
+    return hash_run_params(probe_id, decider_name, llm_backbone, decider_params)
+
+
+def experiment_item_to_table_row(
+    item: ExperimentItem, cache_key: str
+) -> Dict[str, Any]:
+    """Convert ExperimentItem to table row format."""
+    scene_id = ""
+    if item.item.input.full_state:
+        scene_id = item.item.input.full_state.get("meta_info", {}).get("scene_id", "")
+
+    decision_text = ""
+    if item.item.output:
+        choice_letter = chr(item.item.output.choice + ord("A"))
+        decision_text = f"{choice_letter}. {item.item.output.action.unstructured}"
+
+    kdma_values = item.config.alignment_target.kdma_values
+    alignment_summary = (
+        ", ".join(f"{kv.kdma} {kv.value}" for kv in kdma_values)
+        if kdma_values
+        else "None"
+    )
+
+    return {
+        "id": cache_key,
+        "scenario_id": item.item.input.scenario_id,
+        "scene_id": scene_id,
+        "decider_name": item.config.adm.name,
+        "llm_backbone_name": item.config.adm.llm_backbone,
+        "alignment_summary": alignment_summary,
+        "decision_text": decision_text,
+    }
 
 
 def get_max_alignment_attributes(decider_configs: Dict) -> int:
@@ -262,7 +316,7 @@ def run_to_table_row(run_dict: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     return {
-        "id": run_dict["id"],
+        "id": run_dict["cache_key"],
         "scenario_id": probe.get("scenario_id", ""),
         "scene_id": probe.get("scene_id", ""),
         "decider_name": prompt.get("decider_params", {}).get("decider", ""),
