@@ -59,10 +59,23 @@ class RunsStateAdapter:
                     )
             new_runs[run_id] = new_run
         self.state.runs = new_runs
-        self.state.runs_table_items = [
+
+        run_table_rows = [
             runs_presentation.run_to_table_row(run_dict)
             for run_dict in new_runs.values()
         ]
+
+        active_cache_keys = {run.compute_cache_key() for run in runs_dict.values()}
+        stored_items = self.runs_registry.get_all_experiment_items()
+        experiment_table_rows = [
+            runs_presentation.experiment_item_to_table_row(
+                stored.item, stored.cache_key
+            )
+            for cache_key, stored in stored_items.items()
+            if cache_key not in active_cache_keys
+        ]
+
+        self.state.runs_table_items = run_table_rows + experiment_table_rows
 
         probes = self.probe_registry.get_probes()
         self.state.base_scenarios = extract_base_scenarios(probes)
@@ -488,22 +501,39 @@ class RunsStateAdapter:
         selected = self.state.runs_table_selected
         if not selected:
             return
-        selected_ids = [
-            item["id"] if isinstance(item, dict) else item for item in selected
-        ]
+
         existing = list(self.state.runs_to_compare)
-        for run_id in selected_ids:
-            if run_id not in existing:
-                existing.append(run_id)
+
+        for item in selected:
+            cache_key = item["id"] if isinstance(item, dict) else item
+
+            run = self.runs_registry.get_run_by_cache_key(cache_key)
+
+            if not run:
+                run = self.runs_registry.materialize_experiment_item(cache_key)
+
+            if run and run.id not in existing:
+                existing.append(run.id)
+
         self.state.runs_to_compare = existing
         self.state.runs_table_modal_open = False
         self.state.runs_table_selected = []
+        self._sync_from_runs_data(self.runs_registry.get_all_runs())
 
     @controller.set("on_table_row_click")
     def on_table_row_click(self, _event, item):
-        run_id = item.get("id") if isinstance(item, dict) else item
-        if run_id and run_id not in self.state.runs_to_compare:
-            self.state.runs_to_compare = [*self.state.runs_to_compare, run_id]
+        cache_key = item.get("id") if isinstance(item, dict) else item
+        if not cache_key:
+            return
+
+        run = self.runs_registry.get_run_by_cache_key(cache_key)
+
+        if not run:
+            run = self.runs_registry.materialize_experiment_item(cache_key)
+
+        if run and run.id not in self.state.runs_to_compare:
+            self.state.runs_to_compare = [*self.state.runs_to_compare, run.id]
+            self._sync_from_runs_data(self.runs_registry.get_all_runs())
 
     @change("runs")
     def update_runs_json(self, **_):
@@ -520,17 +550,12 @@ class RunsStateAdapter:
         if not file.content:
             return
 
-        probes, experiment_deciders, runs = import_experiments_from_zip(file.content)
+        result = import_experiments_from_zip(file.content)
 
-        self.probe_registry.add_probes(probes)
-        self.decider_registry.add_deciders(experiment_deciders)
-        self.runs_registry.add_runs_bulk(runs)
+        self.probe_registry.add_probes(result.probes)
+        self.decider_registry.add_deciders(result.deciders)
+        self.runs_registry.add_experiment_items(result.items)
 
         self._sync_from_runs_data(self.runs_registry.get_all_runs())
-
-        if runs:
-            first_run_id = runs[0].id
-            if first_run_id not in self.state.runs_to_compare:
-                self.state.runs_to_compare = [first_run_id]
 
         self.state.import_experiment_file = None
