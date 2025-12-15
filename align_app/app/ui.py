@@ -946,12 +946,23 @@ class AlignLayout(SinglePageLayout):
                     prepend_icon="mdi-table",
                 ):
                     html.Span("Browse Runs")
+                vuetify3.VFileInput(
+                    v_model=("import_experiment_file", None),
+                    accept=".zip",
+                    ref="importFileInput",
+                    style="display: none;",
+                )
+                with vuetify3.VBtn(
+                    click="trame.refs.importFileInput.$el.querySelector('input').click()",
+                    prepend_icon="mdi-upload",
+                ):
+                    html.Span("Load Experiments")
                 with vuetify3.VBtn(
                     click="utils.download('align-app-experiments.zip', trigger('export_runs_zip'), 'application/zip')",
                     disabled=("Object.keys(runs).length === 0",),
-                    prepend_icon="mdi-folder-zip",
+                    prepend_icon="mdi-content-save",
                 ):
-                    html.Span("Export Experiments")
+                    html.Span("Save Experiments")
                 with vuetify3.VBtn(
                     click=self.server.controller.reset_state,
                     prepend_icon="mdi-delete-sweep",
