@@ -65,7 +65,7 @@ def deciders_from_experiments(
                     else list(LLM_BACKBONES)
                 )
             else:
-                llm_backbones = ["no_llm"]
+                llm_backbones = []
 
             decider_entry = {
                 "experiment_path": str(exp.experiment_path),
