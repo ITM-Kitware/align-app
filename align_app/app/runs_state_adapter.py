@@ -1,5 +1,6 @@
 from typing import Dict, Optional
 from trame.app import asynchronous
+from trame.app.file_upload import ClientFile
 from trame.decorators import TrameApp, controller, change, trigger
 from ..adm.run_models import Run
 from .runs_registry import RunsRegistry
@@ -8,6 +9,7 @@ from ..utils.utils import get_id
 from .runs_presentation import extract_base_scenarios
 from . import runs_presentation
 from .export_experiments import export_runs_to_zip
+from .import_experiments import import_experiments_from_zip
 from align_utils.models import AlignmentTarget
 
 
@@ -32,6 +34,7 @@ class RunsStateAdapter:
             {"title": "Alignment", "key": "alignment_summary"},
             {"title": "Decision", "key": "decision_text"},
         ]
+        self.server.state.import_experiment_file = None
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
     @property
@@ -507,3 +510,27 @@ class RunsStateAdapter:
         json_data = self.export_runs_to_json()
         self.state.runs_json = json_data
         self.state.flush()
+
+    @change("import_experiment_file")
+    def on_import_experiment_file(self, import_experiment_file, **_):
+        if import_experiment_file is None:
+            return
+
+        file = ClientFile(import_experiment_file)
+        if not file.content:
+            return
+
+        probes, experiment_deciders, runs = import_experiments_from_zip(file.content)
+
+        self.probe_registry.add_probes(probes)
+        self.decider_registry.add_deciders(experiment_deciders)
+        self.runs_registry.add_runs_bulk(runs)
+
+        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+
+        if runs:
+            first_run_id = runs[0].id
+            if first_run_id not in self.state.runs_to_compare:
+                self.state.runs_to_compare = [first_run_id]
+
+        self.state.import_experiment_file = None
