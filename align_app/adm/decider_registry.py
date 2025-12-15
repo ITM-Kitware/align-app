@@ -51,6 +51,7 @@ DeciderRegistry = namedtuple(
         "get_system_prompt",
         "get_all_deciders",
         "add_edited_decider",
+        "add_deciders",
     ],
 )
 
@@ -121,6 +122,11 @@ def create_decider_registry(config_paths, scenario_registry, experiment_deciders
     }
     datasets = scenario_registry.get_datasets()
 
+    def add_deciders(new_deciders: Dict[str, Any]):
+        for name, entry in new_deciders.items():
+            if name not in all_deciders:
+                all_deciders[name] = entry
+
     return DeciderRegistry(
         get_decider_config=partial(
             get_decider_config,
@@ -142,4 +148,5 @@ def create_decider_registry(config_paths, scenario_registry, experiment_deciders
             _add_edited_decider,
             all_deciders=all_deciders,
         ),
+        add_deciders=add_deciders,
     )
