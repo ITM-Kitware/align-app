@@ -44,21 +44,11 @@ class RunsStateAdapter:
         return self.server.state
 
     def _sync_from_runs_data(self, runs_dict: Dict[str, Run]):
-        old_runs = self.state.runs or {}
         new_runs = {}
         for run_id, run in runs_dict.items():
             new_run = runs_presentation.run_to_state_dict(
                 run, self.probe_registry, self.decider_registry
             )
-            # Preserve UI-only state from existing runs
-            if run_id in old_runs:
-                old_run = old_runs[run_id]
-                if old_run.get("config_dirty"):
-                    new_run["config_dirty"] = True
-                    new_run["prompt"]["resolved_config_yaml"] = old_run["prompt"].get(
-                        "resolved_config_yaml",
-                        new_run["prompt"]["resolved_config_yaml"],
-                    )
             new_runs[run_id] = new_run
         self.state.runs = new_runs
 
@@ -282,7 +272,6 @@ class RunsStateAdapter:
     def update_run_config_yaml(self, run_id: str, yaml_text: str):
         if run_id in self.state.runs:
             self.state.runs[run_id]["prompt"]["resolved_config_yaml"] = yaml_text
-            self.state.runs[run_id]["config_dirty"] = True
             self.state.dirty("runs")
 
     @controller.set("add_run_choice")
@@ -303,11 +292,15 @@ class RunsStateAdapter:
         new_probe_id = self._create_edited_probe_for_run(run_id)
         if not new_probe_id:
             return
-        new_probe = self.probe_registry.get_probe(new_probe_id)
+
         run = self.runs_registry.get_run(run_id)
         if not run:
             return
 
+        if new_probe_id == run.probe_id:
+            return
+
+        new_probe = self.probe_registry.get_probe(new_probe_id)
         updated_params = run.decider_params.model_copy(
             update={"scenario_input": new_probe.item.input}
         )
@@ -326,6 +319,13 @@ class RunsStateAdapter:
             new_run_id if rid == run_id else rid for rid in self.state.runs_to_compare
         ]
         self._sync_from_runs_data(self.runs_registry.get_all_runs())
+
+    @controller.set("check_config_edited")
+    def check_config_edited(self, run_id: str):
+        if not self._is_config_edited(run_id):
+            return
+
+        self._create_run_with_edited_config(run_id)
 
     def _is_probe_edited(self, run_id: str) -> bool:
         """Check if UI state differs from original probe."""
@@ -387,8 +387,9 @@ class RunsStateAdapter:
         return ui_yaml != original_yaml
 
     def _create_run_with_edited_config(self, run_id: str) -> Optional[str]:
-        """Create new run with edited config. Returns new run_id."""
+        """Create new run with edited config. Returns new run_id, or None if no change."""
         import yaml
+        from align_app.adm.decider_registry import _get_root_decider_name
 
         run = self.runs_registry.get_run(run_id)
         if not run:
@@ -403,9 +404,22 @@ class RunsStateAdapter:
             decider_options.get("llm_backbones", []) if decider_options else []
         )
 
-        new_decider_name = self.decider_registry.add_edited_decider(
-            run.decider_name, new_config, llm_backbones
+        root_decider_name = _get_root_decider_name(run.decider_name)
+        root_config = self.decider_registry.get_decider_config(
+            probe_id=run.probe_id,
+            decider=root_decider_name,
+            llm_backbone=run.llm_backbone_name,
         )
+
+        if root_config == new_config:
+            new_decider_name = root_decider_name
+        else:
+            new_decider_name = self.decider_registry.add_edited_decider(
+                run.decider_name, new_config, llm_backbones
+            )
+
+        if new_decider_name == run.decider_name:
+            return None
 
         updated_params = run.decider_params.model_copy(
             update={"resolved_config": new_config}
@@ -453,12 +467,6 @@ class RunsStateAdapter:
                 for rid in self.state.runs_to_compare
             ]
             run_id = updated_run.id
-
-        if self._is_config_edited(run_id):
-            edited_run_id = self._create_run_with_edited_config(run_id)
-            if not edited_run_id:
-                return
-            run_id = edited_run_id
 
         cache_key = self.state.runs.get(run_id, {}).get("cache_key")
 
