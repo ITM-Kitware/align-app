@@ -4,6 +4,7 @@ from trame.app.file_upload import ClientFile
 from trame.decorators import TrameApp, controller, change, trigger
 from ..adm.run_models import Run
 from .runs_registry import RunsRegistry
+from .runs_table_filter import RunsTableFilter
 from ..adm.decider.types import DeciderParams
 from ..utils.utils import get_id
 from .runs_presentation import extract_base_scenarios
@@ -35,6 +36,7 @@ class RunsStateAdapter:
             {"title": "Decision", "key": "decision_text"},
         ]
         self.server.state.import_experiment_file = None
+        self.table_filter = RunsTableFilter(server)
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
     @property
@@ -75,7 +77,7 @@ class RunsStateAdapter:
             if cache_key not in active_cache_keys
         ]
 
-        self.state.runs_table_items = run_table_rows + experiment_table_rows
+        self.table_filter.set_all_rows(run_table_rows + experiment_table_rows)
 
         probes = self.probe_registry.get_probes()
         self.state.base_scenarios = extract_base_scenarios(probes)
