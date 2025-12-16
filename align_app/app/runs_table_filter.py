@@ -1,5 +1,11 @@
+import re
 from typing import List, Dict, Any, Tuple
 from trame.decorators import TrameApp, change
+
+
+def natural_sort_key(s: str) -> list:
+    return [int(c) if c.isdigit() else c.lower() for c in re.split(r"(\d+)", s)]
+
 
 FILTER_COLUMNS = [
     ("runs_table_filter_scenario", "scenario_id"),
@@ -16,22 +22,28 @@ def compute_filter_options(
 ) -> Dict[str, List[str]]:
     return {
         "runs_table_scenario_options": sorted(
-            set(r["scenario_id"] for r in rows if r.get("scenario_id"))
+            set(r["scenario_id"] for r in rows if r.get("scenario_id")),
+            key=natural_sort_key,
         ),
         "runs_table_scene_options": sorted(
-            set(r["scene_id"] for r in rows if r.get("scene_id"))
+            set(r["scene_id"] for r in rows if r.get("scene_id")),
+            key=natural_sort_key,
         ),
         "runs_table_decider_options": sorted(
-            set(r["decider_name"] for r in rows if r.get("decider_name"))
+            set(r["decider_name"] for r in rows if r.get("decider_name")),
+            key=natural_sort_key,
         ),
         "runs_table_llm_options": sorted(
-            set(r["llm_backbone_name"] for r in rows if r.get("llm_backbone_name"))
+            set(r["llm_backbone_name"] for r in rows if r.get("llm_backbone_name")),
+            key=natural_sort_key,
         ),
         "runs_table_alignment_options": sorted(
-            set(r["alignment_summary"] for r in rows if r.get("alignment_summary"))
+            set(r["alignment_summary"] for r in rows if r.get("alignment_summary")),
+            key=natural_sort_key,
         ),
         "runs_table_decision_options": sorted(
-            set(r["decision_text"] for r in rows if r.get("decision_text"))
+            set(r["decision_text"] for r in rows if r.get("decision_text")),
+            key=natural_sort_key,
         ),
     }
 

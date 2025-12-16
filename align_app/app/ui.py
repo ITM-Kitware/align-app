@@ -777,6 +777,38 @@ class RunNumber:
             RowWithLabel(run_content=run_content, label="Run Number", no_runs=no_runs)
 
 
+def sortable_filter_header(key: str, title: str, filter_var: str, options_var: str):
+    """Create a sortable column header with filter dropdown."""
+    with vuetify3.Template(
+        raw_attrs=[
+            f'v-slot:header.{key}="{{ column, isSorted, getSortIcon, toggleSort }}"'
+        ],
+    ):
+        with html.Div(
+            classes="d-flex align-center cursor-pointer",
+            raw_attrs=["@click='toggleSort(column)'"],
+        ):
+            html.Span(title, classes="text-subtitle-2")
+            vuetify3.VIcon(
+                raw_attrs=[
+                    "v-if='isSorted(column)'",
+                    ":icon='getSortIcon(column)'",
+                ],
+                size="small",
+                classes="ml-1",
+            )
+        vuetify3.VSelect(
+            v_model=(filter_var,),
+            items=(options_var,),
+            clearable=True,
+            multiple=True,
+            density="compact",
+            variant="outlined",
+            hide_details=True,
+            raw_attrs=["@click.stop", "@mousedown.stop"],
+        )
+
+
 class RunsTableModal(html.Div):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -835,84 +867,42 @@ class RunsTableModal(html.Div):
                                 "[$event, item]",
                             ),
                         ):
-                            with vuetify3.Template(
-                                raw_attrs=["v-slot:header.scenario_id"],
-                            ):
-                                html.Div("Scenario", classes="text-subtitle-2")
-                                vuetify3.VSelect(
-                                    v_model=("runs_table_filter_scenario",),
-                                    items=("runs_table_scenario_options",),
-                                    clearable=True,
-                                    multiple=True,
-                                    density="compact",
-                                    variant="outlined",
-                                    hide_details=True,
-                                )
-                            with vuetify3.Template(
-                                raw_attrs=["v-slot:header.scene_id"],
-                            ):
-                                html.Div("Scene", classes="text-subtitle-2")
-                                vuetify3.VSelect(
-                                    v_model=("runs_table_filter_scene",),
-                                    items=("runs_table_scene_options",),
-                                    clearable=True,
-                                    multiple=True,
-                                    density="compact",
-                                    variant="outlined",
-                                    hide_details=True,
-                                )
-                            with vuetify3.Template(
-                                raw_attrs=["v-slot:header.decider_name"],
-                            ):
-                                html.Div("Decider", classes="text-subtitle-2")
-                                vuetify3.VSelect(
-                                    v_model=("runs_table_filter_decider",),
-                                    items=("runs_table_decider_options",),
-                                    clearable=True,
-                                    multiple=True,
-                                    density="compact",
-                                    variant="outlined",
-                                    hide_details=True,
-                                )
-                            with vuetify3.Template(
-                                raw_attrs=["v-slot:header.llm_backbone_name"],
-                            ):
-                                html.Div("LLM", classes="text-subtitle-2")
-                                vuetify3.VSelect(
-                                    v_model=("runs_table_filter_llm",),
-                                    items=("runs_table_llm_options",),
-                                    clearable=True,
-                                    multiple=True,
-                                    density="compact",
-                                    variant="outlined",
-                                    hide_details=True,
-                                )
-                            with vuetify3.Template(
-                                raw_attrs=["v-slot:header.alignment_summary"],
-                            ):
-                                html.Div("Alignment", classes="text-subtitle-2")
-                                vuetify3.VSelect(
-                                    v_model=("runs_table_filter_alignment",),
-                                    items=("runs_table_alignment_options",),
-                                    clearable=True,
-                                    multiple=True,
-                                    density="compact",
-                                    variant="outlined",
-                                    hide_details=True,
-                                )
-                            with vuetify3.Template(
-                                raw_attrs=["v-slot:header.decision_text"],
-                            ):
-                                html.Div("Decision", classes="text-subtitle-2")
-                                vuetify3.VSelect(
-                                    v_model=("runs_table_filter_decision",),
-                                    items=("runs_table_decision_options",),
-                                    clearable=True,
-                                    multiple=True,
-                                    density="compact",
-                                    variant="outlined",
-                                    hide_details=True,
-                                )
+                            sortable_filter_header(
+                                "scenario_id",
+                                "Scenario",
+                                "runs_table_filter_scenario",
+                                "runs_table_scenario_options",
+                            )
+                            sortable_filter_header(
+                                "scene_id",
+                                "Scene",
+                                "runs_table_filter_scene",
+                                "runs_table_scene_options",
+                            )
+                            sortable_filter_header(
+                                "decider_name",
+                                "Decider",
+                                "runs_table_filter_decider",
+                                "runs_table_decider_options",
+                            )
+                            sortable_filter_header(
+                                "llm_backbone_name",
+                                "LLM",
+                                "runs_table_filter_llm",
+                                "runs_table_llm_options",
+                            )
+                            sortable_filter_header(
+                                "alignment_summary",
+                                "Alignment",
+                                "runs_table_filter_alignment",
+                                "runs_table_alignment_options",
+                            )
+                            sortable_filter_header(
+                                "decision_text",
+                                "Decision",
+                                "runs_table_filter_decision",
+                                "runs_table_decision_options",
+                            )
 
 
 class ResultsComparison(html.Div):
@@ -1057,6 +1047,9 @@ class AlignLayout(SinglePageLayout):
                         ".v-textarea .v-field__input { overflow-y: hidden !important; }"
                         ".v-expansion-panel { max-width: none !important; }"
                         ".config-textarea textarea { white-space: pre; overflow-x: auto; }"
+                        ".v-data-table table { table-layout: fixed; width: 100%; }"
+                        ".v-data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
+                        ".v-data-table th { vertical-align: top; }"
                         "</style>'"
                     )
                 )
