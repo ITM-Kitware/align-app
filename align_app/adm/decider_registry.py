@@ -66,6 +66,16 @@ def _get_root_decider_name(decider_name: str) -> str:
     return decider_name
 
 
+def _find_matching_decider(
+    resolved_config: Dict[str, Any],
+    all_deciders: Dict[str, Any],
+) -> str | None:
+    for name, entry in all_deciders.items():
+        if entry.get("resolved_config") == resolved_config:
+            return name
+    return None
+
+
 def _add_edited_decider(
     base_decider_name: str,
     resolved_config: Dict[str, Any],
@@ -84,6 +94,10 @@ def _add_edited_decider(
     Returns:
         The new decider name "{root_decider_name} - edit {n}"
     """
+    existing = _find_matching_decider(resolved_config, all_deciders)
+    if existing:
+        return existing
+
     root_name = _get_root_decider_name(base_decider_name)
 
     edit_count = 1
