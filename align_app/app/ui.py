@@ -787,8 +787,17 @@ class RunsTableModal(html.Div):
             ):
                 with vuetify3.VCard():
                     with vuetify3.VToolbar(density="compact"):
-                        vuetify3.VToolbarTitle("All Runs")
+                        vuetify3.VToolbarTitle("Runs")
                         vuetify3.VSpacer()
+                        with vuetify3.VBtn(
+                            click=(
+                                self.server.controller.add_selected_runs_to_compare,
+                            ),
+                            disabled=("runs_table_selected.length === 0",),
+                            prepend_icon="mdi-plus",
+                            classes="mr-4",
+                        ):
+                            html.Span("Add Selected to Comparison")
                         vuetify3.VTextField(
                             v_model=("runs_table_search",),
                             placeholder="Search",
@@ -800,14 +809,6 @@ class RunsTableModal(html.Div):
                             classes="mr-4",
                         )
                         with vuetify3.VBtn(
-                            click=(
-                                self.server.controller.add_selected_runs_to_compare,
-                            ),
-                            disabled=("runs_table_selected.length === 0",),
-                            prepend_icon="mdi-plus",
-                        ):
-                            html.Span("Add Selected to Comparison")
-                        with vuetify3.VBtn(
                             icon=True,
                             click=(self.server.controller.close_runs_table_modal,),
                         ):
@@ -816,7 +817,7 @@ class RunsTableModal(html.Div):
                         classes="pa-0",
                         style="height: calc(100vh - 64px); overflow: auto;",
                     ):
-                        vuetify3.VDataTable(
+                        with vuetify3.VDataTable(
                             items=("runs_table_items",),
                             headers=("runs_table_headers",),
                             model_value=("runs_table_selected",),
@@ -828,11 +829,90 @@ class RunsTableModal(html.Div):
                             show_select=True,
                             hover=True,
                             search=("runs_table_search",),
+                            items_per_page=(100,),
                             click_row=(
                                 self.server.controller.on_table_row_click,
                                 "[$event, item]",
                             ),
-                        )
+                        ):
+                            with vuetify3.Template(
+                                raw_attrs=["v-slot:header.scenario_id"],
+                            ):
+                                html.Div("Scenario", classes="text-subtitle-2")
+                                vuetify3.VSelect(
+                                    v_model=("runs_table_filter_scenario",),
+                                    items=("runs_table_scenario_options",),
+                                    clearable=True,
+                                    multiple=True,
+                                    density="compact",
+                                    variant="outlined",
+                                    hide_details=True,
+                                )
+                            with vuetify3.Template(
+                                raw_attrs=["v-slot:header.scene_id"],
+                            ):
+                                html.Div("Scene", classes="text-subtitle-2")
+                                vuetify3.VSelect(
+                                    v_model=("runs_table_filter_scene",),
+                                    items=("runs_table_scene_options",),
+                                    clearable=True,
+                                    multiple=True,
+                                    density="compact",
+                                    variant="outlined",
+                                    hide_details=True,
+                                )
+                            with vuetify3.Template(
+                                raw_attrs=["v-slot:header.decider_name"],
+                            ):
+                                html.Div("Decider", classes="text-subtitle-2")
+                                vuetify3.VSelect(
+                                    v_model=("runs_table_filter_decider",),
+                                    items=("runs_table_decider_options",),
+                                    clearable=True,
+                                    multiple=True,
+                                    density="compact",
+                                    variant="outlined",
+                                    hide_details=True,
+                                )
+                            with vuetify3.Template(
+                                raw_attrs=["v-slot:header.llm_backbone_name"],
+                            ):
+                                html.Div("LLM", classes="text-subtitle-2")
+                                vuetify3.VSelect(
+                                    v_model=("runs_table_filter_llm",),
+                                    items=("runs_table_llm_options",),
+                                    clearable=True,
+                                    multiple=True,
+                                    density="compact",
+                                    variant="outlined",
+                                    hide_details=True,
+                                )
+                            with vuetify3.Template(
+                                raw_attrs=["v-slot:header.alignment_summary"],
+                            ):
+                                html.Div("Alignment", classes="text-subtitle-2")
+                                vuetify3.VSelect(
+                                    v_model=("runs_table_filter_alignment",),
+                                    items=("runs_table_alignment_options",),
+                                    clearable=True,
+                                    multiple=True,
+                                    density="compact",
+                                    variant="outlined",
+                                    hide_details=True,
+                                )
+                            with vuetify3.Template(
+                                raw_attrs=["v-slot:header.decision_text"],
+                            ):
+                                html.Div("Decision", classes="text-subtitle-2")
+                                vuetify3.VSelect(
+                                    v_model=("runs_table_filter_decision",),
+                                    items=("runs_table_decision_options",),
+                                    clearable=True,
+                                    multiple=True,
+                                    density="compact",
+                                    variant="outlined",
+                                    hide_details=True,
+                                )
 
 
 class ResultsComparison(html.Div):
