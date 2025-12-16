@@ -22,7 +22,7 @@ def compute_experiment_item_cache_key(
     """
     probe_id = get_probe_id(item.item)
     decider_name = item.experiment_path.parent.name
-    llm_backbone = item.config.adm.llm_backbone
+    llm_backbone = item.config.adm.llm_backbone or "N/A"
 
     decider_params = DeciderParams(
         scenario_input=item.item.input,
@@ -58,7 +58,7 @@ def experiment_item_to_table_row(
         "scenario_id": item.item.input.scenario_id,
         "scene_id": scene_id,
         "decider_name": item.config.adm.name,
-        "llm_backbone_name": item.config.adm.llm_backbone,
+        "llm_backbone_name": item.config.adm.llm_backbone or "N/A",
         "alignment_summary": alignment_summary,
         "decision_text": decision_text,
     }
