@@ -161,11 +161,56 @@ class AlignPage:
         expect(listbox).not_to_be_visible()
 
     @property
+    def scenario_panel(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panel")
+            .filter(has=self.page.get_by_role("button").filter(has_text="Scenario"))
+            .first
+        )
+
+    @property
     def scenario_panel_title(self) -> Locator:
-        return self.page.get_by_role("button", name="Scenario")
+        return (
+            self.page.get_by_role("button")
+            .filter(has_text="Scenario")
+            .filter(has=self.page.locator(".v-expansion-panel-title__overlay"))
+        )
+
+    @property
+    def scenario_panel_content(self) -> Locator:
+        return self.scenario_panel.locator(".v-expansion-panel-text")
+
+    @property
+    def situation_textarea(self) -> Locator:
+        return self.scenario_panel_content.locator(
+            ".v-textarea textarea:not(.v-textarea__sizer)"
+        ).first
 
     def expand_scenario_panel(self) -> None:
         expect(self.scenario_panel_title).to_be_visible()
+        is_expanded = self.scenario_panel_title.get_attribute("aria-expanded") == "true"
+        if not is_expanded:
+            expand_icon = self.scenario_panel_title.locator(".mdi-chevron-down")
+            expand_icon.click()
+        expect(self.scenario_panel_title).to_have_attribute("aria-expanded", "true")
+        expect(self.scenario_panel_content).to_be_visible()
+
+    def get_situation_text(self) -> str:
+        expect(self.situation_textarea).to_be_visible()
+        value = self.situation_textarea.input_value()
+        return value if value else ""
+
+    def set_situation_text(self, text: str) -> None:
+        expect(self.situation_textarea).to_be_visible()
+        self.situation_textarea.fill(text)
+
+    def blur_situation_textarea(self) -> None:
+        self.situation_textarea.blur()
+
+    def get_scene_dropdown_value_from_panel(self) -> str:
+        dropdown = self.scenario_panel.get_by_role("combobox").filter(has_text="Scene")
+        value = dropdown.locator("input").input_value()
+        return value if value else ""
 
     @property
     def alignment_panel_title(self) -> Locator:
@@ -247,3 +292,55 @@ class AlignPage:
             if item_text and not any(excl in item_text for excl in exclude):
                 return decider_items.nth(i), item_text
         return None, None
+
+    @property
+    def decider_panel(self) -> Locator:
+        return (
+            self.page.locator(".v-expansion-panel")
+            .filter(has=self.page.get_by_role("button").filter(has_text="Decider"))
+            .first
+        )
+
+    @property
+    def decider_panel_title(self) -> Locator:
+        return (
+            self.page.get_by_role("button")
+            .filter(has_text="Decider")
+            .filter(has=self.page.locator(".v-expansion-panel-title__overlay"))
+        )
+
+    @property
+    def decider_panel_content(self) -> Locator:
+        return self.decider_panel.locator(".v-expansion-panel-text")
+
+    @property
+    def config_textarea(self) -> Locator:
+        return self.decider_panel_content.locator(
+            ".config-textarea textarea:not(.v-textarea__sizer)"
+        )
+
+    def expand_decider_panel(self) -> None:
+        expect(self.decider_panel_title).to_be_visible()
+        is_expanded = self.decider_panel_title.get_attribute("aria-expanded") == "true"
+        if not is_expanded:
+            expand_icon = self.decider_panel_title.locator(".mdi-chevron-down")
+            expand_icon.click()
+        expect(self.decider_panel_title).to_have_attribute("aria-expanded", "true")
+        expect(self.decider_panel_content).to_be_visible()
+
+    def get_config_yaml(self) -> str:
+        expect(self.config_textarea).to_be_visible()
+        value = self.config_textarea.input_value()
+        return value if value else ""
+
+    def set_config_yaml(self, yaml_text: str) -> None:
+        expect(self.config_textarea).to_be_visible()
+        self.config_textarea.fill(yaml_text)
+
+    def blur_config_textarea(self) -> None:
+        self.config_textarea.blur()
+
+    def get_decider_dropdown_value(self) -> str:
+        dropdown = self.decider_panel.get_by_role("combobox").filter(has_text="Decider")
+        value = dropdown.locator("input").input_value()
+        return value if value else ""
