@@ -28,12 +28,12 @@ class RunsStateAdapter:
         self.server.state.runs_table_selected = []
         self.server.state.runs_table_search = ""
         self.server.state.runs_table_headers = [
-            {"title": "Scenario", "key": "scenario_id"},
-            {"title": "Scene", "key": "scene_id"},
-            {"title": "Decider", "key": "decider_name"},
-            {"title": "LLM", "key": "llm_backbone_name"},
-            {"title": "Alignment", "key": "alignment_summary"},
-            {"title": "Decision", "key": "decision_text"},
+            {"title": "Scenario", "key": "scenario_id", "width": "16.66%"},
+            {"title": "Scene", "key": "scene_id", "width": "16.66%"},
+            {"title": "Decider", "key": "decider_name", "width": "16.66%"},
+            {"title": "LLM", "key": "llm_backbone_name", "width": "16.66%"},
+            {"title": "Alignment", "key": "alignment_summary", "width": "16.66%"},
+            {"title": "Decision", "key": "decision_text", "width": "16.66%"},
         ]
         self.server.state.import_experiment_file = None
         self.table_filter = RunsTableFilter(server)
