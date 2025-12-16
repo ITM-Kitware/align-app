@@ -120,7 +120,7 @@ def run_from_stored_experiment_item(stored: StoredExperimentItem) -> Optional[Ru
         id=str(uuid.uuid4()),
         probe_id=probe_id,
         decider_name=decider_name,
-        llm_backbone_name=item.config.adm.llm_backbone,
+        llm_backbone_name=item.config.adm.llm_backbone or "N/A",
         system_prompt="",
         decider_params=decider_params,
         decision=decision,
