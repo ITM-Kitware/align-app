@@ -139,7 +139,7 @@ def run_from_experiment_item(item: ExperimentItem) -> Optional[Run]:
         id=str(uuid.uuid4()),
         probe_id=probe_id,
         decider_name=decider_name,
-        llm_backbone_name=item.config.adm.llm_backbone,
+        llm_backbone_name=item.config.adm.llm_backbone or "N/A",
         system_prompt="",
         decider_params=decider_params,
         decision=decision,
