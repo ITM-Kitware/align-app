@@ -109,11 +109,40 @@ def create_probe_registry(scenarios_paths=None):
         dataset_info = datasets[dataset_name]
         return dataset_info.get("attributes", {})
 
+    def _probes_content_equal(
+        probe: Probe, edited_text: str, edited_choices: List[Dict[str, Any]]
+    ) -> bool:
+        if probe.display_state != edited_text:
+            return False
+        probe_choices = probe.choices or []
+        if len(probe_choices) != len(edited_choices):
+            return False
+        for pc, ec in zip(probe_choices, edited_choices):
+            if pc.get("unstructured") != ec.get("unstructured"):
+                return False
+        return True
+
+    def _find_matching_probe(
+        scenario_id: str, edited_text: str, edited_choices: List[Dict[str, Any]]
+    ) -> Probe | None:
+        for probe in probes.values():
+            if probe.scenario_id != scenario_id:
+                continue
+            if _probes_content_equal(probe, edited_text, edited_choices):
+                return probe
+        return None
+
     def add_edited_probe(
         base_probe_id: str, edited_text: str, edited_choices: List[Dict[str, Any]]
     ) -> Probe:
         """Create new probe with edited content and -edit-N suffix."""
         base_probe = get_probe(base_probe_id)
+
+        existing = _find_matching_probe(
+            base_probe.scenario_id, edited_text, edited_choices
+        )
+        if existing:
+            return existing
 
         base_scene = base_probe.scene_id.split(" edit ")[0]
         edit_num = 1

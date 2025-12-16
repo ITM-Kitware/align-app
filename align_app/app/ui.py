@@ -18,9 +18,7 @@ def reload(m=None):
 RUN_COLUMN_MIN_WIDTH = "28rem"
 LABEL_COLUMN_WIDTH = "12rem"
 INDICATOR_SPACE = "3rem"
-PENDING_SPINNER_CONDITION = (
-    "pending_cache_keys.includes(runs[id].cache_key) && !runs[id].config_dirty"
-)
+PENDING_SPINNER_CONDITION = "pending_cache_keys.includes(runs[id].cache_key)"
 TITLE_TRUNCATE_STYLE = (
     "overflow: hidden; text-overflow: ellipsis; "
     f"white-space: nowrap; width: calc(100% - {INDICATOR_SPACE});"
@@ -335,13 +333,15 @@ class Decider:
             super().__init__(**kwargs)
 
             def run_content():
+                ctrl = self.server.controller
                 with html.Div(style="align-self: flex-start; width: 100%;"):
                     vuetify3.VTextarea(
                         model_value=("runs[id].prompt.resolved_config_yaml",),
                         update_modelValue=(
-                            self.server.controller.update_run_config_yaml,
+                            ctrl.update_run_config_yaml,
                             r"[id, $event]",
                         ),
+                        blur=(ctrl.check_config_edited, "[id]"),
                         auto_grow=True,
                         rows=1,
                         variant="outlined",
@@ -493,15 +493,6 @@ class SystemPrompt:
             )
 
 
-class ProbeLayout:
-    def __init__(self, probe):
-        html.Div("Situation", classes="text-h6")
-        html.P(f"{{{{{probe}.display_state}}}}", style="white-space: pre-wrap;")
-        html.Div("Choices", classes="text-h6 pt-4")
-        with html.Ol(classes="ml-8", type="A"):
-            html.Li("{{choice.unstructured}}", v_for=(f"choice in {probe}.choices"))
-
-
 class EditableProbeLayoutForRun:
     def __init__(self, server):
         ctrl = server.controller
@@ -632,7 +623,7 @@ class Decision:
             def render_run_decision():
                 html.Div(
                     "{{runs[id].decision.unstructured}}",
-                    v_if=("runs[id].decision && !runs[id].config_dirty",),
+                    v_if=("runs[id].decision",),
                     style=TITLE_TRUNCATE_STYLE,
                 )
                 with html.Template(v_else=True):
@@ -918,20 +909,6 @@ class ResultsComparison(html.Div):
                 PanelSection(child=LlmBackbone)
                 PanelSection(child=Decision)
                 PanelSection(child=ChoiceInfo)
-
-
-class ProbePanel(vuetify3.VExpansionPanel):
-    def __init__(self, probe, **kwargs):
-        super().__init__(**kwargs)
-        with self:
-            with vuetify3.VExpansionPanelTitle():
-                with html.Div(classes="text-subtitle-1 text-no-wrap text-truncate"):
-                    html.Span(
-                        f"{{{{{probe}.probe_id}}}} - "
-                        f"{{{{{probe}.full_state.unstructured}}}}",
-                    )
-            with vuetify3.VExpansionPanelText():
-                ProbeLayout(probe)
 
 
 class RunSearchField(html.Div):
