@@ -794,10 +794,21 @@ def sortable_filter_header(key: str, title: str, filter_var: str, options_var: s
             clearable=True,
             multiple=True,
             density="compact",
-            variant="outlined",
             hide_details=True,
             raw_attrs=["@click.stop", "@mousedown.stop"],
         )
+
+
+def cell_with_tooltip(key: str):
+    """Create cell template with native title tooltip."""
+    with html.Template(raw_attrs=[f'v-slot:item.{key}="{{ item }}"']):
+        html.Span(f"{{{{ item.{key} }}}}", v_bind_title=f"item.{key}")
+
+
+def filterable_column(key: str, title: str, filter_var: str, options_var: str):
+    """Create sortable column header with filter and cell tooltip."""
+    sortable_filter_header(key, title, filter_var, options_var)
+    cell_with_tooltip(key)
 
 
 class RunsTableModal(html.Div):
@@ -858,37 +869,38 @@ class RunsTableModal(html.Div):
                                 "[$event, item]",
                             ),
                         ):
-                            sortable_filter_header(
+                            filterable_column(
                                 "scenario_id",
                                 "Scenario",
                                 "runs_table_filter_scenario",
                                 "runs_table_scenario_options",
                             )
-                            sortable_filter_header(
+                            filterable_column(
                                 "scene_id",
                                 "Scene",
                                 "runs_table_filter_scene",
                                 "runs_table_scene_options",
                             )
-                            sortable_filter_header(
+                            cell_with_tooltip("probe_text")
+                            filterable_column(
                                 "decider_name",
                                 "Decider",
                                 "runs_table_filter_decider",
                                 "runs_table_decider_options",
                             )
-                            sortable_filter_header(
+                            filterable_column(
                                 "llm_backbone_name",
                                 "LLM",
                                 "runs_table_filter_llm",
                                 "runs_table_llm_options",
                             )
-                            sortable_filter_header(
+                            filterable_column(
                                 "alignment_summary",
                                 "Alignment",
                                 "runs_table_filter_alignment",
                                 "runs_table_alignment_options",
                             )
-                            sortable_filter_header(
+                            filterable_column(
                                 "decision_text",
                                 "Decision",
                                 "runs_table_filter_decision",
