@@ -38,8 +38,10 @@ def experiment_item_to_table_row(
 ) -> Dict[str, Any]:
     """Convert ExperimentItem to table row format."""
     scene_id = ""
+    display_state = ""
     if item.item.input.full_state:
         scene_id = item.item.input.full_state.get("meta_info", {}).get("scene_id", "")
+        display_state = item.item.input.full_state.get("unstructured", "") or ""
 
     decision_text = ""
     if item.item.output:
@@ -53,14 +55,20 @@ def experiment_item_to_table_row(
         else "None"
     )
 
+    choices = item.item.input.choices or []
+    choice_texts = " ".join(c.get("unstructured", "") for c in choices)
+    searchable_text = f"{display_state} {choice_texts}"
+
     return {
         "id": cache_key,
         "scenario_id": item.item.input.scenario_id,
         "scene_id": scene_id,
+        "probe_text": display_state,
         "decider_name": item.config.adm.name,
         "llm_backbone_name": item.config.adm.llm_backbone or "N/A",
         "alignment_summary": alignment_summary,
         "decision_text": decision_text,
+        "searchable_text": searchable_text,
     }
 
 
@@ -314,14 +322,21 @@ def run_to_table_row(run_dict: Dict[str, Any]) -> Dict[str, Any]:
         else "None"
     )
 
+    display_state = probe.get("display_state", "") or ""
+    choices = probe.get("choices", []) or []
+    choice_texts = " ".join(c.get("unstructured", "") for c in choices)
+    searchable_text = f"{display_state} {choice_texts}"
+
     return {
         "id": run_dict["cache_key"],
         "scenario_id": probe.get("scenario_id", ""),
         "scene_id": probe.get("scene_id", ""),
+        "probe_text": display_state,
         "decider_name": prompt.get("decider_params", {}).get("decider", ""),
         "llm_backbone_name": prompt.get("decider_params", {}).get("llm_backbone", ""),
         "alignment_summary": alignment_summary,
         "decision_text": decision.get("unstructured", "") if decision else "",
+        "searchable_text": searchable_text,
     }
 
 
