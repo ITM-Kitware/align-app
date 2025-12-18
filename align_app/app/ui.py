@@ -842,6 +842,27 @@ class RunsTableModal(html.Div):
                             classes="mr-4",
                         ):
                             html.Span("Save Selected")
+                        vuetify3.VFileInput(
+                            v_model=("import_experiment_file", None),
+                            accept=".zip",
+                            ref="tableImportFileInput",
+                            style="display: none;",
+                        )
+                        with vuetify3.VBtn(
+                            click=(
+                                "trame.refs.tableImportFileInput.$el"
+                                ".querySelector('input').click()"
+                            ),
+                            prepend_icon="mdi-upload",
+                            classes="mr-4",
+                        ):
+                            html.Span("Load Experiments")
+                        with vuetify3.VBtn(
+                            click=self.server.controller.clear_all_runs,
+                            prepend_icon="mdi-delete-sweep",
+                            classes="mr-4",
+                        ):
+                            html.Span("Clear All")
                         vuetify3.VTextField(
                             v_model=("runs_table_search",),
                             placeholder="Search",
