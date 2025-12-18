@@ -494,6 +494,26 @@ class RunsStateAdapter:
     def trigger_export_runs_zip(self) -> bytes:
         return export_runs_to_zip(self.state.runs)
 
+    @trigger("export_selected_runs_zip")
+    def trigger_export_selected_runs_zip(self) -> bytes:
+        selected = self.state.runs_table_selected
+        if not selected:
+            return b""
+
+        selected_runs = {}
+        for item in selected:
+            cache_key = item["id"] if isinstance(item, dict) else item
+            run = self.runs_registry.get_run_by_cache_key(cache_key)
+            if not run:
+                run = self.runs_registry.materialize_experiment_item(cache_key)
+            if run:
+                run_dict = runs_presentation.run_to_state_dict(
+                    run, self.probe_registry, self.decider_registry
+                )
+                selected_runs[run.id] = run_dict
+
+        return export_runs_to_zip(selected_runs)
+
     @controller.set("update_runs_table_selected")
     def update_runs_table_selected(self, selected):
         self.state.runs_table_selected = selected if selected else []
