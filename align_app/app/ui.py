@@ -832,6 +832,16 @@ class RunsTableModal(html.Div):
                             classes="mr-4",
                         ):
                             html.Span("Add Selected to Comparison")
+                        with vuetify3.VBtn(
+                            click=(
+                                "utils.download('align-app-experiments.zip', "
+                                "trigger('export_selected_runs_zip'), 'application/zip')"
+                            ),
+                            disabled=("runs_table_selected.length === 0",),
+                            prepend_icon="mdi-content-save",
+                            classes="mr-4",
+                        ):
+                            html.Span("Save Selected")
                         vuetify3.VTextField(
                             v_model=("runs_table_search",),
                             placeholder="Search",
