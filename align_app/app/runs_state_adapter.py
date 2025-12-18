@@ -84,6 +84,14 @@ class RunsStateAdapter:
         self._sync_from_runs_data({})
         self.create_default_run()
 
+    @controller.set("clear_all_runs")
+    def clear_all_runs(self):
+        self.runs_registry.clear_all()
+        self._sync_from_runs_data({})
+        self.state.runs_to_compare = []
+        self.state.runs_table_selected = []
+        self.create_default_run()
+
     def create_default_run(self):
         probes = self.probe_registry.get_probes()
         if not probes:
