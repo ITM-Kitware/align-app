@@ -116,3 +116,7 @@ def init_runs() -> Runs:
 
 def clear_runs(data: Runs) -> Runs:
     return replace(data, runs={})
+
+
+def clear_all(data: Runs) -> Runs:
+    return Runs.empty()
