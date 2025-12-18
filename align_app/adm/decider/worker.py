@@ -1,3 +1,4 @@
+import gc
 import hashlib
 import json
 import logging
@@ -27,6 +28,19 @@ def decider_worker_func(task_queue: Queue, result_queue: Queue):
                 cache_key = extract_cache_key(params.resolved_config)
 
                 if cache_key not in model_cache:
+                    old_cleanups = [cleanup for _, (_, cleanup) in model_cache.items()]
+                    model_cache.clear()
+                    for cleanup in old_cleanups:
+                        cleanup()
+                    del old_cleanups
+
+                    import torch
+
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                        torch.cuda.empty_cache()
+
                     choose_action_func, cleanup_func = instantiate_adm(
                         params.resolved_config
                     )
