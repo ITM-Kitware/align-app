@@ -1,5 +1,4 @@
 from typing import Any, Tuple
-import gc
 from functools import partial
 from align_system.utils.hydra_utils import initialize_with_custom_references
 from align_system.utils.hydrate_state import p2triage_hydrate_scenario_state
@@ -94,10 +93,17 @@ def instantiate_adm(decider_config):
 
     adm = initialize_with_custom_references({"adm": decider_config})["adm"]
 
-    def cleanup(_):
-        import torch
-
-        gc.collect()
-        torch.cuda.empty_cache()
+    def cleanup(model):
+        if hasattr(model, "instance"):
+            instance = model.instance
+            if hasattr(instance, "steps"):
+                for step in instance.steps:
+                    if hasattr(step, "structured_inference_engine"):
+                        engine = step.structured_inference_engine
+                        if hasattr(engine, "model") and engine.model is not None:
+                            del engine.model
+                        if hasattr(engine, "sampler"):
+                            del engine.sampler
+                instance.steps.clear()
 
     return partial(choose_action, adm), partial(cleanup, adm)
