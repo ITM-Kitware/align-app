@@ -109,6 +109,10 @@ class RunsRegistry:
         self._runs = runs_core.clear_runs(self._runs)
         return self._runs
 
+    def clear_all(self):
+        self._runs = runs_core.init_runs()
+        self._experiment_items = {}
+
     def update_run_scene(self, run_id: str, value: Any) -> Optional[Run]:
         return self._create_update_method(runs_edit_logic.prepare_scene_update)(
             run_id, value
