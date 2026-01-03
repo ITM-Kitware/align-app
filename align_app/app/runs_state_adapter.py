@@ -598,3 +598,20 @@ class RunsStateAdapter:
         self._sync_from_runs_data(self.runs_registry.get_all_runs())
 
         self.state.import_experiment_file = None
+
+    @trigger("import_directory_files")
+    def trigger_import_directory_files(self, files_data):
+        import io
+        import zipfile
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_info in files_data:
+                zf.writestr(file_info["path"], bytes(file_info["content"]))
+        zip_buffer.seek(0)
+
+        result = import_experiments_from_zip(zip_buffer.read())
+        self.probe_registry.add_probes(result.probes)
+        self.decider_registry.add_deciders(result.deciders)
+        self.runs_registry.add_experiment_items(result.items)
+        self._sync_from_runs_data(self.runs_registry.get_all_runs())
