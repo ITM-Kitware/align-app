@@ -615,3 +615,11 @@ class RunsStateAdapter:
         self.decider_registry.add_deciders(result.deciders)
         self.runs_registry.add_experiment_items(result.items)
         self._sync_from_runs_data(self.runs_registry.get_all_runs())
+
+    @trigger("import_zip_bytes")
+    def trigger_import_zip_bytes(self, zip_content):
+        result = import_experiments_from_zip(bytes(zip_content))
+        self.probe_registry.add_probes(result.probes)
+        self.decider_registry.add_deciders(result.deciders)
+        self.runs_registry.add_experiment_items(result.items)
+        self._sync_from_runs_data(self.runs_registry.get_all_runs())
