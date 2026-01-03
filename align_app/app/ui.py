@@ -848,15 +848,51 @@ class RunsTableModal(html.Div):
                             ref="tableImportFileInput",
                             style="display: none;",
                         )
-                        with vuetify3.VBtn(
-                            click=(
-                                "trame.refs.tableImportFileInput.$el"
-                                ".querySelector('input').click()"
-                            ),
-                            prepend_icon="mdi-upload",
-                            classes="mr-4",
-                        ):
-                            html.Span("Load Experiments")
+                        html.Input(
+                            type="file",
+                            ref="tableDirInput",
+                            style="display: none;",
+                            raw_attrs=[
+                                "webkitdirectory",
+                                "directory",
+                                (
+                                    '@change="if($event && $event.target && $event.target.files) {'
+                                    "(async (files) => {"
+                                    "const data = [];"
+                                    "const U8 = utils.get('Uint8Array');"
+                                    "for (let i = 0; i < files.length; i++) {"
+                                    "const f = files[i];"
+                                    "const buf = await f.arrayBuffer();"
+                                    "data.push({path: f.webkitRelativePath, content: Array.from(new U8(buf))});"
+                                    "}"
+                                    "trigger('import_directory_files', [data]);"
+                                    "})($event.target.files);"
+                                    '}"'
+                                ),
+                            ],
+                        )
+                        with vuetify3.VMenu():
+                            with vuetify3.Template(v_slot_activator="{ props }"):
+                                with vuetify3.VBtn(
+                                    v_bind="props",
+                                    prepend_icon="mdi-upload",
+                                    classes="mr-4",
+                                ):
+                                    html.Span("Load Experiments")
+                            with vuetify3.VList(density="compact"):
+                                vuetify3.VListItem(
+                                    title="From Zip File",
+                                    prepend_icon="mdi-zip-box",
+                                    click=(
+                                        "trame.refs.tableImportFileInput.$el"
+                                        ".querySelector('input').click()"
+                                    ),
+                                )
+                                vuetify3.VListItem(
+                                    title="From Directory",
+                                    prepend_icon="mdi-folder-open",
+                                    click="trame.refs.tableDirInput.click()",
+                                )
                         with vuetify3.VBtn(
                             click=self.server.controller.clear_all_runs,
                             prepend_icon="mdi-delete-sweep",
@@ -1042,11 +1078,44 @@ class AlignLayout(SinglePageLayout):
                     ref="importFileInput",
                     style="display: none;",
                 )
-                with vuetify3.VBtn(
-                    click="trame.refs.importFileInput.$el.querySelector('input').click()",
-                    prepend_icon="mdi-upload",
-                ):
-                    html.Span("Load Experiments")
+                html.Input(
+                    type="file",
+                    ref="dirInput",
+                    style="display: none;",
+                    raw_attrs=[
+                        "webkitdirectory",
+                        "directory",
+                        (
+                            '@change="if($event && $event.target && $event.target.files) {'
+                            "(async (files) => {"
+                            "const data = [];"
+                            "const U8 = utils.get('Uint8Array');"
+                            "for (let i = 0; i < files.length; i++) {"
+                            "const f = files[i];"
+                            "const buf = await f.arrayBuffer();"
+                            "data.push({path: f.webkitRelativePath, content: Array.from(new U8(buf))});"
+                            "}"
+                            "trigger('import_directory_files', [data]);"
+                            "})($event.target.files);"
+                            '}"'
+                        ),
+                    ],
+                )
+                with vuetify3.VMenu():
+                    with vuetify3.Template(v_slot_activator="{ props }"):
+                        with vuetify3.VBtn(v_bind="props", prepend_icon="mdi-upload"):
+                            html.Span("Load Experiments")
+                    with vuetify3.VList(density="compact"):
+                        vuetify3.VListItem(
+                            title="From Zip File",
+                            prepend_icon="mdi-zip-box",
+                            click="trame.refs.importFileInput.$el.querySelector('input').click()",
+                        )
+                        vuetify3.VListItem(
+                            title="From Directory",
+                            prepend_icon="mdi-folder-open",
+                            click="trame.refs.dirInput.click()",
+                        )
                 with vuetify3.VBtn(
                     click="utils.download('align-app-experiments.zip', trigger('export_runs_zip'), 'application/zip')",
                     disabled=("Object.keys(runs).length === 0",),
