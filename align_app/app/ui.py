@@ -38,6 +38,55 @@ CHOICE_INFO_DESCRIPTIONS = {
     "Per step timing stats": "Seconds each pipeline ADM step in the took to execute",
 }
 
+DROP_HANDLER_JS = """
+isDragging = false;
+(async (e) => {
+    const U8 = utils.get('Uint8Array');
+    const P = utils.get('Promise');
+    const FR = utils.get('FileReader');
+
+    const readFile = (entry) => new P((resolve) => {
+        entry.file((f) => {
+            const reader = new FR();
+            reader.onload = () => resolve({
+                path: entry.fullPath.slice(1),
+                content: Array.from(new U8(reader.result))
+            });
+            reader.readAsArrayBuffer(f);
+        });
+    });
+
+    const readDir = async (dir) => {
+        const files = [];
+        const reader = dir.createReader();
+        const readBatch = () => new P((resolve) => reader.readEntries(resolve));
+        let batch;
+        while ((batch = await readBatch()).length > 0) {
+            for (const entry of batch) {
+                if (entry.isFile) files.push(await readFile(entry));
+                else if (entry.isDirectory) files.push(...await readDir(entry));
+            }
+        }
+        return files;
+    };
+
+    for (const item of e.dataTransfer.items) {
+        const entry = item.webkitGetAsEntry();
+        if (!entry) continue;
+        if (entry.isFile) {
+            const file = item.getAsFile();
+            if (file.name.endsWith('.zip')) {
+                const buf = await file.arrayBuffer();
+                trigger('import_zip_bytes', [Array.from(new U8(buf))]);
+            }
+        } else if (entry.isDirectory) {
+            const files = await readDir(entry);
+            trigger('import_directory_files', [files]);
+        }
+    }
+})($event)
+""".strip().replace("\n", " ")
+
 
 class PerKDMARenderer(html.Ul):
     def __init__(self, per_kdma_expr, **kwargs):
@@ -1153,48 +1202,7 @@ class AlignLayout(SinglePageLayout):
                     raw_attrs=[
                         '@dragover.prevent="isDragging = true"',
                         '@dragleave.prevent="isDragging = false"',
-                        (
-                            '@drop.prevent="isDragging = false; '
-                            "(async (e) => {"
-                            "const U8 = utils.get('Uint8Array');"
-                            "const P = utils.get('Promise');"
-                            "const FR = utils.get('FileReader');"
-                            "const readFile = (entry) => new P((resolve) => {"
-                            "entry.file((f) => {"
-                            "const reader = new FR();"
-                            "reader.onload = () => resolve({path: entry.fullPath.slice(1), content: Array.from(new U8(reader.result))});"
-                            "reader.readAsArrayBuffer(f);"
-                            "});"
-                            "});"
-                            "const readDir = async (dir) => {"
-                            "const files = [];"
-                            "const reader = dir.createReader();"
-                            "const readBatch = () => new P((resolve) => reader.readEntries(resolve));"
-                            "let batch;"
-                            "while ((batch = await readBatch()).length > 0) {"
-                            "for (const entry of batch) {"
-                            "if (entry.isFile) files.push(await readFile(entry));"
-                            "else if (entry.isDirectory) files.push(...await readDir(entry));"
-                            "}"
-                            "}"
-                            "return files;"
-                            "};"
-                            "for (const item of e.dataTransfer.items) {"
-                            "const entry = item.webkitGetAsEntry();"
-                            "if (!entry) continue;"
-                            "if (entry.isFile) {"
-                            "const file = item.getAsFile();"
-                            "if (file.name.endsWith('.zip')) {"
-                            "const buf = await file.arrayBuffer();"
-                            "trigger('import_zip_bytes', [Array.from(new U8(buf))]);"
-                            "}"
-                            "} else if (entry.isDirectory) {"
-                            "const files = await readDir(entry);"
-                            "trigger('import_directory_files', [files]);"
-                            "}"
-                            "}"
-                            '})($event)"'
-                        ),
+                        f'@drop.prevent="{DROP_HANDLER_JS}"',
                     ],
                 ):
                     with html.Div(
