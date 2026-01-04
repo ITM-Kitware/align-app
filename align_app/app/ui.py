@@ -985,6 +985,18 @@ class RunsTableModal(html.Div):
                                 "[$event, item]",
                             ),
                         ):
+                            with html.Template(
+                                raw_attrs=['v-slot:item.in_comparison="{ item }"']
+                            ):
+                                with html.Span(style="font-size: 12px;"):
+                                    vuetify3.VIcon(
+                                        "mdi-eye",
+                                        size="12",
+                                        v_if=(
+                                            "runs_to_compare.some("
+                                            "rid => runs[rid]?.cache_key === item.id)"
+                                        ),
+                                    )
                             filterable_column(
                                 "scenario_id",
                                 "Scenario",
