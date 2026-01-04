@@ -28,6 +28,7 @@ class RunsStateAdapter:
         self.server.state.runs_table_selected = []
         self.server.state.runs_table_search = ""
         self.server.state.runs_table_headers = [
+            {"title": "", "key": "in_comparison", "sortable": False, "width": "24px"},
             {"title": "Scenario", "key": "scenario_id"},
             {"title": "Scene", "key": "scene_id"},
             {"title": "Situation", "key": "probe_text", "sortable": False},
