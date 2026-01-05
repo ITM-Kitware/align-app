@@ -51,7 +51,9 @@ class AlignApp:
 
         self._cli_decider_paths = args.deciders or []
         self._system_adm_paths: list[str] = []
-        self._experiment_deciders = experiment_result.deciders if experiment_result else {}
+        self._experiment_deciders = (
+            experiment_result.deciders if experiment_result else {}
+        )
 
         self._decider_registry = create_decider_registry(
             self._cli_decider_paths,
