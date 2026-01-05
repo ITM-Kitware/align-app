@@ -7,6 +7,8 @@ from ..adm.probe import Probe, get_probe_id
 from ..adm.decider.types import DeciderParams
 from ..utils.utils import readable
 from align_utils.models import ExperimentItem
+from ..adm.config import get_decider_config
+from omegaconf import OmegaConf
 import json
 import copy
 import yaml
@@ -160,19 +162,26 @@ def _get_attribute_descriptions(
     """Extract attribute_definitions from decider config."""
     all_deciders = decider_registry.get_all_deciders()
     datasets = probe_registry.get_datasets()
-    from ..adm.config import get_decider_config as get_config
-
-    config = get_config(run.probe_id, all_deciders, datasets, run.decider_name)
+    config = get_decider_config(run.probe_id, all_deciders, datasets, run.decider_name)
     if not config:
         return {}
 
-    from omegaconf import OmegaConf
-
     config.pop("instance", None)
     config.pop("step_definitions", None)
-    resolved = OmegaConf.to_container(OmegaConf.create({"adm": config}), resolve=True)
-    if isinstance(resolved, dict):
-        return resolved.get("adm", {}).get("attribute_definitions", {})
+
+    OmegaConf.register_new_resolver(
+        "ref", lambda path: f"${{ref:{path}}}", replace=True
+    )
+    try:
+        resolved = OmegaConf.to_container(
+            OmegaConf.create({"adm": config}), resolve=True
+        )
+        if isinstance(resolved, dict):
+            return resolved.get("adm", {}).get("attribute_definitions", {})
+    except Exception:
+        pass
+    finally:
+        OmegaConf.clear_resolver("ref")
     return {}
 
 

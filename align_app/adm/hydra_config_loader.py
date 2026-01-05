@@ -57,6 +57,32 @@ def _get_hydra_config_path(config_file: Path, config_dir_path: Path) -> str:
         return config_file.stem
 
 
+def _flatten_nested_adm_config(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Flatten nested ADM config from subdirectories.
+
+    Hydra creates nested structure for subdirectory configs:
+    - adm/pipeline_baseline.yaml -> {'adm': {config}}
+    - adm/subdir/foo.yaml -> {'adm': {'subdir': {config}}}
+
+    This flattens the second case to {'adm': {config}} so interpolations work.
+    """
+    if "adm" not in result:
+        return result
+
+    adm_content = result["adm"]
+    if not isinstance(adm_content, dict):
+        return result
+
+    adm_keys = list(adm_content.keys())
+    if len(adm_keys) == 1:
+        only_key = adm_keys[0]
+        nested_content = adm_content[only_key]
+        if isinstance(nested_content, dict) and "instance" in nested_content:
+            return {"adm": nested_content}
+
+    return result
+
+
 @lru_cache(maxsize=32)
 def load_adm_config(
     config_path: str,
@@ -124,4 +150,5 @@ def load_adm_config(
 
         result = OmegaConf.to_container(cfg)
         assert isinstance(result, dict), "Config must be a dictionary"
+        result = _flatten_nested_adm_config(cast(Dict[str, Any], result))
         return cast(Dict[str, Any], result)

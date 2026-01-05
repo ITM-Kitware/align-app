@@ -165,17 +165,58 @@ _BASE_DECIDERS = {
 }
 
 
+DECISION_FLOW_SYSTEM_PROMPT_OVERRIDES = {
+    "step_definitions": {
+        "variables": {
+            "system_prompt_template": {
+                "_target_": "align_system.prompt_engineering.outlines_prompts.DefaultITMBaselineSystemPrompt"
+            }
+        },
+        "extraction": {
+            "system_prompt_template": {
+                "_target_": "align_system.prompt_engineering.outlines_prompts.DefaultITMBaselineSystemPrompt"
+            }
+        },
+        "attribute": {
+            "system_prompt_template": {
+                "_target_": "align_system.prompt_engineering.outlines_prompts.DefaultITMBaselineSystemPrompt"
+            }
+        },
+        "filter": {
+            "system_prompt_template": {
+                "_target_": "align_system.prompt_engineering.outlines_prompts.DefaultITMBaselineSystemPrompt"
+            }
+        },
+        "objective": {
+            "system_prompt_template": {
+                "_target_": "align_system.prompt_engineering.outlines_prompts.DefaultITMBaselineSystemPrompt"
+            }
+        },
+        "express_unstructured": {
+            "system_prompt_template": {
+                "_target_": "align_system.prompt_engineering.outlines_prompts.DefaultITMBaselineSystemPrompt"
+            }
+        },
+        "math_reason": {
+            "system_prompt_template": {
+                "_target_": "align_system.prompt_engineering.outlines_prompts.DefaultITMBaselineSystemPrompt"
+            }
+        },
+    }
+}
+
+
 def create_runtime_decider_entry(config_path):
     """Create a decider entry for a runtime config."""
-    return create_decider_entry(
-        config_path,
-        {
-            "config_overrides": {
-                "max_alignment_attributes": 10,
-            },
-            "runtime_config": True,
-        },
-    )
+    overrides = {
+        "max_alignment_attributes": 10,
+        "runtime_config": True,
+    }
+
+    if "decision_flow" in config_path:
+        overrides["config_overrides"] = DECISION_FLOW_SYSTEM_PROMPT_OVERRIDES
+
+    return create_decider_entry(config_path, overrides)
 
 
 def get_runtime_deciders(config_paths):
