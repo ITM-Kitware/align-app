@@ -514,11 +514,11 @@ class RunsStateAdapter:
     def trigger_export_runs_zip(self) -> bytes:
         return export_runs_to_zip(self.state.runs)
 
-    @trigger("export_selected_runs_zip")
-    def trigger_export_selected_runs_zip(self) -> bytes:
+    @trigger("export_table_runs_zip")
+    def trigger_export_table_runs_zip(self) -> bytes:
         selected = self.state.runs_table_selected
         if not selected:
-            return b""
+            return export_runs_to_zip(self.state.runs)
 
         selected_runs = {}
         for item in selected:
