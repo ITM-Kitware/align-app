@@ -641,7 +641,7 @@ class RunsStateAdapter:
         self._sync_from_runs_data(self.runs_registry.get_all_runs())
 
     @controller.set("open_adm_browser")
-    def open_adm_browser(self, run_id: str = None):
+    def open_adm_browser(self, run_id: str | None = None):
         self.state.system_adms = discover_system_adms()
         self.state.adm_browser_run_id = run_id
         self.state.adm_browser_open = True

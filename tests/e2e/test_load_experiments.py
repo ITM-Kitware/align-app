@@ -25,7 +25,7 @@ def test_load_experiments_menu_opens(page, align_app_server):
     expect(from_dir_item).to_be_visible()
 
 
-def test_load_experiments_from_zip(page, align_app_server):
+def test_load_experiments_from_zip(page, align_app_server, experiments_fixtures_path):
     """Test loading experiments from a zip file adds runs to the table."""
     align_page = AlignPage(page)
     align_page.goto(align_app_server)
