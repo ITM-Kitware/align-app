@@ -61,6 +61,7 @@ def test_cache_hit_with_matching_params(single_experiment_path: Path):
     items = get_experiment_items(target_experiments[0])
     cached_runs = runs_from_experiment_items(items[:1])
     cached_run = cached_runs[0]
+    assert cached_run.decision is not None
 
     class MockProbeRegistry:
         def get_probe(self, probe_id):
