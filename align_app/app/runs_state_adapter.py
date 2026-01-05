@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable
 from trame.app import asynchronous
 from trame.app.file_upload import ClientFile
 from trame.decorators import TrameApp, controller, change, trigger
@@ -6,6 +6,7 @@ from ..adm.run_models import Run
 from .runs_registry import RunsRegistry
 from .runs_table_filter import RunsTableFilter
 from ..adm.decider.types import DeciderParams
+from ..adm.system_adm_discovery import discover_system_adms
 from ..utils.utils import get_id
 from .runs_presentation import extract_base_scenarios
 from . import runs_presentation
@@ -17,12 +18,18 @@ from align_utils.models import AlignmentTarget
 @TrameApp()
 class RunsStateAdapter:
     def __init__(
-        self, server, probe_registry, decider_registry, runs_registry: RunsRegistry
+        self,
+        server,
+        probe_registry,
+        decider_registry,
+        runs_registry: RunsRegistry,
+        add_system_adm_callback: Callable[[str], None],
     ):
         self.server = server
         self.runs_registry = runs_registry
         self.probe_registry = probe_registry
         self.decider_registry = decider_registry
+        self._add_system_adm_callback = add_system_adm_callback
         self.server.state.pending_cache_keys = []
         self.server.state.runs_table_modal_open = False
         self.server.state.runs_table_selected = []
@@ -38,6 +45,10 @@ class RunsStateAdapter:
             {"title": "Decision", "key": "decision_text"},
         ]
         self.server.state.import_experiment_file = None
+        self.server.state.adm_browser_open = False
+        self.server.state.adm_browser_run_id = None
+        self.server.state.system_adms = {}
+        self.server.state.selected_system_adms = []
         self.table_filter = RunsTableFilter(server)
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
@@ -624,3 +635,33 @@ class RunsStateAdapter:
         self.decider_registry.add_deciders(result.deciders)
         self.runs_registry.add_experiment_items(result.items)
         self._sync_from_runs_data(self.runs_registry.get_all_runs())
+
+    def update_decider_registry(self, new_registry):
+        self.decider_registry = new_registry
+        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+
+    @controller.set("open_adm_browser")
+    def open_adm_browser(self, run_id: str = None):
+        self.state.system_adms = discover_system_adms()
+        self.state.adm_browser_run_id = run_id
+        self.state.adm_browser_open = True
+
+    @controller.set("close_adm_browser")
+    def close_adm_browser(self):
+        self.state.adm_browser_open = False
+        self.state.adm_browser_run_id = None
+
+    @controller.set("select_system_adm")
+    def select_system_adm(self, adm_name: str, config_path: str):
+        if adm_name not in self.state.selected_system_adms:
+            self.state.selected_system_adms = [
+                *self.state.selected_system_adms,
+                adm_name,
+            ]
+        self._add_system_adm_callback(config_path)
+
+        if self.state.adm_browser_run_id:
+            self.update_run_decider(self.state.adm_browser_run_id, adm_name)
+
+        self.state.adm_browser_open = False
+        self.state.adm_browser_run_id = None

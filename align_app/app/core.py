@@ -49,10 +49,14 @@ class AlignApp:
             experiment_result = import_experiments(Path(args.experiments))
             self._probe_registry.add_probes(experiment_result.probes)
 
+        self._cli_decider_paths = args.deciders or []
+        self._system_adm_paths: list[str] = []
+        self._experiment_deciders = experiment_result.deciders if experiment_result else {}
+
         self._decider_registry = create_decider_registry(
-            args.deciders or [],
+            self._cli_decider_paths,
             self._probe_registry,
-            experiment_deciders=experiment_result.deciders if experiment_result else {},
+            experiment_deciders=self._experiment_deciders,
         )
         self._runs_registry = RunsRegistry(
             self._probe_registry,
@@ -67,6 +71,7 @@ class AlignApp:
             self._probe_registry,
             self._decider_registry,
             self._runs_registry,
+            self.add_system_adm,
         )
         self._search_controller = SearchController(
             self.server,
@@ -87,6 +92,21 @@ class AlignApp:
     @controller.set("reset_state")
     def reset_state(self):
         self._runsController.reset_state()
+
+    def add_system_adm(self, config_path: str):
+        """Add a system ADM and recreate the decider registry."""
+        if config_path in self._system_adm_paths:
+            return
+
+        self._system_adm_paths.append(config_path)
+        all_paths = self._cli_decider_paths + self._system_adm_paths
+        self._decider_registry = create_decider_registry(
+            all_paths,
+            self._probe_registry,
+            experiment_deciders=self._experiment_deciders,
+        )
+        self._runs_registry.update_decider_registry(self._decider_registry)
+        self._runsController.update_decider_registry(self._decider_registry)
 
     def _build_ui(self, *args, **kwargs):
         extra_args = {}
