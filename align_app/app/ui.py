@@ -357,7 +357,7 @@ class Decider:
 
             def run_content():
                 with html.Div(
-                    style=f"width: calc(100% - {INDICATOR_SPACE});",
+                    style=f"display: flex; gap: 8px; align-items: center; width: calc(100% - {INDICATOR_SPACE});",
                     raw_attrs=["@click.stop", "@mousedown.stop"],
                 ):
                     vuetify3.VSelect(
@@ -369,7 +369,16 @@ class Decider:
                             r"[id, $event]",
                         ),
                         hide_details="auto",
+                        style="flex: 1 1 auto; min-width: 0;",
                     )
+                    with vuetify3.VBtn(
+                        icon=True,
+                        size="small",
+                        variant="tonal",
+                        click=(self.server.controller.open_adm_browser, "[id]"),
+                        style="flex: 0 0 auto;",
+                    ):
+                        vuetify3.VIcon("mdi-folder-search")
 
             RowWithLabel(
                 run_content=run_content,
@@ -1036,6 +1045,56 @@ class RunsTableModal(html.Div):
                             )
 
 
+class AdmBrowserModal(html.Div):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self:
+            with vuetify3.VDialog(
+                v_model=("adm_browser_open",),
+                max_width="600px",
+            ):
+                with vuetify3.VCard():
+                    with vuetify3.VToolbar(density="compact"):
+                        vuetify3.VToolbarTitle("System ADMs")
+                        vuetify3.VSpacer()
+                        with vuetify3.VBtn(
+                            icon=True,
+                            click=self.server.controller.close_adm_browser,
+                        ):
+                            vuetify3.VIcon("mdi-close")
+                    with vuetify3.VCardText(
+                        style="max-height: 70vh; overflow-y: auto;",
+                    ):
+                        with html.Div(
+                            v_for="(adms, category) in system_adms",
+                            key="category",
+                            classes="mb-4",
+                        ):
+                            html.Div(
+                                "{{ category }}",
+                                classes="text-subtitle-1 font-weight-bold mb-2",
+                            )
+                            with vuetify3.VList(density="compact"):
+                                with vuetify3.VListItem(
+                                    v_for="adm in adms",
+                                    key="adm.name",
+                                    click=(
+                                        self.server.controller.select_system_adm,
+                                        "[adm.name, adm.config_path]",
+                                    ),
+                                ):
+                                    with vuetify3.VListItemTitle():
+                                        html.Span("{{ adm.title }}")
+                                    with vuetify3.Template(v_slot_append=""):
+                                        vuetify3.VIcon(
+                                            "mdi-check",
+                                            v_if=(
+                                                "selected_system_adms.includes(adm.name)",
+                                            ),
+                                            color="success",
+                                        )
+
+
 class ResultsComparison(html.Div):
     def __init__(self, **kwargs):
         super().__init__(classes="d-inline-flex flex-wrap ga-4 pa-1", **kwargs)
@@ -1222,3 +1281,4 @@ class AlignLayout(SinglePageLayout):
                     ):
                         ResultsComparison()
                     RunsTableModal()
+                    AdmBrowserModal()

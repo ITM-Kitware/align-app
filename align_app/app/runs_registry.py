@@ -203,3 +203,7 @@ class RunsRegistry:
             if run.compute_cache_key() == cache_key:
                 return runs_core.apply_cached_decision(self._runs, run)
         return None
+
+    def update_decider_registry(self, new_registry):
+        """Update the decider registry reference."""
+        self._decider_registry = new_registry
