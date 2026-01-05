@@ -881,6 +881,16 @@ class RunsTableModal(html.Div):
                     with vuetify3.VToolbar(density="compact"):
                         vuetify3.VToolbarTitle("Runs")
                         vuetify3.VSpacer()
+                        vuetify3.VTextField(
+                            v_model=("runs_table_search",),
+                            placeholder="Search",
+                            prepend_inner_icon="mdi-magnify",
+                            clearable=True,
+                            hide_details=True,
+                            density="compact",
+                            style="max-width: 300px;",
+                            classes="mr-4",
+                        )
                         with vuetify3.VBtn(
                             click=(
                                 self.server.controller.add_selected_runs_to_compare,
@@ -890,16 +900,6 @@ class RunsTableModal(html.Div):
                             classes="mr-4",
                         ):
                             html.Span("Add Selected to Comparison")
-                        with vuetify3.VBtn(
-                            click=(
-                                "utils.download('align-app-experiments.zip', "
-                                "trigger('export_selected_runs_zip'), 'application/zip')"
-                            ),
-                            disabled=("runs_table_selected.length === 0",),
-                            prepend_icon="mdi-content-save",
-                            classes="mr-4",
-                        ):
-                            html.Span("Save Selected")
                         vuetify3.VFileInput(
                             v_model=("import_experiment_file", None),
                             accept=".zip",
@@ -952,21 +952,37 @@ class RunsTableModal(html.Div):
                                     click="trame.refs.tableDirInput.click()",
                                 )
                         with vuetify3.VBtn(
-                            click=self.server.controller.clear_all_runs,
-                            prepend_icon="mdi-delete-sweep",
+                            click=(
+                                "utils.download('align-app-experiments.zip', "
+                                "trigger('export_table_runs_zip'), 'application/zip')"
+                            ),
+                            prepend_icon="mdi-download",
                             classes="mr-4",
                         ):
-                            html.Span("Clear All")
-                        vuetify3.VTextField(
-                            v_model=("runs_table_search",),
-                            placeholder="Search",
-                            prepend_inner_icon="mdi-magnify",
-                            clearable=True,
-                            hide_details=True,
-                            density="compact",
-                            style="max-width: 300px;",
-                            classes="mr-4",
-                        )
+                            html.Span(
+                                "{{ runs_table_selected.length > 0 ? 'Download Selected' : 'Download All' }}"
+                            )
+                        with vuetify3.VMenu():
+                            with vuetify3.Template(v_slot_activator="{ props }"):
+                                with vuetify3.VBtn(
+                                    v_bind="props",
+                                    prepend_icon="mdi-delete-sweep",
+                                    classes="mr-4",
+                                ):
+                                    html.Span("Clear All")
+                            with vuetify3.VCard(min_width="200"):
+                                vuetify3.VCardTitle(
+                                    "Clear all runs?", classes="text-subtitle-1"
+                                )
+                                with vuetify3.VCardActions():
+                                    vuetify3.VSpacer()
+                                    vuetify3.VBtn("Cancel", variant="text")
+                                    vuetify3.VBtn(
+                                        "Clear",
+                                        color="error",
+                                        variant="text",
+                                        click=self.server.controller.clear_all_runs,
+                                    )
                         with vuetify3.VBtn(
                             icon=True,
                             click=(self.server.controller.close_runs_table_modal,),
@@ -1240,14 +1256,29 @@ class AlignLayout(SinglePageLayout):
                 with vuetify3.VBtn(
                     click="utils.download('align-app-experiments.zip', trigger('export_runs_zip'), 'application/zip')",
                     disabled=("Object.keys(runs).length === 0",),
-                    prepend_icon="mdi-content-save",
+                    prepend_icon="mdi-download",
                 ):
-                    html.Span("Save Experiments")
-                with vuetify3.VBtn(
-                    click=self.server.controller.reset_state,
-                    prepend_icon="mdi-delete-sweep",
-                ):
-                    html.Span("Clear Runs")
+                    html.Span("Download Experiments")
+                with vuetify3.VMenu():
+                    with vuetify3.Template(v_slot_activator="{ props }"):
+                        with vuetify3.VBtn(
+                            v_bind="props",
+                            prepend_icon="mdi-delete-sweep",
+                        ):
+                            html.Span("Clear Runs")
+                    with vuetify3.VCard(min_width="200"):
+                        vuetify3.VCardTitle(
+                            "Clear all runs?", classes="text-subtitle-1"
+                        )
+                        with vuetify3.VCardActions():
+                            vuetify3.VSpacer()
+                            vuetify3.VBtn("Cancel", variant="text")
+                            vuetify3.VBtn(
+                                "Clear",
+                                color="error",
+                                variant="text",
+                                click=self.server.controller.reset_state,
+                            )
 
             with layout.content:
                 html.Div(
@@ -1260,6 +1291,7 @@ class AlignLayout(SinglePageLayout):
                         ".v-data-table table { table-layout: fixed; width: 100%; }"
                         ".v-data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
                         ".v-data-table th { vertical-align: top; }"
+                        ".v-data-table th:first-child { padding-top: 8px; }"
                         ".drop-zone-active { outline: 3px dashed #1976d2 !important; outline-offset: -3px; }"
                         "</style>'"
                     )
