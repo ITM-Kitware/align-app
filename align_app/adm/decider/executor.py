@@ -1,5 +1,6 @@
 from typing import Any, Tuple
 from functools import partial
+from omegaconf import OmegaConf
 from align_system.utils.hydra_utils import initialize_with_custom_references
 from align_system.utils.hydrate_state import p2triage_hydrate_scenario_state
 from align_utils.models import InputData, ADMResult, Decision, ChoiceInfo
@@ -91,6 +92,8 @@ def instantiate_adm(decider_config):
     if decider_config is None:
         raise ValueError("decider_config is required")
 
+    if OmegaConf.has_resolver("ref"):
+        OmegaConf.clear_resolver("ref")
     adm = initialize_with_custom_references({"adm": decider_config})["adm"]
 
     def cleanup(model):
