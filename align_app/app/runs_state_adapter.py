@@ -67,10 +67,14 @@ class RunsStateAdapter:
             new_runs[run_id] = new_run
         self.state.runs = new_runs
 
-        run_table_rows = [
-            runs_presentation.run_to_table_row(run_dict)
-            for run_dict in new_runs.values()
-        ]
+        run_table_rows_by_id = {
+            row["id"]: row
+            for row in (
+                runs_presentation.run_to_table_row(run_dict)
+                for run_dict in new_runs.values()
+            )
+        }
+        run_table_rows = list(run_table_rows_by_id.values())
 
         active_cache_keys = {run.compute_cache_key() for run in runs_dict.values()}
         stored_items = self.runs_registry.get_all_experiment_items()
