@@ -14,7 +14,7 @@ def test_load_experiments_menu_opens(page, align_app_server):
     align_page = AlignPage(page)
     align_page.goto(align_app_server)
 
-    load_button = page.get_by_role("button", name="Load Experiments")
+    load_button = page.get_by_role("button", name="Load Experiments", exact=True)
     expect(load_button).to_be_visible()
     load_button.click()
 
@@ -43,7 +43,7 @@ def test_load_experiments_from_zip(page, align_app_server, experiments_fixtures_
     page.keyboard.press("Escape")
     expect(modal).not_to_be_visible()
 
-    load_button = page.get_by_role("button", name="Load Experiments")
+    load_button = page.get_by_role("button", name="Load Experiments", exact=True)
     load_button.click()
 
     from_zip_item = page.locator(".v-list-item").filter(has_text="From Zip File")

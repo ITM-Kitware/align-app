@@ -49,8 +49,6 @@ class RunsRegistry:
             )
             new_run = runs_core.apply_cached_decision(self._runs, new_run)
 
-            if run.decision is None:
-                self._runs = runs_core.remove_run(self._runs, run_id)
             self._runs = runs_core.add_run(self._runs, new_run)
 
             return new_run
