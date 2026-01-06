@@ -92,20 +92,25 @@ def _get_alignment_target_id(run_dict: Dict[str, Any]) -> str:
 def _group_runs_by_experiment(
     runs_dict: Dict[str, Dict[str, Any]],
 ) -> Dict[Tuple[str, str], List[Dict[str, Any]]]:
-    """Group runs by (decider_name, alignment_target_id)."""
+    """Group runs by (decider_name, alignment_target_id), deduplicated by cache_key."""
     groups: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
+    seen_cache_keys: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
 
     for run_dict in runs_dict.values():
-        if not run_dict.get("decision"):
-            continue
-
         decider_name = run_dict["prompt"]["decider"]["name"]
         alignment_target_id = _get_alignment_target_id(run_dict)
-        key = (decider_name, alignment_target_id)
+        group_key = (decider_name, alignment_target_id)
+        cache_key = run_dict.get("cache_key", "")
 
-        if key not in groups:
-            groups[key] = []
-        groups[key].append(run_dict)
+        if group_key not in seen_cache_keys:
+            seen_cache_keys[group_key] = {}
+
+        existing = seen_cache_keys[group_key].get(cache_key)
+        if not existing or (run_dict.get("decision") and not existing.get("decision")):
+            seen_cache_keys[group_key][cache_key] = run_dict
+
+    for group_key, cache_key_dict in seen_cache_keys.items():
+        groups[group_key] = list(cache_key_dict.values())
 
     return groups
 
