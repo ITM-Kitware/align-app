@@ -399,7 +399,6 @@ class Decider:
                             ctrl.update_run_config_yaml,
                             r"[id, $event]",
                         ),
-                        blur=(ctrl.check_config_edited, "[id]"),
                         auto_grow=True,
                         rows=1,
                         variant="outlined",
@@ -408,6 +407,16 @@ class Decider:
                         classes="config-textarea",
                         style="font-family: monospace; font-size: 0.85em;",
                     )
+                    with html.Div(classes="d-flex mt-2", v_if="config_dirty[id]"):
+                        vuetify3.VBtn(
+                            "Save",
+                            click=(
+                                ctrl.save_config_edits,
+                                "[id, runs[id].prompt.resolved_config_yaml]",
+                            ),
+                            color="primary",
+                            size="small",
+                        )
 
             RowWithLabel(
                 run_content=run_content,
@@ -558,7 +567,6 @@ class EditableProbeLayoutForRun:
         vuetify3.VTextarea(
             model_value=("runs[id].prompt.probe.display_state",),
             update_modelValue=(ctrl.update_run_probe_text, "[id, $event]"),
-            blur=(ctrl.check_probe_edited, "[id]"),
             auto_grow=True,
             rows=3,
             hide_details="auto",
@@ -581,7 +589,6 @@ class EditableProbeLayoutForRun:
                             ctrl.update_run_choice_text,
                             "[id, index, $event]",
                         ),
-                        blur=(ctrl.check_probe_edited, "[id]"),
                         auto_grow=True,
                         rows=1,
                         hide_details="auto",
@@ -607,6 +614,17 @@ class EditableProbeLayoutForRun:
                     "runs[id].prompt.probe.choices.length < "
                     "runs[id].max_choices && runs[id].max_choices > 2"
                 ),
+            )
+            vuetify3.VBtn(
+                "Save",
+                click=(
+                    ctrl.save_probe_edits,
+                    "[id, runs[id].prompt.probe.display_state, runs[id].prompt.probe.choices]",
+                ),
+                color="primary",
+                size="small",
+                classes="mt-2 ml-2",
+                v_if="probe_dirty[id]",
             )
 
 

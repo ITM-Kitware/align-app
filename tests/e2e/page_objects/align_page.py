@@ -207,6 +207,14 @@ class AlignPage:
     def blur_situation_textarea(self) -> None:
         self.situation_textarea.blur()
 
+    @property
+    def save_probe_button(self) -> Locator:
+        return self.scenario_panel_content.get_by_role("button", name="Save")
+
+    def click_save_probe_button(self) -> None:
+        expect(self.save_probe_button).to_be_visible()
+        self.save_probe_button.click()
+
     def get_scene_dropdown_value_from_panel(self) -> str:
         dropdown = self.scenario_panel.get_by_role("combobox").filter(has_text="Scene")
         value = dropdown.locator("input").input_value()
@@ -339,6 +347,14 @@ class AlignPage:
 
     def blur_config_textarea(self) -> None:
         self.config_textarea.blur()
+
+    @property
+    def save_config_button(self) -> Locator:
+        return self.decider_panel_content.get_by_role("button", name="Save")
+
+    def click_save_config_button(self) -> None:
+        expect(self.save_config_button).to_be_visible()
+        self.save_config_button.click()
 
     def get_decider_dropdown_value(self) -> str:
         dropdown = self.decider_panel.get_by_role("combobox").filter(has_text="Decider")

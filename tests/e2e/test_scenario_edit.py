@@ -1,3 +1,4 @@
+from playwright.sync_api import expect
 from .page_objects.align_page import AlignPage
 
 
@@ -15,7 +16,9 @@ def test_situation_text_edit_creates_new_scene(page, align_app_server):
 
     modified_text = original_text + " [test modification]"
     align_page.set_situation_text(modified_text)
-    align_page.blur_situation_textarea()
+    expect(align_page.save_probe_button).to_be_visible()
+    page.wait_for_timeout(2000)
+    align_page.click_save_probe_button()
 
     page.wait_for_timeout(500)
 
@@ -39,15 +42,20 @@ def test_situation_text_revert_restores_original_scene(page, align_app_server):
 
     modified_text = original_text + " [test modification]"
     align_page.set_situation_text(modified_text)
-    align_page.blur_situation_textarea()
+    expect(align_page.save_probe_button).to_be_visible()
+    page.wait_for_timeout(2000)
+    align_page.click_save_probe_button()
 
     page.wait_for_timeout(500)
 
     edited_scene = align_page.get_scene_dropdown_value_from_panel()
     assert " edit " in edited_scene, "Scene should have edit suffix after modification"
 
+    # Revert text to original - save button should appear since text differs from edited
     align_page.set_situation_text(original_text)
-    align_page.blur_situation_textarea()
+    expect(align_page.save_probe_button).to_be_visible()
+    page.wait_for_timeout(2000)
+    align_page.click_save_probe_button()
 
     page.wait_for_timeout(500)
 
