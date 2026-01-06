@@ -49,6 +49,8 @@ class RunsStateAdapter:
         self.server.state.adm_browser_run_id = None
         self.server.state.system_adms = {}
         self.server.state.selected_system_adms = []
+        self.server.state.probe_dirty = {}
+        self.server.state.config_dirty = {}
         self.table_filter = RunsTableFilter(server)
         self._sync_from_runs_data(runs_registry.get_all_runs())
 
@@ -84,6 +86,9 @@ class RunsStateAdapter:
 
         probes = self.probe_registry.get_probes()
         self.state.base_scenarios = extract_base_scenarios(probes)
+
+        self.state.probe_dirty = {}
+        self.state.config_dirty = {}
 
         if not self.state.runs:
             self.state.runs_to_compare = []
@@ -280,6 +285,11 @@ class RunsStateAdapter:
         if run_id in self.state.runs:
             self.state.runs[run_id]["prompt"]["probe"]["display_state"] = text
             self.state.dirty("runs")
+            choices = self.state.runs[run_id]["prompt"]["probe"]["choices"]
+            self.state.probe_dirty[run_id] = self._is_probe_edited(
+                run_id, text, choices
+            )
+            self.state.dirty("probe_dirty")
 
     @controller.set("update_run_choice_text")
     def update_run_choice_text(self, run_id: str, index: int, text: str):
@@ -288,12 +298,20 @@ class RunsStateAdapter:
             if 0 <= index < len(choices):
                 choices[index]["unstructured"] = text
                 self.state.dirty("runs")
+                probe_text = self.state.runs[run_id]["prompt"]["probe"]["display_state"]
+                self.state.probe_dirty[run_id] = self._is_probe_edited(
+                    run_id, probe_text, choices
+                )
+                self.state.dirty("probe_dirty")
 
     @controller.set("update_run_config_yaml")
     def update_run_config_yaml(self, run_id: str, yaml_text: str):
         if run_id in self.state.runs:
             self.state.runs[run_id]["prompt"]["resolved_config_yaml"] = yaml_text
             self.state.dirty("runs")
+            is_edited = self._is_config_edited(run_id, yaml_text)
+            self.state.config_dirty[run_id] = is_edited
+            self.state.dirty("config_dirty")
 
     @controller.set("add_run_choice")
     def add_run_choice(self, run_id: str):
@@ -305,12 +323,21 @@ class RunsStateAdapter:
         new_run = self.runs_registry.delete_run_choice(run_id, index)
         self._handle_run_update(run_id, new_run)
 
-    @controller.set("check_probe_edited")
-    def check_probe_edited(self, run_id: str):
-        if not self._is_probe_edited(run_id):
+    @controller.set("save_probe_edits")
+    def save_probe_edits(
+        self, run_id: str, current_text: str = "", current_choices: list = None
+    ):
+        if current_choices is None:
+            current_choices = []
+
+        if not self._is_probe_edited(run_id, current_text, current_choices):
+            self.state.probe_dirty[run_id] = False
+            self.state.dirty("probe_dirty")
             return
 
-        new_probe_id = self._create_edited_probe_for_run(run_id)
+        new_probe_id = self._create_edited_probe_for_run(
+            run_id, current_text, current_choices
+        )
         if not new_probe_id:
             return
 
@@ -319,6 +346,8 @@ class RunsStateAdapter:
             return
 
         if new_probe_id == run.probe_id:
+            self.state.probe_dirty[run_id] = False
+            self.state.dirty("probe_dirty")
             return
 
         new_probe = self.probe_registry.get_probe(new_probe_id)
@@ -341,20 +370,22 @@ class RunsStateAdapter:
         ]
         self._sync_from_runs_data(self.runs_registry.get_all_runs())
 
-    @controller.set("check_config_edited")
-    def check_config_edited(self, run_id: str):
-        if not self._is_config_edited(run_id):
+    @controller.set("save_config_edits")
+    def save_config_edits(self, run_id: str, current_yaml: str = ""):
+        is_edited = self._is_config_edited(run_id, current_yaml)
+        if not is_edited:
+            self.state.config_dirty[run_id] = False
+            self.state.dirty("config_dirty")
             return
 
-        self._create_run_with_edited_config(run_id)
+        self._create_run_with_edited_config(run_id, current_yaml)
 
-    def _is_probe_edited(self, run_id: str) -> bool:
+    def _is_probe_edited(
+        self, run_id: str, current_text: str, current_choices: list
+    ) -> bool:
         """Check if UI state differs from original probe."""
         run = self.runs_registry.get_run(run_id)
         if not run:
-            return False
-
-        if run_id not in self.state.runs:
             return False
 
         try:
@@ -362,14 +393,11 @@ class RunsStateAdapter:
         except ValueError:
             return False
 
-        ui_run = self.state.runs[run_id]
-        current_text = ui_run["prompt"]["probe"].get("display_state", "")
         original_text = original_probe.display_state or ""
 
         if current_text != original_text:
             return True
 
-        current_choices = ui_run["prompt"]["probe"].get("choices", [])
         original_choices = original_probe.choices or []
 
         if len(current_choices) != len(original_choices):
@@ -381,33 +409,33 @@ class RunsStateAdapter:
 
         return False
 
-    def _create_edited_probe_for_run(self, run_id: str) -> Optional[str]:
+    def _create_edited_probe_for_run(
+        self, run_id: str, edited_text: str, edited_choices: list
+    ) -> Optional[str]:
         """Create new probe from UI state edited content. Returns new probe_id."""
         run = self.runs_registry.get_run(run_id)
         if not run:
             return None
-        ui_run = self.state.runs[run_id]
-        edited_text = ui_run["prompt"]["probe"].get("display_state", "")
-        edited_choices = list(ui_run["prompt"]["probe"].get("choices", []))
 
         new_probe = self.probe_registry.add_edited_probe(
-            run.probe_id, edited_text, edited_choices
+            run.probe_id, edited_text, list(edited_choices)
         )
         return new_probe.probe_id
 
-    def _is_config_edited(self, run_id: str) -> bool:
+    def _is_config_edited(self, run_id: str, current_yaml: str) -> bool:
         """Check if UI config YAML differs from original resolved_config."""
         run = self.runs_registry.get_run(run_id)
-        if not run or run_id not in self.state.runs:
+        if not run:
             return False
 
-        ui_yaml = self.state.runs[run_id]["prompt"].get("resolved_config_yaml", "")
         original_yaml = runs_presentation.resolved_config_to_yaml(
             run.decider_params.resolved_config
         )
-        return ui_yaml != original_yaml
+        return current_yaml != original_yaml
 
-    def _create_run_with_edited_config(self, run_id: str) -> Optional[str]:
+    def _create_run_with_edited_config(
+        self, run_id: str, current_yaml: str
+    ) -> Optional[str]:
         """Create new run with edited config. Returns new run_id, or None if no change."""
         import yaml
         from align_app.adm.decider_registry import _get_root_decider_name
@@ -415,8 +443,7 @@ class RunsStateAdapter:
         run = self.runs_registry.get_run(run_id)
         if not run:
             return None
-        ui_yaml = self.state.runs[run_id]["prompt"]["resolved_config_yaml"]
-        new_config = yaml.safe_load(ui_yaml)
+        new_config = yaml.safe_load(current_yaml)
 
         decider_options = self.decider_registry.get_decider_options(
             run.probe_id, run.decider_name
@@ -473,8 +500,16 @@ class RunsStateAdapter:
             ]
 
     async def _execute_run_decision(self, run_id: str):
-        if self._is_probe_edited(run_id):
-            new_probe_id = self._create_edited_probe_for_run(run_id)
+        ui_run = self.state.runs.get(run_id, {})
+        current_text = (
+            ui_run.get("prompt", {}).get("probe", {}).get("display_state", "")
+        )
+        current_choices = ui_run.get("prompt", {}).get("probe", {}).get("choices", [])
+
+        if self._is_probe_edited(run_id, current_text, current_choices):
+            new_probe_id = self._create_edited_probe_for_run(
+                run_id, current_text, current_choices
+            )
             if not new_probe_id:
                 return
             run = self.runs_registry.get_run(run_id)
