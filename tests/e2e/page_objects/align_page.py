@@ -7,7 +7,7 @@ class AlignPage:
 
     @property
     def decider_dropdown(self) -> Locator:
-        return self.page.get_by_role("button", name="Decider")
+        return self.page.get_by_role("button", name="Decider").first
 
     @property
     def send_button(self) -> Locator:
@@ -18,8 +18,24 @@ class AlignPage:
         return self.page.locator(".v-progress-circular")
 
     @property
+    def browse_runs_button(self) -> Locator:
+        return self.page.get_by_role("button", name="Browse Runs")
+
+    @property
+    def runs_modal(self) -> Locator:
+        # The modal card has a toolbar with "Runs" title
+        return self.page.get_by_text("Runs", exact=True).locator("xpath=..")
+
+    @property
+    def runs_table(self) -> Locator:
+        return self.runs_modal.locator(".v-data-table")
+
+    @property
+    def table_close_button(self) -> Locator:
+        return self.runs_modal.get_by_role("button", name="Close")
+    @property
     def decision_button(self) -> Locator:
-        return self.page.get_by_role("button").filter(has_text="Decision")
+        return self.page.get_by_role("button").filter(has_text="Decision").first
 
     @property
     def decision_text(self) -> Locator:
@@ -29,7 +45,7 @@ class AlignPage:
 
     @property
     def scenario_dropdown(self) -> Locator:
-        return self.page.get_by_role("button", name="Scenario")
+        return self.page.get_by_role("button", name="Scenario").first
 
     @property
     def scenario_combobox(self) -> Locator:
@@ -248,7 +264,7 @@ class AlignPage:
 
     @property
     def add_alignment_button(self) -> Locator:
-        return self.alignment_panel_content.get_by_role("button", name="Add Alignment")
+        return self.alignment_panel_content.get_by_role("button", name="Add Alignment").first
 
     def get_alignment_count(self) -> int:
         return self.alignment_panel_content.locator(".v-select").count()
@@ -325,7 +341,7 @@ class AlignPage:
     def config_textarea(self) -> Locator:
         return self.decider_panel_content.locator(
             ".config-textarea textarea:not(.v-textarea__sizer)"
-        )
+        ).first
 
     def expand_decider_panel(self) -> None:
         expect(self.decider_panel_title).to_be_visible()
@@ -357,6 +373,81 @@ class AlignPage:
         self.save_config_button.click()
 
     def get_decider_dropdown_value(self) -> str:
-        dropdown = self.decider_panel.get_by_role("combobox").filter(has_text="Decider")
+        dropdown = self.decider_panel.get_by_role("combobox").filter(has_text="Decider").first
         value = dropdown.locator("input").input_value()
         return value if value else ""
+
+    def get_run_columns(self) -> Locator:
+        # Find the row with "Run" label (exact match on the label span)
+        # The label is inside a Span with class text-h6
+        run_label = self.page.locator("span.text-h6", has_text="Run")
+        # But has_text matches substring "Run 1".
+        # Use get_by_text with exact=True
+        run_label = self.page.locator("span.text-h6").get_by_text("Run", exact=True)
+        
+        run_row = self.page.locator(".v-row").filter(has=run_label).first
+        
+        # Count columns that are not the label column.
+        # Run columns have a v-select for the run number.
+        return run_row.locator(".v-col").filter(has=self.page.locator(".v-select"))
+
+
+    def expect_run_count(self, count: int) -> None:
+        expect(self.get_run_columns()).to_have_count(count)
+
+    def open_browse_runs_modal(self) -> None:
+        expect(self.browse_runs_button).to_be_visible()
+        self.browse_runs_button.click()
+        expect(self.runs_modal).to_be_visible()
+
+    def close_browse_runs_modal(self) -> None:
+        # Use Esc or close button
+        self.page.keyboard.press("Escape")
+        expect(self.runs_modal).not_to_be_visible()
+
+    def get_table_row_count(self) -> int:
+        # Count rows in the data table
+        # Wait for the table body to be present
+        self.runs_table.locator("tbody").wait_for()
+        # Count rows
+        return self.runs_table.locator("tbody tr").count()
+    def get_alignment_slider(self, index: int) -> Locator:
+        # Find slider in alignment panel
+        # There might be multiple sliders if multiple alignments
+        return self.alignment_panel_content.locator(".v-slider").nth(index)
+
+    def set_alignment_target_value(self, index: int, value: float) -> None:
+        self.expand_alignment_panel()
+        slider = self.get_alignment_slider(index)
+        expect(slider).to_be_visible()
+        
+        # Vuetify sliders are tricky to set directly via fill
+        # We can try to click on the track or use evaluate to set model value if we could access it
+        # But for Playwright, clicking the track is often easiest if we know where.
+        # Or easier: input element is usually hidden but we can try to force value.
+        
+        # Better approach for Vuetify slider:
+        # The slider has a thumb. We can assume some position. 
+        # But wait, these sliders might be continuous 0-1 or discrete ticks.
+        # Let's assume discrete for the "Test Probe 1" alignment target (usually has 0-100 range in our test apps?)
+        # Actually our test uses default probe. 
+        # Default probe usually has 'adept_moral_acceptability_classifier' -> continuous 0.0-1.0?
+        # Let's check the test expectation.
+        
+        # If it's a VSlider, we can use the nice Playwright method if it exposes an input type="range"
+        # Vuetify 3 VSlider does have an input[type=range] under the hood often?
+        # Let's check if we can click the slide.
+        
+        # Let's try to locate the thumb and drag it, or click the track.
+        # Since exact value is hard to hit by clicking, we might just click different spots
+        # to trigger a change.
+        
+        slider_track = slider.locator(".v-slider-track__background")
+        if value < 50:
+             slider_track.click(position={"x": 10, "y": 0}) # Left side
+        else:
+             slider_track.click(position={"x": 200, "y": 0}) # Right side (assuming width)
+
+        # Wait for potential debounce/server roundtrip
+        self.page.wait_for_timeout(500)
+

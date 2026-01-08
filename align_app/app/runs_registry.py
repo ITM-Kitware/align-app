@@ -51,6 +51,12 @@ class RunsRegistry:
 
             self._runs = runs_core.add_run(self._runs, new_run)
 
+            # Cleanup: If original run had no decision (was a draft), remove it
+            # This makes it appear as an "edit" in the UI (replacing the draft) instead of a new run
+            # New run still gets a new ID for UI reactivity
+            if run.decision is None:
+                self._runs = runs_core.remove_run(self._runs, run_id)
+
             return new_run
 
         return update_method
@@ -58,6 +64,9 @@ class RunsRegistry:
     def add_run(self, run: Run) -> Run:
         self._runs = runs_core.add_run(self._runs, run)
         return run
+
+    def remove_run(self, run_id: str) -> None:
+        self._runs = runs_core.remove_run(self._runs, run_id)
 
     def add_runs_bulk(self, runs: List[Run]) -> None:
         self._runs = runs_core.add_runs_bulk(self._runs, runs)
