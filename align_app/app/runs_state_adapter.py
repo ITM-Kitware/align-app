@@ -208,6 +208,10 @@ class RunsStateAdapter:
 
     def _handle_run_update(self, old_run_id: str, new_run: Optional[Run]):
         if new_run:
+            # Always replace old run ID with new ID in the comparison view
+            # This keeps the run in the same UI position
+            # Note: Registry layer handles whether to keep or remove the old run
+            # based on decision state (see _create_update_method)
             self.state.runs_to_compare = [
                 new_run.id if rid == old_run_id else rid
                 for rid in self.state.runs_to_compare
@@ -368,6 +372,10 @@ class RunsStateAdapter:
             }
         )
         self.runs_registry.add_run(new_run)
+        
+        # Cleanup: If original run had no decision (was a draft), remove it
+        if run.decision is None:
+            self.runs_registry.remove_run(run_id)
 
         self.state.runs_to_compare = [
             new_run_id if rid == run_id else rid for rid in self.state.runs_to_compare
@@ -486,6 +494,10 @@ class RunsStateAdapter:
             }
         )
         self.runs_registry.add_run(new_run)
+
+        # Cleanup: If original run had no decision (was a draft), remove it
+        if run.decision is None:
+            self.runs_registry.remove_run(run_id)
 
         self.state.runs_to_compare = [
             new_run_id if rid == run_id else rid for rid in self.state.runs_to_compare

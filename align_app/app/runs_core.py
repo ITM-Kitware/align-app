@@ -80,9 +80,17 @@ def get_cached_decision(data: Runs, cache_key: str) -> Optional[RunDecision]:
 
 
 def apply_cached_decision(data: Runs, run: Run) -> Run:
+    # If the run already has a decision, we keep it.
+    if run.decision is not None:
+        return run
+
+    # Otherwise, check if we have a relevant decision in the cache.
     cache_key = run.compute_cache_key()
     cached_decision = get_cached_decision(data, cache_key)
-    return run.model_copy(update={"decision": cached_decision})
+    if cached_decision:
+        return run.model_copy(update={"decision": cached_decision})
+    
+    return run
 
 
 def add_cached_decision(data: Runs, cache_key: str, decision: RunDecision) -> Runs:
