@@ -288,9 +288,18 @@ def run_to_state_dict(
         decider_params=run.decider_params,
     )
 
+    alignment_summary = (
+        ", ".join(f"{a['title']} {a['score']}" for a in alignment_attributes)
+        if alignment_attributes
+        else "No Alignment"
+    )
+
+    comparison_label = f"{scenario_input.scenario_id} - {scene_id if scene_id else ''} - {alignment_summary} - {run.decider_name} - {run.llm_backbone_name}"
+
     result = {
         "id": run.id,
         "cache_key": cache_key,
+        "comparison_label": comparison_label,
         "scene_items": scene_items,
         "decider_items": decider_items,
         "llm_backbone_items": llm_backbone_items,

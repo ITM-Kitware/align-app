@@ -810,7 +810,9 @@ class RunNumber:
                 with vuetify3.VRow(no_gutters=True, classes="align-center"):
                     with vuetify3.VCol(classes="flex-grow-1"):
                         vuetify3.VSelect(
-                            items=("Object.keys(runs).map((_, i) => i + 1)",),
+                            items=(
+                                "Object.values(runs).map((r, i) => ({title: (i+1) + ' - ' + (r.comparison_label || ''), value: i + 1}))",
+                            ),
                             model_value=("Object.keys(runs).indexOf(id) + 1",),
                             update_modelValue=(
                                 self.server.controller.update_run_to_compare,
@@ -841,7 +843,7 @@ class RunNumber:
             def no_runs():
                 html.Div("No Runs")
 
-            RowWithLabel(run_content=run_content, label="Run Number", no_runs=no_runs)
+            RowWithLabel(run_content=run_content, label="Run", no_runs=no_runs)
 
 
 def sortable_filter_header(key: str, title: str, filter_var: str, options_var: str):
