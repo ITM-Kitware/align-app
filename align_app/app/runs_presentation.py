@@ -294,7 +294,10 @@ def run_to_state_dict(
         else "No Alignment"
     )
 
-    comparison_label = f"{scenario_input.scenario_id} - {scene_id if scene_id else ''} - {alignment_summary} - {run.decider_name} - {run.llm_backbone_name}"
+    comparison_label = (
+        f"{scenario_input.scenario_id} - {scene_id if scene_id else ''} - "
+        f"{alignment_summary} - {run.decider_name} - {run.llm_backbone_name}"
+    )
 
     result = {
         "id": run.id,
