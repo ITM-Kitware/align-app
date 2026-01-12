@@ -89,7 +89,7 @@ def apply_cached_decision(data: Runs, run: Run) -> Run:
     cached_decision = get_cached_decision(data, cache_key)
     if cached_decision:
         return run.model_copy(update={"decision": cached_decision})
-    
+
     return run
 
 

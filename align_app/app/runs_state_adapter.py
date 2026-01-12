@@ -333,7 +333,10 @@ class RunsStateAdapter:
 
     @controller.set("save_probe_edits")
     def save_probe_edits(
-        self, run_id: str, current_text: str = "", current_choices: list = None
+        self,
+        run_id: str,
+        current_text: str = "",
+        current_choices: Optional[list] = None,
     ):
         if current_choices is None:
             current_choices = []
@@ -372,7 +375,7 @@ class RunsStateAdapter:
             }
         )
         self.runs_registry.add_run(new_run)
-        
+
         # Cleanup: If original run had no decision (was a draft), remove it
         if run.decision is None:
             self.runs_registry.remove_run(run_id)

@@ -811,7 +811,8 @@ class RunNumber:
                     with vuetify3.VCol(classes="flex-grow-1"):
                         vuetify3.VSelect(
                             items=(
-                                "Object.values(runs).map((r, i) => ({title: (i+1) + ' - ' + (r.comparison_label || ''), value: i + 1}))",
+                                "Object.values(runs).map((r, i) => ({"
+                                "title: (i+1) + ' - ' + (r.comparison_label || ''), value: i + 1}))",
                             ),
                             model_value=("Object.keys(runs).indexOf(id) + 1",),
                             update_modelValue=(

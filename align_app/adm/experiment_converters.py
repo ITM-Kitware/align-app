@@ -43,7 +43,8 @@ def deciders_from_experiments(
     """
     seen_hashes: Dict[str, tuple] = {}
 
-    for exp in experiments:
+    sorted_experiments = sorted(experiments, key=lambda e: str(e.experiment_path))
+    for exp in sorted_experiments:
         adm_config = load_experiment_adm_config(exp.experiment_path)
         if adm_config is None:
             continue

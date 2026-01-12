@@ -1,3 +1,5 @@
+import re
+
 from playwright.sync_api import Page, expect, Locator
 
 
@@ -33,6 +35,7 @@ class AlignPage:
     @property
     def table_close_button(self) -> Locator:
         return self.runs_modal.get_by_role("button", name="Close")
+
     @property
     def decision_button(self) -> Locator:
         return self.page.get_by_role("button").filter(has_text="Decision").first
@@ -238,17 +241,13 @@ class AlignPage:
 
     @property
     def alignment_panel_title(self) -> Locator:
-        return (
-            self.page.get_by_role("button")
-            .filter(has_text="Alignment")
-            .filter(has=self.page.locator(".v-expansion-panel-title__overlay"))
-        )
+        return self.page.get_by_role("button", name=re.compile(r"^Alignment"))
 
     @property
     def alignment_panel_content(self) -> Locator:
         return (
             self.page.locator(".v-expansion-panel")
-            .filter(has=self.page.get_by_role("button").filter(has_text="Alignment"))
+            .filter(has=self.page.get_by_role("button", name=re.compile(r"^Alignment")))
             .locator(".v-expansion-panel-text")
         )
 
@@ -264,7 +263,9 @@ class AlignPage:
 
     @property
     def add_alignment_button(self) -> Locator:
-        return self.alignment_panel_content.get_by_role("button", name="Add Alignment").first
+        return self.alignment_panel_content.get_by_role(
+            "button", name="Add Alignment"
+        ).first
 
     def get_alignment_count(self) -> int:
         return self.alignment_panel_content.locator(".v-select").count()
@@ -373,7 +374,9 @@ class AlignPage:
         self.save_config_button.click()
 
     def get_decider_dropdown_value(self) -> str:
-        dropdown = self.decider_panel.get_by_role("combobox").filter(has_text="Decider").first
+        dropdown = (
+            self.decider_panel.get_by_role("combobox").filter(has_text="Decider").first
+        )
         value = dropdown.locator("input").input_value()
         return value if value else ""
 
@@ -384,13 +387,12 @@ class AlignPage:
         # But has_text matches substring "Run 1".
         # Use get_by_text with exact=True
         run_label = self.page.locator("span.text-h6").get_by_text("Run", exact=True)
-        
+
         run_row = self.page.locator(".v-row").filter(has=run_label).first
-        
+
         # Count columns that are not the label column.
         # Run columns have a v-select for the run number.
         return run_row.locator(".v-col").filter(has=self.page.locator(".v-select"))
-
 
     def expect_run_count(self, count: int) -> None:
         expect(self.get_run_columns()).to_have_count(count)
@@ -411,6 +413,7 @@ class AlignPage:
         self.runs_table.locator("tbody").wait_for()
         # Count rows
         return self.runs_table.locator("tbody tr").count()
+
     def get_alignment_slider(self, index: int) -> Locator:
         # Find slider in alignment panel
         # There might be multiple sliders if multiple alignments
@@ -420,34 +423,35 @@ class AlignPage:
         self.expand_alignment_panel()
         slider = self.get_alignment_slider(index)
         expect(slider).to_be_visible()
-        
+
         # Vuetify sliders are tricky to set directly via fill
         # We can try to click on the track or use evaluate to set model value if we could access it
         # But for Playwright, clicking the track is often easiest if we know where.
         # Or easier: input element is usually hidden but we can try to force value.
-        
+
         # Better approach for Vuetify slider:
-        # The slider has a thumb. We can assume some position. 
+        # The slider has a thumb. We can assume some position.
         # But wait, these sliders might be continuous 0-1 or discrete ticks.
         # Let's assume discrete for the "Test Probe 1" alignment target (usually has 0-100 range in our test apps?)
-        # Actually our test uses default probe. 
+        # Actually our test uses default probe.
         # Default probe usually has 'adept_moral_acceptability_classifier' -> continuous 0.0-1.0?
         # Let's check the test expectation.
-        
+
         # If it's a VSlider, we can use the nice Playwright method if it exposes an input type="range"
         # Vuetify 3 VSlider does have an input[type=range] under the hood often?
         # Let's check if we can click the slide.
-        
+
         # Let's try to locate the thumb and drag it, or click the track.
         # Since exact value is hard to hit by clicking, we might just click different spots
         # to trigger a change.
-        
+
         slider_track = slider.locator(".v-slider-track__background")
         if value < 50:
-             slider_track.click(position={"x": 10, "y": 0}) # Left side
+            slider_track.click(position={"x": 10, "y": 0})  # Left side
         else:
-             slider_track.click(position={"x": 200, "y": 0}) # Right side (assuming width)
+            slider_track.click(
+                position={"x": 200, "y": 0}
+            )  # Right side (assuming width)
 
         # Wait for potential debounce/server roundtrip
         self.page.wait_for_timeout(500)
-
