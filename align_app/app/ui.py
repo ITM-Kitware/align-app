@@ -980,8 +980,14 @@ class RunsTableModal(html.Div):
                             prepend_icon="mdi-download",
                             classes="mr-4",
                         ):
-                            html.Span(
-                                "{{ runs_table_selected.length > 0 ? 'Download Selected' : 'Download All' }}"
+                            html.Span("Download")
+                            vuetify3.VBadge(
+                                content=("runs_table_selected.length || '   '",),
+                                inline=True,
+                                color="grey",
+                                style=(
+                                    "'opacity: ' + (runs_table_selected.length > 0 ? '1' : '0')",
+                                ),
                             )
                         with vuetify3.VMenu():
                             with vuetify3.Template(v_slot_activator="{ props }"):
@@ -1284,18 +1290,18 @@ class AlignLayout(SinglePageLayout):
                     with vuetify3.Template(v_slot_activator="{ props }"):
                         with vuetify3.VBtn(
                             v_bind="props",
-                            prepend_icon="mdi-delete-sweep",
+                            prepend_icon="mdi-close-circle-outline",
                         ):
-                            html.Span("Clear Runs")
+                            html.Span("Close Runs")
                     with vuetify3.VCard(min_width="200"):
                         vuetify3.VCardTitle(
-                            "Clear all runs?", classes="text-subtitle-1"
+                            "Close all runs?", classes="text-subtitle-1"
                         )
                         with vuetify3.VCardActions():
                             vuetify3.VSpacer()
                             vuetify3.VBtn("Cancel", variant="text")
                             vuetify3.VBtn(
-                                "Clear",
+                                "Close",
                                 color="error",
                                 variant="text",
                                 click=self.server.controller.reset_state,
