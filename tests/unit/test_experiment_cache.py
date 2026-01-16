@@ -24,7 +24,8 @@ def single_experiment_path(experiments_fixtures_path: Path) -> Path:
 
 def test_cache_populated_from_experiment(single_experiment_path: Path):
     """Verify cache is populated from experiment items."""
-    experiments = parse_experiments_directory(single_experiment_path.parent.parent)
+    root_path = single_experiment_path.parent.parent
+    experiments = parse_experiments_directory(root_path)
 
     target_experiments = [
         exp
@@ -37,7 +38,7 @@ def test_cache_populated_from_experiment(single_experiment_path: Path):
     items = get_experiment_items(target_experiments[0])
     assert len(items) > 0
 
-    runs = runs_from_experiment_items(items)
+    runs = runs_from_experiment_items(items, root_path)
     assert len(runs) > 0
     assert all(run.decision is not None for run in runs)
 
@@ -49,7 +50,8 @@ def test_cache_populated_from_experiment(single_experiment_path: Path):
 
 def test_cache_hit_with_matching_params(single_experiment_path: Path):
     """Verify cache returns decision when params match."""
-    experiments = parse_experiments_directory(single_experiment_path.parent.parent)
+    root_path = single_experiment_path.parent.parent
+    experiments = parse_experiments_directory(root_path)
 
     target_experiments = [
         exp
@@ -59,7 +61,7 @@ def test_cache_hit_with_matching_params(single_experiment_path: Path):
     ]
 
     items = get_experiment_items(target_experiments[0])
-    cached_runs = runs_from_experiment_items(items[:1])
+    cached_runs = runs_from_experiment_items(items[:1], root_path)
     cached_run = cached_runs[0]
     assert cached_run.decision is not None
 
@@ -107,7 +109,8 @@ def test_cache_hit_with_matching_params(single_experiment_path: Path):
 
 def test_cache_miss_with_different_params(single_experiment_path: Path):
     """Verify cache returns None when params don't match."""
-    experiments = parse_experiments_directory(single_experiment_path.parent.parent)
+    root_path = single_experiment_path.parent.parent
+    experiments = parse_experiments_directory(root_path)
 
     target_experiments = [
         exp
@@ -117,7 +120,7 @@ def test_cache_miss_with_different_params(single_experiment_path: Path):
     ]
 
     items = get_experiment_items(target_experiments[0])
-    cached_runs = runs_from_experiment_items(items[:1])
+    cached_runs = runs_from_experiment_items(items[:1], root_path)
     cached_run = cached_runs[0]
 
     class MockProbeRegistry:
@@ -160,7 +163,8 @@ def test_cache_miss_with_different_params(single_experiment_path: Path):
 
 def test_cache_preserved_after_clear_runs(single_experiment_path: Path):
     """Verify cache is preserved when runs are cleared."""
-    experiments = parse_experiments_directory(single_experiment_path.parent.parent)
+    root_path = single_experiment_path.parent.parent
+    experiments = parse_experiments_directory(root_path)
 
     target_experiments = [
         exp
@@ -170,7 +174,7 @@ def test_cache_preserved_after_clear_runs(single_experiment_path: Path):
     ]
 
     items = get_experiment_items(target_experiments[0])
-    cached_runs = runs_from_experiment_items(items[:1])
+    cached_runs = runs_from_experiment_items(items[:1], root_path)
     cached_run = cached_runs[0]
 
     class MockProbeRegistry:

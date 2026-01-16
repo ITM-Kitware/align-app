@@ -1,8 +1,5 @@
 """Pure functions to convert experiment data to domain types."""
 
-import copy
-import hashlib
-import json
 import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -22,6 +19,21 @@ from .decider.types import DeciderParams
 from .run_models import Run, RunDecision
 
 
+def get_decider_batch_name(experiment_path: Path, root_path: Path) -> str:
+    """Derive decider batch name from experiment path depth relative to root.
+
+    Depth 1: experiment folder IS the batch (flat structure)
+    Depth 2+: parent folder is the batch (nested with alignment subdirs)
+    """
+    relative = experiment_path.relative_to(root_path)
+    depth = len(relative.parts)
+
+    if depth == 1:
+        return experiment_path.name
+    else:
+        return experiment_path.parent.name
+
+
 def probes_from_experiment_items(items: List[ExperimentItem]) -> List[Probe]:
     """Convert experiment items to probes, deduping by probe_id."""
     seen = set()
@@ -36,79 +48,46 @@ def probes_from_experiment_items(items: List[ExperimentItem]) -> List[Probe]:
 
 def deciders_from_experiments(
     experiments: List[ExperimentData],
+    root_path: Path,
 ) -> Dict[str, Dict[str, Any]]:
-    """Extract unique decider configs from experiments.
+    """Extract deciders from experiments, one per unique decider batch name.
 
     Returns dict: {decider_name: decider_entry}
     """
-    seen_hashes: Dict[str, tuple] = {}
+    deciders: Dict[str, Dict[str, Any]] = {}
 
     sorted_experiments = sorted(experiments, key=lambda e: str(e.experiment_path))
     for exp in sorted_experiments:
+        decider_batch = get_decider_batch_name(exp.experiment_path, root_path)
+        if decider_batch in deciders:
+            continue
+
         adm_config = load_experiment_adm_config(exp.experiment_path)
         if adm_config is None:
             continue
 
-        normalized = _normalize_adm_config(adm_config)
-        config_hash = _hash_config(normalized)
+        if "structured_inference_engine" in adm_config:
+            experiment_llm = adm_config["structured_inference_engine"].get("model_name")
+            llm_backbones = (
+                [experiment_llm]
+                + [llm for llm in LLM_BACKBONES if llm != experiment_llm]
+                if experiment_llm
+                else list(LLM_BACKBONES)
+            )
+        else:
+            llm_backbones = []
 
-        if config_hash not in seen_hashes:
-            exp_name = exp.experiment_path.parent.name
+        deciders[decider_batch] = {
+            "experiment_path": str(exp.experiment_path),
+            "experiment_config": True,
+            "llm_backbones": llm_backbones,
+            "max_alignment_attributes": 10,
+        }
 
-            if "structured_inference_engine" in adm_config:
-                experiment_llm = adm_config["structured_inference_engine"].get(
-                    "model_name"
-                )
-                llm_backbones = (
-                    [experiment_llm]
-                    + [llm for llm in LLM_BACKBONES if llm != experiment_llm]
-                    if experiment_llm
-                    else list(LLM_BACKBONES)
-                )
-            else:
-                llm_backbones = []
-
-            decider_entry = {
-                "experiment_path": str(exp.experiment_path),
-                "experiment_config": True,
-                "llm_backbones": llm_backbones,
-                "max_alignment_attributes": 10,
-            }
-            seen_hashes[config_hash] = (exp_name, decider_entry)
-
-    return {name: entry for name, entry in seen_hashes.values()}
+    return deciders
 
 
-def _normalize_adm_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Normalize config for comparison by stripping absolute paths to filenames."""
-    normalized = copy.deepcopy(config)
-    _normalize_paths_recursive(normalized)
-    return normalized
-
-
-def _normalize_paths_recursive(obj: Any) -> None:
-    """Recursively normalize path-like strings to just filenames."""
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            if isinstance(value, str) and "/" in value and value.endswith(".json"):
-                obj[key] = Path(value).name
-            else:
-                _normalize_paths_recursive(value)
-    elif isinstance(obj, list):
-        for i, item in enumerate(obj):
-            if isinstance(item, str) and "/" in item and item.endswith(".json"):
-                obj[i] = Path(item).name
-            else:
-                _normalize_paths_recursive(item)
-
-
-def _hash_config(config: Dict[str, Any]) -> str:
-    """Create deterministic hash of config dict."""
-    config_str = json.dumps(config, sort_keys=True)
-    return hashlib.sha256(config_str.encode()).hexdigest()[:16]
-
-
-def run_from_experiment_item(item: ExperimentItem) -> Optional[Run]:
+def run_from_experiment_item(item: ExperimentItem, root_path: Path) -> Optional[Run]:
     """Convert ExperimentItem to Run with decision populated."""
     if not item.item.output:
         return None
@@ -134,12 +113,12 @@ def run_from_experiment_item(item: ExperimentItem) -> Optional[Run]:
         choice_index=output.choice,
     )
 
-    decider_name = item.experiment_path.parent.name
+    decider_batch = get_decider_batch_name(item.experiment_path, root_path)
 
     return Run(
         id=str(uuid.uuid4()),
         probe_id=probe_id,
-        decider_name=decider_name,
+        decider_name=decider_batch,
         llm_backbone_name=item.config.adm.llm_backbone or "N/A",
         system_prompt="",
         decider_params=decider_params,
@@ -147,6 +126,8 @@ def run_from_experiment_item(item: ExperimentItem) -> Optional[Run]:
     )
 
 
-def runs_from_experiment_items(items: List[ExperimentItem]) -> List[Run]:
+def runs_from_experiment_items(
+    items: List[ExperimentItem], root_path: Path
+) -> List[Run]:
     """Convert experiment items to runs, filtering out items without output."""
-    return [run for item in items if (run := run_from_experiment_item(item))]
+    return [run for item in items if (run := run_from_experiment_item(item, root_path))]

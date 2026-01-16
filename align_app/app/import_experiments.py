@@ -20,6 +20,7 @@ from align_utils.models import (
 
 from ..adm.experiment_converters import (
     deciders_from_experiments,
+    get_decider_batch_name,
     probes_from_experiment_items,
 )
 from ..adm.experiment_config_loader import load_experiment_adm_config
@@ -36,6 +37,7 @@ class StoredExperimentItem:
     item: ExperimentItem
     resolved_config: Dict
     cache_key: str
+    decider_batch: str
 
 
 @dataclass
@@ -59,13 +61,18 @@ def import_experiments(experiments_path: Path) -> ExperimentImportResult:
     ]
 
     probes = probes_from_experiment_items(all_items)
-    deciders = deciders_from_experiments(experiments)
+    deciders = deciders_from_experiments(experiments, experiments_path)
 
     items: Dict[str, StoredExperimentItem] = {}
     for item in all_items:
         resolved_config = load_experiment_adm_config(item.experiment_path) or {}
-        cache_key = compute_experiment_item_cache_key(item, resolved_config)
-        items[cache_key] = StoredExperimentItem(item, resolved_config, cache_key)
+        decider_batch = get_decider_batch_name(item.experiment_path, experiments_path)
+        cache_key = compute_experiment_item_cache_key(
+            item, resolved_config, decider_batch
+        )
+        items[cache_key] = StoredExperimentItem(
+            item, resolved_config, cache_key, decider_batch
+        )
 
     print(f"Loaded {len(items)} experiment items from {len(experiments)} experiments")
     return ExperimentImportResult(probes, deciders, items)
@@ -114,12 +121,10 @@ def run_from_stored_experiment_item(stored: StoredExperimentItem) -> Optional[Ru
         choice_index=output.choice,
     )
 
-    decider_name = item.experiment_path.parent.name
-
     return Run(
         id=str(uuid.uuid4()),
         probe_id=probe_id,
-        decider_name=decider_name,
+        decider_name=stored.decider_batch,
         llm_backbone_name=item.config.adm.llm_backbone or "N/A",
         system_prompt="",
         decider_params=decider_params,

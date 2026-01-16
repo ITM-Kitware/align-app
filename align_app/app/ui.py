@@ -426,7 +426,9 @@ class Decider:
 
 
 class Alignment:
-    COMPARE_EXPR = "runs[id].alignment_attributes"
+    COMPARE_EXPR = (
+        "runs[id].alignment_attributes.map(a => ({value: a.value, score: a.score}))"
+    )
 
     class Title:
         def __init__(self):
@@ -913,14 +915,20 @@ class RunsTableModal(html.Div):
                             classes="mr-4",
                         )
                         with vuetify3.VBtn(
+                            click=(self.server.controller.clear_all_table_filters,),
+                            prepend_icon="mdi-filter-off",
+                            classes="mr-4",
+                        ):
+                            html.Span("Clear Filters")
+                        with vuetify3.VBtn(
                             click=(
                                 self.server.controller.add_selected_runs_to_compare,
                             ),
                             disabled=("runs_table_selected.length === 0",),
-                            prepend_icon="mdi-plus",
+                            prepend_icon="mdi-compare",
                             classes="mr-4",
                         ):
-                            html.Span("Add Selected to Comparison")
+                            html.Span("Compare Selected")
                         vuetify3.VFileInput(
                             v_model=("import_experiment_file", None),
                             accept=".zip",
@@ -996,16 +1004,16 @@ class RunsTableModal(html.Div):
                                     prepend_icon="mdi-delete-sweep",
                                     classes="mr-4",
                                 ):
-                                    html.Span("Clear All")
+                                    html.Span("Delete All")
                             with vuetify3.VCard(min_width="200"):
                                 vuetify3.VCardTitle(
-                                    "Clear all runs?", classes="text-subtitle-1"
+                                    "Delete all runs?", classes="text-subtitle-1"
                                 )
                                 with vuetify3.VCardActions():
                                     vuetify3.VSpacer()
                                     vuetify3.VBtn("Cancel", variant="text")
                                     vuetify3.VBtn(
-                                        "Clear",
+                                        "Delete",
                                         color="error",
                                         variant="text",
                                         click=self.server.controller.clear_all_runs,
@@ -1086,6 +1094,30 @@ class RunsTableModal(html.Div):
                                 "runs_table_filter_decision",
                                 "runs_table_decision_options",
                             )
+                            with html.Template(raw_attrs=["v-slot:no-data"]):
+                                with html.Div(
+                                    classes="d-flex flex-column align-center pa-8"
+                                ):
+                                    html.Div(
+                                        "No matching runs found",
+                                        classes="text-h6 mb-4",
+                                    )
+                                    with vuetify3.VBtn(
+                                        click=(
+                                            self.server.controller.clear_all_table_filters,
+                                        ),
+                                        prepend_icon="mdi-filter-off",
+                                        v_if=(
+                                            "runs_table_filter_scenario.length > 0 || "
+                                            "runs_table_filter_scene.length > 0 || "
+                                            "runs_table_filter_decider.length > 0 || "
+                                            "runs_table_filter_llm.length > 0 || "
+                                            "runs_table_filter_alignment.length > 0 || "
+                                            "runs_table_filter_decision.length > 0 || "
+                                            "runs_table_search"
+                                        ),
+                                    ):
+                                        html.Span("Clear Filters")
 
 
 class AdmBrowserModal(html.Div):

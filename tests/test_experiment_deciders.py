@@ -25,7 +25,7 @@ def test_experiment_registry_loads_items(experiments_fixtures_path: Path):
 
 
 def test_unique_deciders_extracted(experiments_fixtures_path: Path):
-    """Verify unique deciders are extracted from experiments."""
+    """Verify deciders are extracted from experiments, one per decider batch."""
     from align_app.adm.experiment_converters import deciders_from_experiments
     from align_app.adm.experiment_results_registry import (
         create_experiment_results_registry,
@@ -33,15 +33,19 @@ def test_unique_deciders_extracted(experiments_fixtures_path: Path):
 
     registry = create_experiment_results_registry(experiments_fixtures_path)
 
-    experiment_deciders = deciders_from_experiments(registry.get_experiments())
-    assert len(experiment_deciders) == 3, (
-        f"Expected 3 unique deciders, got {len(experiment_deciders)}"
+    experiment_deciders = deciders_from_experiments(
+        registry.get_experiments(), experiments_fixtures_path
+    )
+    assert len(experiment_deciders) == 5, (
+        f"Expected 5 deciders (one per decider batch), got {len(experiment_deciders)}"
     )
 
     expected_deciders = {
         "pipeline_fewshot_comparative_regression_loo_20icl",
+        "pipeline_fewshot_comparative_regression_loo_20icl_rerun",
         "pipeline_baseline",
         "pipeline_baseline_greedy_w_cache",
+        "pipeline_baseline_multi",
     }
     assert set(experiment_deciders.keys()) == expected_deciders
 
@@ -55,7 +59,9 @@ def test_experiment_decider_config_loading(experiments_fixtures_path: Path):
     )
 
     registry = create_experiment_results_registry(experiments_fixtures_path)
-    experiment_deciders = deciders_from_experiments(registry.get_experiments())
+    experiment_deciders = deciders_from_experiments(
+        registry.get_experiments(), experiments_fixtures_path
+    )
 
     for name, entry in experiment_deciders.items():
         config = load_experiment_adm_config(Path(entry["experiment_path"]))
@@ -85,7 +91,9 @@ def test_decider_registry_includes_experiment_deciders(experiments_fixtures_path
     experiment_probes = probes_from_experiment_items(exp_registry.get_all_items())
     probe_registry.add_probes(experiment_probes)
 
-    experiment_deciders = deciders_from_experiments(exp_registry.get_experiments())
+    experiment_deciders = deciders_from_experiments(
+        exp_registry.get_experiments(), experiments_fixtures_path
+    )
 
     decider_registry = create_decider_registry(
         config_paths=[],
@@ -120,7 +128,9 @@ def test_get_decider_config_for_experiment(experiments_fixtures_path: Path):
     experiment_probes = probes_from_experiment_items(exp_registry.get_all_items())
     probe_registry.add_probes(experiment_probes)
 
-    experiment_deciders = deciders_from_experiments(exp_registry.get_experiments())
+    experiment_deciders = deciders_from_experiments(
+        exp_registry.get_experiments(), experiments_fixtures_path
+    )
 
     decider_registry = create_decider_registry(
         config_paths=[],
