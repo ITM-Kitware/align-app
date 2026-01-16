@@ -80,7 +80,7 @@ class RunsStateAdapter:
         stored_items = self.runs_registry.get_all_experiment_items()
         experiment_table_rows = [
             runs_presentation.experiment_item_to_table_row(
-                stored.item, stored.cache_key
+                stored.item, stored.cache_key, stored.decider_batch
             )
             for cache_key, stored in stored_items.items()
             if cache_key not in active_cache_keys
@@ -607,7 +607,7 @@ class RunsStateAdapter:
         if not selected:
             return
 
-        existing = list(self.state.runs_to_compare)
+        new_runs_to_compare = []
 
         for item in selected:
             cache_key = item["id"] if isinstance(item, dict) else item
@@ -617,10 +617,10 @@ class RunsStateAdapter:
             if not run:
                 run = self.runs_registry.materialize_experiment_item(cache_key)
 
-            if run and run.id not in existing:
-                existing.append(run.id)
+            if run and run.id not in new_runs_to_compare:
+                new_runs_to_compare.append(run.id)
 
-        self.state.runs_to_compare = existing
+        self.state.runs_to_compare = new_runs_to_compare
         self.state.runs_table_modal_open = False
         self.state.runs_table_selected = []
         self._sync_from_runs_data(self.runs_registry.get_all_runs())

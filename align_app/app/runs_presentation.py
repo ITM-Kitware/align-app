@@ -17,13 +17,13 @@ import yaml
 def compute_experiment_item_cache_key(
     item: ExperimentItem,
     resolved_config: Dict[str, Any],
+    decider_batch: str,
 ) -> str:
     """Compute cache_key for an experiment item (same as Run.compute_cache_key).
 
     Takes resolved_config as param since it must be loaded while paths are valid.
     """
     probe_id = get_probe_id(item.item)
-    decider_name = item.experiment_path.parent.name
     llm_backbone = item.config.adm.llm_backbone or "N/A"
 
     decider_params = DeciderParams(
@@ -32,11 +32,11 @@ def compute_experiment_item_cache_key(
         resolved_config=resolved_config,
     )
 
-    return hash_run_params(probe_id, decider_name, llm_backbone, decider_params)
+    return hash_run_params(probe_id, decider_batch, llm_backbone, decider_params)
 
 
 def experiment_item_to_table_row(
-    item: ExperimentItem, cache_key: str
+    item: ExperimentItem, cache_key: str, decider_batch: str
 ) -> Dict[str, Any]:
     """Convert ExperimentItem to table row format."""
     scene_id = ""
@@ -52,7 +52,7 @@ def experiment_item_to_table_row(
 
     kdma_values = item.config.alignment_target.kdma_values
     alignment_summary = (
-        ", ".join(f"{kv.kdma} {kv.value}" for kv in kdma_values)
+        ", ".join(f"{readable(kv.kdma)} {kv.value}" for kv in kdma_values)
         if kdma_values
         else "None"
     )
@@ -66,7 +66,7 @@ def experiment_item_to_table_row(
         "scenario_id": item.item.input.scenario_id,
         "scene_id": scene_id,
         "probe_text": display_state,
-        "decider_name": item.config.adm.name,
+        "decider_name": decider_batch,
         "llm_backbone_name": item.config.adm.llm_backbone or "N/A",
         "alignment_summary": alignment_summary,
         "decision_text": decision_text,

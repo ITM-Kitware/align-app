@@ -237,7 +237,7 @@ def get_system_prompt(
     """Generate system prompt for a decider with given alignment target."""
     decider_main_config = all_deciders.get(decider)
     if not decider_main_config:
-        raise ValueError(f"Decider '{decider}' not found in all_deciders configuration")
+        return "Decider configuration not available"
 
     generate_sys_prompt = decider_main_config.get("system_prompt_generator")
     if not generate_sys_prompt:

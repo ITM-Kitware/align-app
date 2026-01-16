@@ -66,6 +66,7 @@ class RunsTableFilter:
     def __init__(self, server):
         self.server = server
         self._all_rows: List[Dict[str, Any]] = []
+        self.controller = server.controller
 
         self.state.runs_table_filter_scenario = []
         self.state.runs_table_filter_scene = []
@@ -73,6 +74,8 @@ class RunsTableFilter:
         self.state.runs_table_filter_llm = []
         self.state.runs_table_filter_alignment = []
         self.state.runs_table_filter_decision = []
+
+        self.controller.set("clear_all_table_filters")(self.clear_all_filters)
 
         self.state.runs_table_scenario_options = []
         self.state.runs_table_scene_options = []
@@ -112,3 +115,12 @@ class RunsTableFilter:
             for state_key, col_key in FILTER_COLUMNS
         ]
         self.state.runs_table_items = filter_rows(self._all_rows, filters)
+
+    def clear_all_filters(self):
+        self.state.runs_table_filter_scenario = []
+        self.state.runs_table_filter_scene = []
+        self.state.runs_table_filter_decider = []
+        self.state.runs_table_filter_llm = []
+        self.state.runs_table_filter_alignment = []
+        self.state.runs_table_filter_decision = []
+        self.state.runs_table_search = ""
