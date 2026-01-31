@@ -1,2 +1,3 @@
 #!/usr/bin/env bash
-docker run -it --rm -p 8080:80 align-app
+PORT=${1:-9000}
+docker run -it --rm --gpus all -p ${PORT}:80 align-app
