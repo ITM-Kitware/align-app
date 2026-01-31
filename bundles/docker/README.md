@@ -1,19 +1,69 @@
 # Docker Bundle
 
-Docker bundle aims to provide an easy step to bundle and deploy your application into a Docker image that can easily be deployed in the cloud as a service and will naturally support multi-users.
+Deploy align-app as a multi-user Docker container with GPU support.
 
-## Building the server directory
+## Building the Docker Image
 
-The **server** directory capture all the key elements of your application and can be used with our generic docker image.
+```bash
+cd /path/to/align-app
+./bundles/docker/scripts/build_image.sh
+```
 
-To generate that directory, just run the **scripts/build_server.sh** script.
+This builds the `align-app` image from the project root using the Dockerfile.
 
-## Building your docker image
+## Running the Container
 
-Your docker image is simply bundling the **server** directory into a docker image to simplify possible deployment.
+### Using the run script (defaults to port 9000)
+```bash
+./bundles/docker/scripts/run_image.sh        # runs on port 9000
+./bundles/docker/scripts/run_image.sh 8080   # runs on port 8080
+```
 
-To generate that image, just run the **scripts/build_image.sh** script.
+### Manual run without GPU
+```bash
+docker run -it --rm -p 9000:80 align-app
+```
 
-## Running your bundle
+### Manual run with GPU (requires nvidia-container-toolkit)
+```bash
+docker run -it --rm --gpus all -p 9000:80 align-app
+```
 
-Just run either `scripts/run_server.sh` or `scripts/run_image.sh` and open your browser to `http://localhost:8080/align-app.html`
+Open your browser to `http://localhost:9000`
+
+## Environment Variables
+
+- `HF_TOKEN` - HuggingFace token for downloading models
+- `TRAME_USE_HOST` - Override session URL for reverse proxy setups
+
+Example with HuggingFace token:
+```bash
+docker run -it --rm --gpus all -p 9000:80 -e HF_TOKEN=your_token align-app
+```
+
+## CapRover Deployment
+
+For Heroku-like deployment using CapRover:
+
+1. Create an app in CapRover web UI with **Websocket Support** enabled
+2. Deploy:
+```bash
+cd /path/to/align-app
+tar -cvf trame-app.tar \
+    bundles/docker/captain-definition \
+    bundles/docker/Dockerfile \
+    bundles/docker/setup \
+    align_app \
+    pyproject.toml \
+    README.md
+caprover deploy -t trame-app.tar
+```
+
+## GPU Support on Host
+
+For GPU access, install nvidia-container-toolkit:
+```bash
+# Ubuntu/Debian
+sudo apt-get install nvidia-container-toolkit
+sudo systemctl restart docker
+```

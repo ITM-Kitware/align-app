@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
-CURRENT_DIR=`dirname "$0"`
+CURRENT_DIR=$(dirname "$0")
 
-cd $CURRENT_DIR/..
-DEPLOY_DIR="$PWD"
+cd "$CURRENT_DIR/../../.."
+ROOT_DIR="$PWD"
 
-. scripts/build_server.sh
-
-cd "$DEPLOY_DIR"
-docker build -t align-app .
+docker build -t align-app -f bundles/docker/Dockerfile .

@@ -1,4 +1,20 @@
-trame: # Default app under /index.html
-  app: align-app
-align-app: # /align-app.html
-  app: align-app
+trame:
+  cmd:
+    - align-app
+    - --host
+    - ${host}
+    - --port
+    - ${port}
+    - --authKey
+    - ${secret}
+    - --server
+align-app:
+  cmd:
+    - align-app
+    - --host
+    - ${host}
+    - --port
+    - ${port}
+    - --authKey
+    - ${secret}
+    - --server

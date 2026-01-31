@@ -1,3 +1,2 @@
-# Install app from local directory
-pip install wheel # needed to install /local-app
-pip install /local-app
+#!/usr/bin/env bash
+uv pip install --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cu124 /deploy
