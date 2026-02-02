@@ -974,8 +974,7 @@ class RunsTablePanel(html.Div):
                         hover=True,
                         density="compact",
                         search=("runs_table_search",),
-                        items_per_page=(-1,),
-                        hide_default_footer=True,
+                        items_per_page=(50,),
                         click_row=(ctrl.on_table_row_click, "[$event, item]"),
                     ):
                         with html.Template(
