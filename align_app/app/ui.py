@@ -908,9 +908,12 @@ class RunsTablePanel(html.Div):
         ctrl = self.server.controller
         with self:
             with html.Div(
-                v_show=("!table_collapsed",),
                 classes="d-flex align-center pa-1 flex-shrink-0",
-                style="height: 2.5rem;",
+                style=(
+                    "table_collapsed ? "
+                    "'height: 2.5rem; visibility: hidden;' : "
+                    "'height: 2.5rem;'",
+                ),
             ):
                 with vuetify3.VBtn(
                     variant="text",
@@ -1022,9 +1025,12 @@ class ComparisonPanel(html.Div):
         ctrl = self.server.controller
         with self:
             with html.Div(
-                v_show=("!comparison_collapsed",),
                 classes="d-flex justify-end align-center pa-1 flex-shrink-0",
-                style="height: 2.5rem;",
+                style=(
+                    "comparison_collapsed ? "
+                    "'height: 2.5rem; visibility: hidden;' : "
+                    "'height: 2.5rem;'",
+                ),
             ):
                 with vuetify3.VBtn(
                     variant="text",
@@ -1546,9 +1552,9 @@ class AlignLayout(SinglePageLayout):
                         classes=("isDragging ? 'drop-zone-active' : ''",),
                         style=(
                             "comparison_collapsed ? "
-                            "'flex: 0; width: 0; min-width: 0; overflow: hidden; "
+                            "'flex: 0; width: 0; min-width: 0; margin-left: auto; overflow: hidden; "
                             "transition: flex 0.3s ease, width 0.3s ease, min-width 0.3s ease;' : "
-                            "'flex: 1; min-width: 200px; overflow: hidden; "
+                            "'flex: 1; min-width: 200px; margin-left: auto; overflow: hidden; "
                             "transition: flex 0.3s ease, width 0.3s ease, min-width 0.3s ease;'",
                         ),
                         raw_attrs=[
