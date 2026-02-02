@@ -267,6 +267,7 @@ class RunsStateAdapter:
                 else:
                     runs_to_compare.insert(insert_at_index, run.id)
                 self.state.runs_to_compare = runs_to_compare
+            self._update_table_rows()
 
     def _handle_run_update(self, old_run_id: str, new_run: Optional[Run]):
         if new_run:
