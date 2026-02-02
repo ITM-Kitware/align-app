@@ -225,7 +225,7 @@ class RunsStateAdapter:
         if not run:
             return
 
-        self.state.runs_to_compare = [*self.state.runs_to_compare, run.id]
+        self.state.runs_to_compare = [run.id, *self.state.runs_to_compare]
 
         if run.id not in self.state.runs:
             run_dict = runs_presentation.run_to_state_dict(
@@ -714,7 +714,7 @@ class RunsStateAdapter:
             run = self.runs_registry.materialize_experiment_item(cache_key)
 
         if run and run.id not in self.state.runs_to_compare:
-            self.state.runs_to_compare = [*self.state.runs_to_compare, run.id]
+            self.state.runs_to_compare = [run.id, *self.state.runs_to_compare]
             self._add_run_to_comparison(run)
             self._update_table_rows()
 
