@@ -965,8 +965,12 @@ class RunsTablePanel(html.Div):
                 ):
                     html.Span("Clear")
 
-            with html.Div(style="flex: 1; overflow: auto;"):
-                with vuetify3.VCard(elevation=2, classes="ma-1"):
+            with html.Div(style="flex: 1; overflow: hidden; display: flex;"):
+                with vuetify3.VCard(
+                    elevation=2,
+                    classes="ma-1 d-flex flex-column",
+                    style="flex: 1; overflow: hidden;",
+                ):
                     with vuetify3.VDataTable(
                         items=("runs_table_items",),
                         headers=("runs_table_headers",),
@@ -976,6 +980,8 @@ class RunsTablePanel(html.Div):
                         search=("runs_table_search",),
                         items_per_page=(50,),
                         click_row=(ctrl.on_table_row_click, "[$event, item]"),
+                        fixed_header=True,
+                        style="flex: 1; overflow: hidden;",
                     ):
                         with html.Template(
                             raw_attrs=['v-slot:item.in_comparison="{ item }"']
@@ -1524,6 +1530,8 @@ class AlignLayout(SinglePageLayout):
                         ".v-textarea .v-field__input { overflow-y: hidden !important; }"
                         ".v-expansion-panel { max-width: none !important; }"
                         ".config-textarea textarea { white-space: pre; overflow-x: auto; }"
+                        ".runs-table-panel .v-data-table { display: flex; flex-direction: column; }"
+                        ".runs-table-panel .v-data-table > .v-table__wrapper { flex: 1; overflow-y: auto; }"
                         ".runs-table-panel .v-data-table table { table-layout: fixed; width: 100%; }"
                         ".runs-table-panel .v-data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
                         ".runs-table-panel .v-data-table th { vertical-align: top; }"
