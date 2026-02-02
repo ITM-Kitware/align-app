@@ -910,7 +910,7 @@ class RunsTablePanel(html.Div):
         )
         ctrl = self.server.controller
         with self:
-            with html.Div(classes="d-flex align-start pa-1 flex-shrink-0"):
+            with html.Div(classes="d-flex align-center pa-1 flex-shrink-0", style="height: 2.5rem;"):
                 with vuetify3.VBtn(
                     variant="text",
                     click=(ctrl.toggle_table_collapsed,),
@@ -927,6 +927,7 @@ class RunsTablePanel(html.Div):
                     clearable=True,
                     hide_details=True,
                     density="compact",
+                    variant="underlined",
                     style="max-width: 200px;",
                     classes="mx-2",
                 )
@@ -939,70 +940,73 @@ class RunsTablePanel(html.Div):
                     html.Span("Clear")
 
             with html.Div(style="flex: 1; overflow: auto;"):
-                with vuetify3.VDataTable(
-                    items=("runs_table_items",),
-                    headers=("runs_table_panel_headers",),
-                    item_value="id",
-                    hover=True,
-                    density="compact",
-                    search=("runs_table_search",),
-                    items_per_page=(-1,),
-                    hide_default_footer=True,
-                    click_row=(ctrl.on_table_row_click, "[$event, item]"),
-                ):
-                    with html.Template(
-                        raw_attrs=['v-slot:item.in_comparison="{ item }"']
+                with vuetify3.VCard(elevation=2, classes="ma-1"):
+                    with vuetify3.VDataTable(
+                        items=("runs_table_items",),
+                        headers=("runs_table_panel_headers",),
+                        item_value="id",
+                        hover=True,
+                        density="compact",
+                        search=("runs_table_search",),
+                        items_per_page=(-1,),
+                        hide_default_footer=True,
+                        click_row=(ctrl.on_table_row_click, "[$event, item]"),
                     ):
-                        vuetify3.VCheckbox(
-                            hide_details=True,
-                            density="compact",
-                            raw_attrs=[
-                                "@click.stop",
-                                ':model-value="runs_to_compare.some('
-                                'rid => runs[rid]?.cache_key === item.id)"',
-                            ],
-                            click=(ctrl.toggle_run_in_comparison, "[item.id]"),
+                        with html.Template(
+                            raw_attrs=['v-slot:item.in_comparison="{ item }"']
+                        ):
+                            vuetify3.VCheckbox(
+                                hide_details=True,
+                                density="compact",
+                                raw_attrs=[
+                                    "@click.stop",
+                                    ':model-value="runs_to_compare.some('
+                                    'rid => runs[rid]?.cache_key === item.id)"',
+                                ],
+                                click=(ctrl.toggle_run_in_comparison, "[item.id]"),
+                            )
+                        filterable_column(
+                            "scenario_id",
+                            "Scenario",
+                            "runs_table_filter_scenario",
+                            "runs_table_scenario_options",
                         )
-                    filterable_column(
-                        "scenario_id",
-                        "Scenario",
-                        "runs_table_filter_scenario",
-                        "runs_table_scenario_options",
-                    )
-                    filterable_column(
-                        "scene_id",
-                        "Scene",
-                        "runs_table_filter_scene",
-                        "runs_table_scene_options",
-                    )
-                    cell_with_tooltip("probe_text")
-                    filterable_column(
-                        "decider_name",
-                        "Decider",
-                        "runs_table_filter_decider",
-                        "runs_table_decider_options",
-                    )
-                    filterable_column(
-                        "llm_backbone_name",
-                        "LLM",
-                        "runs_table_filter_llm",
-                        "runs_table_llm_options",
-                    )
-                    filterable_column(
-                        "alignment_summary",
-                        "Alignment",
-                        "runs_table_filter_alignment",
-                        "runs_table_alignment_options",
-                    )
-                    filterable_column(
-                        "decision_text",
-                        "Decision",
-                        "runs_table_filter_decision",
-                        "runs_table_decision_options",
-                    )
-                    with html.Template(raw_attrs=["v-slot:no-data"]):
-                        with html.Div(classes="d-flex flex-column align-center pa-4"):
-                            html.Div("No runs found", classes="text-body-2")
+                        filterable_column(
+                            "scene_id",
+                            "Scene",
+                            "runs_table_filter_scene",
+                            "runs_table_scene_options",
+                        )
+                        cell_with_tooltip("probe_text")
+                        filterable_column(
+                            "decider_name",
+                            "Decider",
+                            "runs_table_filter_decider",
+                            "runs_table_decider_options",
+                        )
+                        filterable_column(
+                            "llm_backbone_name",
+                            "LLM",
+                            "runs_table_filter_llm",
+                            "runs_table_llm_options",
+                        )
+                        filterable_column(
+                            "alignment_summary",
+                            "Alignment",
+                            "runs_table_filter_alignment",
+                            "runs_table_alignment_options",
+                        )
+                        filterable_column(
+                            "decision_text",
+                            "Decision",
+                            "runs_table_filter_decision",
+                            "runs_table_decision_options",
+                        )
+                        with html.Template(raw_attrs=["v-slot:no-data"]):
+                            with html.Div(
+                                classes="d-flex flex-column align-center pa-4"
+                            ):
+                                html.Div("No runs found", classes="text-body-2")
 
 
 class ComparisonPanel(html.Div):
@@ -1015,7 +1019,7 @@ class ComparisonPanel(html.Div):
         )
         ctrl = self.server.controller
         with self:
-            with html.Div(classes="d-flex justify-end pa-1 flex-shrink-0"):
+            with html.Div(classes="d-flex justify-end align-center pa-1 flex-shrink-0", style="height: 2.5rem;"):
                 with vuetify3.VBtn(
                     variant="text",
                     click=(ctrl.toggle_comparison_collapsed,),
@@ -1310,9 +1314,9 @@ class AdmBrowserModal(html.Div):
 
 class ResultsComparison(html.Div):
     def __init__(self, **kwargs):
-        super().__init__(classes="d-inline-flex flex-wrap ga-4 pa-1", **kwargs)
+        super().__init__(classes="d-inline-flex flex-wrap ga-4", **kwargs)
         with self:
-            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+            with vuetify3.VExpansionPanels(multiple=True, variant="accordion", classes="ma-1"):
                 PanelSection(child=RunNumber)
                 PanelSection(child=Probe)
                 PanelSection(child=Decider)
@@ -1493,8 +1497,8 @@ class AlignLayout(SinglePageLayout):
                 ):
                     with html.Div(
                         v_if=("table_collapsed",),
-                        classes="d-flex align-start pa-1",
-                        style="position: absolute; top: 0; left: 0; z-index: 1;",
+                        classes="d-flex align-center pa-1",
+                        style="position: absolute; top: 0; left: 0; z-index: 1; height: 2.5rem;",
                     ):
                         with vuetify3.VBtn(
                             variant="text",
@@ -1510,7 +1514,7 @@ class AlignLayout(SinglePageLayout):
                     with html.Div(
                         v_if=("comparison_collapsed",),
                         classes="d-flex align-center pa-1",
-                        style="position: absolute; top: 0; right: 0; z-index: 1;",
+                        style="position: absolute; top: 0; right: 0; z-index: 1; height: 2.5rem;",
                     ):
                         with vuetify3.VBtn(
                             variant="text",
