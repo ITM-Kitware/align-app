@@ -22,8 +22,10 @@ def test_pipeline_random_scene_change_rerun(align_page_with_decision: AlignPage)
     align_page.expand_scenario_panel()
 
     align_page.scene_dropdown.click()
-    scene_items = page.locator(".v-list-item")
-    second_scene = scene_items.nth(1)
+    scene_listbox = page.get_by_role("listbox", name="Scene-list")
+    expect(scene_listbox).to_be_visible()
+    scene_options = scene_listbox.get_by_role("option")
+    second_scene = scene_options.nth(1)
     second_scene.click()
 
     align_page.wait_for_decision_send_button()

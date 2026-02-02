@@ -31,11 +31,23 @@ class RunsStateAdapter:
         self.decider_registry = decider_registry
         self._add_system_adm_callback = add_system_adm_callback
         self.server.state.pending_cache_keys = []
+        self.server.state.table_collapsed = False
+        self.server.state.comparison_collapsed = False
         self.server.state.runs_table_modal_open = False
         self.server.state.runs_table_selected = []
         self.server.state.runs_table_search = ""
         self.server.state.runs_table_headers = [
             {"title": "", "key": "in_comparison", "sortable": False, "width": "24px"},
+            {"title": "Scenario", "key": "scenario_id"},
+            {"title": "Scene", "key": "scene_id"},
+            {"title": "Situation", "key": "probe_text", "sortable": False},
+            {"title": "Decider", "key": "decider_name"},
+            {"title": "LLM", "key": "llm_backbone_name"},
+            {"title": "Alignment", "key": "alignment_summary"},
+            {"title": "Decision", "key": "decision_text"},
+        ]
+        self.server.state.runs_table_panel_headers = [
+            {"title": "", "key": "in_comparison", "sortable": False, "width": "40px"},
             {"title": "Scenario", "key": "scenario_id"},
             {"title": "Scene", "key": "scene_id"},
             {"title": "Situation", "key": "probe_text", "sortable": False},
@@ -175,6 +187,30 @@ class RunsStateAdapter:
         if len(runs_to_compare) > 1:
             runs_to_compare.pop(column_index)
             self.state.runs_to_compare = runs_to_compare
+
+    @controller.set("toggle_table_collapsed")
+    def toggle_table_collapsed(self):
+        self.state.table_collapsed = not self.state.table_collapsed
+
+    @controller.set("toggle_comparison_collapsed")
+    def toggle_comparison_collapsed(self):
+        self.state.comparison_collapsed = not self.state.comparison_collapsed
+
+    @controller.set("toggle_run_in_comparison")
+    def toggle_run_in_comparison(self, cache_key):
+        run = self.runs_registry.get_run_by_cache_key(cache_key)
+        if not run:
+            run = self.runs_registry.materialize_experiment_item(cache_key)
+        if not run:
+            return
+
+        runs_to_compare = list(self.state.runs_to_compare)
+        if run.id in runs_to_compare:
+            runs_to_compare.remove(run.id)
+        else:
+            runs_to_compare.append(run.id)
+        self.state.runs_to_compare = runs_to_compare
+        self._sync_from_runs_data(self.runs_registry.get_all_runs())
 
     @controller.set("copy_run")
     def copy_run(self, run_id, column_index):

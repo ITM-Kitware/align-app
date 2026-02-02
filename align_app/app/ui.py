@@ -15,6 +15,8 @@ def reload(m=None):
         m.__loader__.exec_module(m)
 
 
+TABLE_PANEL_COLLAPSED_WIDTH = "48px"
+COMPARISON_PANEL_COLLAPSED_WIDTH = "48px"
 RUN_COLUMN_MIN_WIDTH = "28rem"
 LABEL_COLUMN_WIDTH = "12rem"
 INDICATOR_SPACE = "3rem"
@@ -892,6 +894,183 @@ def filterable_column(key: str, title: str, filter_var: str, options_var: str):
     cell_with_tooltip(key)
 
 
+class RunsTablePanel(html.Div):
+    def __init__(self, **kwargs):
+        super().__init__(
+            classes="runs-table-panel d-flex flex-column",
+            style=(
+                "table_collapsed ? '"
+                + "width: "
+                + TABLE_PANEL_COLLAPSED_WIDTH
+                + "; min-width: "
+                + TABLE_PANEL_COLLAPSED_WIDTH
+                + "; flex-shrink: 0; transition: width 0.2s; height: 100%; overflow: hidden;' "
+                ": (comparison_collapsed ? '"
+                + "width: calc(100% - "
+                + COMPARISON_PANEL_COLLAPSED_WIDTH
+                + "); min-width: 25vw; flex-shrink: 0; transition: width 0.2s; height: 100%; overflow: hidden;' "
+                ": 'width: 40%; min-width: 25vw; flex-shrink: 0; transition: width 0.2s; height: 100%; overflow: hidden;')",
+            ),
+            **kwargs,
+        )
+        ctrl = self.server.controller
+        with self:
+            with vuetify3.VBtn(
+                v_if=("table_collapsed",),
+                icon=True,
+                size="small",
+                variant="text",
+                click=(ctrl.toggle_table_collapsed,),
+                classes="ma-1",
+            ):
+                vuetify3.VIcon("mdi-chevron-right")
+
+            with html.Div(
+                v_if=("!table_collapsed",),
+                classes="d-flex flex-column",
+                style="height: 100%; overflow: hidden;",
+            ):
+                with html.Div(classes="d-flex align-center pa-1 flex-shrink-0"):
+                    with vuetify3.VBtn(
+                        icon=True,
+                        size="x-small",
+                        variant="text",
+                        click=(ctrl.toggle_table_collapsed,),
+                    ):
+                        vuetify3.VIcon("mdi-chevron-left", size="small")
+                    vuetify3.VTextField(
+                        v_model=("runs_table_search",),
+                        placeholder="Search...",
+                        prepend_inner_icon="mdi-magnify",
+                        clearable=True,
+                        hide_details=True,
+                        density="compact",
+                        style="max-width: 200px;",
+                        classes="mx-2",
+                    )
+                    vuetify3.VSpacer()
+                    with vuetify3.VBtn(
+                        size="x-small",
+                        variant="text",
+                        click=(ctrl.clear_all_table_filters,),
+                        prepend_icon="mdi-filter-off",
+                    ):
+                        html.Span("Clear")
+
+                with html.Div(style="flex: 1; overflow: auto;"):
+                    with vuetify3.VDataTable(
+                        items=("runs_table_items",),
+                        headers=("runs_table_panel_headers",),
+                        item_value="id",
+                        hover=True,
+                        density="compact",
+                        search=("runs_table_search",),
+                        items_per_page=(-1,),
+                        hide_default_footer=True,
+                        click_row=(ctrl.on_table_row_click, "[$event, item]"),
+                    ):
+                        with html.Template(
+                            raw_attrs=['v-slot:item.in_comparison="{ item }"']
+                        ):
+                            vuetify3.VCheckbox(
+                                hide_details=True,
+                                density="compact",
+                                raw_attrs=[
+                                    "@click.stop",
+                                    ':model-value="runs_to_compare.some('
+                                    'rid => runs[rid]?.cache_key === item.id)"',
+                                ],
+                                click=(ctrl.toggle_run_in_comparison, "[item.id]"),
+                            )
+                        filterable_column(
+                            "scenario_id",
+                            "Scenario",
+                            "runs_table_filter_scenario",
+                            "runs_table_scenario_options",
+                        )
+                        filterable_column(
+                            "scene_id",
+                            "Scene",
+                            "runs_table_filter_scene",
+                            "runs_table_scene_options",
+                        )
+                        cell_with_tooltip("probe_text")
+                        filterable_column(
+                            "decider_name",
+                            "Decider",
+                            "runs_table_filter_decider",
+                            "runs_table_decider_options",
+                        )
+                        filterable_column(
+                            "llm_backbone_name",
+                            "LLM",
+                            "runs_table_filter_llm",
+                            "runs_table_llm_options",
+                        )
+                        filterable_column(
+                            "alignment_summary",
+                            "Alignment",
+                            "runs_table_filter_alignment",
+                            "runs_table_alignment_options",
+                        )
+                        filterable_column(
+                            "decision_text",
+                            "Decision",
+                            "runs_table_filter_decision",
+                            "runs_table_decision_options",
+                        )
+                        with html.Template(raw_attrs=["v-slot:no-data"]):
+                            with html.Div(
+                                classes="d-flex flex-column align-center pa-4"
+                            ):
+                                html.Div("No runs found", classes="text-body-2")
+
+
+class ComparisonPanel(html.Div):
+    def __init__(self, **kwargs):
+        super().__init__(
+            classes="comparison-panel d-flex flex-column flex-grow-1",
+            style=(
+                "comparison_collapsed ? '"
+                + "min-width: "
+                + COMPARISON_PANEL_COLLAPSED_WIDTH
+                + "; max-width: "
+                + COMPARISON_PANEL_COLLAPSED_WIDTH
+                + ";' : 'min-width: 200px;'",
+                "transition: min-width 0.2s ease-in-out; height: 100%; overflow: hidden;",
+            ),
+            **kwargs,
+        )
+        ctrl = self.server.controller
+        with self:
+            with vuetify3.VBtn(
+                v_if=("comparison_collapsed",),
+                icon=True,
+                size="small",
+                variant="text",
+                click=(ctrl.toggle_comparison_collapsed,),
+                classes="ma-1",
+            ):
+                vuetify3.VIcon("mdi-chevron-left")
+
+            with html.Div(
+                v_if=("!comparison_collapsed",),
+                classes="d-flex flex-column",
+                style="height: 100%; overflow: hidden;",
+            ):
+                with html.Div(classes="d-flex align-center pa-1 flex-shrink-0"):
+                    with vuetify3.VBtn(
+                        icon=True,
+                        size="x-small",
+                        variant="text",
+                        click=(ctrl.toggle_comparison_collapsed,),
+                    ):
+                        vuetify3.VIcon("mdi-chevron-right", size="small")
+
+                with html.Div(style="flex: 1; overflow: auto;"):
+                    ResultsComparison()
+
+
 class RunsTableModal(html.Div):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -1262,12 +1441,6 @@ class AlignLayout(SinglePageLayout):
                 if reload:
                     with vuetify3.VBtn(icon=True, click=reload):
                         vuetify3.VIcon("mdi-refresh")
-                with vuetify3.VBtn(
-                    click=self.server.controller.open_runs_table_modal,
-                    disabled=("Object.keys(runs).length === 0",),
-                    prepend_icon="mdi-table",
-                ):
-                    html.Span("Browse Runs")
                 vuetify3.VFileInput(
                     v_model=("import_experiment_file", None),
                     accept=".zip",
@@ -1355,21 +1528,22 @@ class AlignLayout(SinglePageLayout):
                         "</style>'"
                     )
                 )
-                with vuetify3.VContainer(
-                    fluid=True,
-                    classes=(
-                        "isDragging ? 'overflow-auto pa-0 drop-zone-active' : 'overflow-auto pa-0'",
-                    ),
+                with html.Div(
+                    classes="d-flex",
                     style="height: calc(100vh - 64px);",
-                    raw_attrs=[
-                        '@dragover.prevent="isDragging = true"',
-                        '@dragleave.prevent="isDragging = false"',
-                        f'@drop.prevent="{DROP_HANDLER_JS}"',
-                    ],
                 ):
+                    RunsTablePanel()
                     with html.Div(
-                        style="min-width: 100%; width: fit-content; padding: 16px;",
+                        classes=(
+                            "isDragging ? 'flex-grow-1 drop-zone-active' : 'flex-grow-1'",
+                        ),
+                        style="overflow: hidden;",
+                        raw_attrs=[
+                            '@dragover.prevent="isDragging = true"',
+                            '@dragleave.prevent="isDragging = false"',
+                            f'@drop.prevent="{DROP_HANDLER_JS}"',
+                        ],
                     ):
-                        ResultsComparison()
-                    RunsTableModal()
-                    AdmBrowserModal()
+                        ComparisonPanel()
+                RunsTableModal()
+                AdmBrowserModal()
