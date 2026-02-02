@@ -895,9 +895,14 @@ def filterable_column(key: str, title: str, filter_var: str, options_var: str):
 class RunsTablePanel(html.Div):
     def __init__(self, **kwargs):
         super().__init__(
-            v_if=("!table_collapsed",),
             classes="runs-table-panel d-flex flex-column",
-            style="flex: 1; min-width: 25vw; height: 100%; overflow: hidden;",
+            style=(
+                "table_collapsed ? "
+                "'flex: 0; width: 0; min-width: 0; height: 100%; overflow: hidden; "
+                "transition: flex 0.3s ease, width 0.3s ease, min-width 0.3s ease;' : "
+                "'flex: 1; min-width: 25vw; height: 100%; overflow: hidden; "
+                "transition: flex 0.3s ease, width 0.3s ease, min-width 0.3s ease;'",
+            ),
             **kwargs,
         )
         ctrl = self.server.controller
@@ -1009,9 +1014,8 @@ class RunsTablePanel(html.Div):
 class ComparisonPanel(html.Div):
     def __init__(self, **kwargs):
         super().__init__(
-            v_if=("!comparison_collapsed",),
             classes="comparison-panel d-flex flex-column flex-grow-1",
-            style="min-width: 200px; height: 100%; overflow: hidden;",
+            style="min-width: 0; height: 100%; overflow: hidden;",
             **kwargs,
         )
         ctrl = self.server.controller
@@ -1537,9 +1541,14 @@ class AlignLayout(SinglePageLayout):
                             )
                     RunsTablePanel()
                     with html.Div(
-                        v_if=("!comparison_collapsed",),
                         classes=("isDragging ? 'drop-zone-active' : ''",),
-                        style="flex: 1; overflow: hidden;",
+                        style=(
+                            "comparison_collapsed ? "
+                            "'flex: 0; width: 0; min-width: 0; overflow: hidden; "
+                            "transition: flex 0.3s ease, width 0.3s ease, min-width 0.3s ease;' : "
+                            "'flex: 1; min-width: 200px; overflow: hidden; "
+                            "transition: flex 0.3s ease, width 0.3s ease, min-width 0.3s ease;'",
+                        ),
                         raw_attrs=[
                             '@dragover.prevent="isDragging = true"',
                             '@dragleave.prevent="isDragging = false"',
