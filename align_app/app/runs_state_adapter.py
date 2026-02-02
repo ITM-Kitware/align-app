@@ -132,12 +132,9 @@ class RunsStateAdapter:
 
     @controller.set("clear_all_runs")
     def clear_all_runs(self):
-        self.runs_registry.clear_all()
         self.state.runs = {}
         self.state.runs_to_compare = []
-        self.state.runs_table_selected = []
         self._update_table_rows()
-        self.create_default_run()
 
     def create_default_run(self):
         probes = self.probe_registry.get_probes()
