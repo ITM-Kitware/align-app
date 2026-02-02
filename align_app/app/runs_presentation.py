@@ -74,6 +74,39 @@ def experiment_item_to_table_row(
     }
 
 
+def run_to_table_row_direct(run: Run, probe: Probe) -> Dict[str, Any]:
+    """Convert Run directly to table row without building full state dict."""
+    kdma_values = run.decider_params.alignment_target.kdma_values
+    alignment_summary = (
+        ", ".join(f"{readable(kv.kdma)} {kv.value}" for kv in kdma_values)
+        if kdma_values
+        else "None"
+    )
+
+    display_state = probe.display_state or ""
+    choices = probe.choices or []
+    choice_texts = " ".join(c.get("unstructured", "") for c in choices)
+
+    decision_text = ""
+    if run.decision:
+        choice_letter = chr(run.decision.choice_index + ord("A"))
+        decision_text = (
+            f"{choice_letter}. {run.decision.adm_result.decision.unstructured}"
+        )
+
+    return {
+        "id": run.compute_cache_key(),
+        "scenario_id": probe.scenario_id,
+        "scene_id": probe.scene_id,
+        "probe_text": display_state,
+        "decider_name": run.decider_name,
+        "llm_backbone_name": run.llm_backbone_name,
+        "alignment_summary": alignment_summary,
+        "decision_text": decision_text,
+        "searchable_text": f"{display_state} {choice_texts}",
+    }
+
+
 def get_max_alignment_attributes(decider_configs: Dict) -> int:
     if not decider_configs:
         return 0
