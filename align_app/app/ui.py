@@ -908,6 +908,7 @@ class RunsTablePanel(html.Div):
         ctrl = self.server.controller
         with self:
             with html.Div(
+                v_show=("!table_collapsed",),
                 classes="d-flex align-center pa-1 flex-shrink-0",
                 style="height: 2.5rem;",
             ):
@@ -1021,6 +1022,7 @@ class ComparisonPanel(html.Div):
         ctrl = self.server.controller
         with self:
             with html.Div(
+                v_show=("!comparison_collapsed",),
                 classes="d-flex justify-end align-center pa-1 flex-shrink-0",
                 style="height: 2.5rem;",
             ):
