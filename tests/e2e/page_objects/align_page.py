@@ -238,7 +238,11 @@ class AlignPage:
 
     def set_situation_text(self, text: str) -> None:
         expect(self.situation_textarea).to_be_visible()
+        self.situation_textarea.click()
+        self.situation_textarea.press("Control+a")
         self.situation_textarea.fill(text)
+        self.situation_textarea.blur()
+        self.page.wait_for_timeout(200)
 
     def blur_situation_textarea(self) -> None:
         self.situation_textarea.blur()
@@ -377,7 +381,11 @@ class AlignPage:
 
     def set_config_yaml(self, yaml_text: str) -> None:
         expect(self.config_textarea).to_be_visible()
+        self.config_textarea.click()
+        self.config_textarea.press("Control+a")
         self.config_textarea.fill(yaml_text)
+        self.config_textarea.blur()
+        self.page.wait_for_timeout(200)
 
     def blur_config_textarea(self) -> None:
         self.config_textarea.blur()
@@ -388,7 +396,11 @@ class AlignPage:
 
     def click_save_config_button(self) -> None:
         expect(self.save_config_button).to_be_visible()
+        expect(self.save_config_button).to_be_enabled()
+        self.save_config_button.scroll_into_view_if_needed()
+        self.page.wait_for_timeout(500)
         self.save_config_button.click()
+        self.page.wait_for_timeout(1000)
 
     def get_decider_dropdown_value(self) -> str:
         dropdown = (

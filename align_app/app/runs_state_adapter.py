@@ -40,7 +40,12 @@ class RunsStateAdapter:
             {"title": "", "key": "in_comparison", "sortable": False, "width": "40px"},
             {"title": "Scenario", "key": "scenario_id", "width": "150px"},
             {"title": "Scene", "key": "scene_id", "width": "120px"},
-            {"title": "Situation", "key": "probe_text", "sortable": False, "width": "200px"},
+            {
+                "title": "Situation",
+                "key": "probe_text",
+                "sortable": False,
+                "width": "200px",
+            },
             {"title": "Decider", "key": "decider_name", "width": "180px"},
             {"title": "LLM", "key": "llm_backbone_name", "width": "180px"},
             {"title": "Alignment", "key": "alignment_summary", "width": "150px"},
