@@ -910,16 +910,16 @@ class RunsTablePanel(html.Div):
         )
         ctrl = self.server.controller
         with self:
-            with html.Div(classes="d-flex align-center pa-1 flex-shrink-0"):
+            with html.Div(classes="d-flex align-start pa-1 flex-shrink-0"):
                 with vuetify3.VBtn(
                     variant="text",
                     click=(ctrl.toggle_table_collapsed,),
                     classes="text-none",
                     size="small",
                 ):
-                    vuetify3.VIcon("mdi-chevron-left", size="small", classes="mr-1")
                     vuetify3.VIcon("mdi-table", size="small", classes="mr-1")
                     html.Span("Runs", classes="text-caption")
+                    vuetify3.VIcon("mdi-chevron-left", size="small", classes="ml-1")
                 vuetify3.VTextField(
                     v_model=("runs_table_search",),
                     placeholder="Search...",
@@ -1022,8 +1022,8 @@ class ComparisonPanel(html.Div):
                     classes="text-none",
                     size="small",
                 ):
+                    vuetify3.VIcon("mdi-compare", size="small", classes="mr-1")
                     html.Span("Compare", classes="text-caption")
-                    vuetify3.VIcon("mdi-compare", size="small", classes="ml-1")
                     vuetify3.VIcon("mdi-chevron-right", size="small", classes="ml-1")
 
             with html.Div(style="flex: 1; overflow: auto;"):
@@ -1491,30 +1491,38 @@ class AlignLayout(SinglePageLayout):
                     classes="d-flex",
                     style="height: calc(100vh - 64px); position: relative;",
                 ):
-                    with vuetify3.VBtn(
+                    with html.Div(
                         v_if=("table_collapsed",),
-                        variant="text",
-                        click=(server.controller.toggle_table_collapsed,),
-                        classes="text-none",
-                        size="small",
-                        style="position: absolute; top: 4px; left: 4px; z-index: 1;",
+                        classes="d-flex align-start pa-1",
+                        style="position: absolute; top: 0; left: 0; z-index: 1;",
                     ):
-                        vuetify3.VIcon("mdi-table", size="small", classes="mr-1")
-                        html.Span("Runs", classes="text-caption")
-                        vuetify3.VIcon(
-                            "mdi-chevron-right", size="small", classes="ml-1"
-                        )
-                    with vuetify3.VBtn(
+                        with vuetify3.VBtn(
+                            variant="text",
+                            click=(server.controller.toggle_table_collapsed,),
+                            classes="text-none",
+                            size="small",
+                        ):
+                            vuetify3.VIcon("mdi-table", size="small", classes="mr-1")
+                            html.Span("Runs", classes="text-caption")
+                            vuetify3.VIcon(
+                                "mdi-chevron-right", size="small", classes="ml-1"
+                            )
+                    with html.Div(
                         v_if=("comparison_collapsed",),
-                        variant="text",
-                        click=(server.controller.toggle_comparison_collapsed,),
-                        classes="text-none",
-                        size="small",
-                        style="position: absolute; top: 4px; right: 4px; z-index: 1;",
+                        classes="d-flex align-center pa-1",
+                        style="position: absolute; top: 0; right: 0; z-index: 1;",
                     ):
-                        vuetify3.VIcon("mdi-chevron-left", size="small", classes="mr-1")
-                        html.Span("Compare", classes="text-caption")
-                        vuetify3.VIcon("mdi-compare", size="small", classes="ml-1")
+                        with vuetify3.VBtn(
+                            variant="text",
+                            click=(server.controller.toggle_comparison_collapsed,),
+                            classes="text-none",
+                            size="small",
+                        ):
+                            vuetify3.VIcon("mdi-compare", size="small", classes="mr-1")
+                            html.Span("Compare", classes="text-caption")
+                            vuetify3.VIcon(
+                                "mdi-chevron-left", size="small", classes="ml-1"
+                            )
                     RunsTablePanel()
                     with html.Div(
                         v_if=("!comparison_collapsed",),
