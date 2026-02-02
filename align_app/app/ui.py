@@ -1047,9 +1047,9 @@ class ComparisonPanel(html.Div):
             classes="comparison-panel d-flex",
             style=(
                 "comparison_collapsed ? "
-                "'width: 0; min-width: 0; height: 100%; overflow: hidden; "
+                "'width: 0; min-width: 0; height: 100%; overflow: hidden; margin-left: auto; "
                 "transition: all 0.3s ease;' : "
-                "'flex: 1; min-width: 200px; height: 100%; "
+                "'flex: 1; min-width: 200px; height: 100%; margin-left: auto; "
                 "transition: all 0.3s ease;'",
             ),
             **kwargs,
