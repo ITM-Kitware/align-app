@@ -912,9 +912,9 @@ class RunsTablePanel(html.Div):
                     classes="text-none",
                     size="small",
                 ):
-                    vuetify3.VIcon("mdi-table", size="small", classes="mr-1")
+                    vuetify3.VIcon("mdi-chevron-left", size="small", classes="mr-1")
                     html.Span("Runs", classes="text-caption")
-                    vuetify3.VIcon("mdi-chevron-left", size="small", classes="ml-1")
+                    vuetify3.VIcon("mdi-table", size="small", classes="ml-1")
                 vuetify3.VTextField(
                     v_model=("runs_table_search",),
                     placeholder="Search...",
@@ -1514,11 +1514,11 @@ class AlignLayout(SinglePageLayout):
                             classes="text-none",
                             size="small",
                         ):
-                            vuetify3.VIcon("mdi-table", size="small", classes="mr-1")
-                            html.Span("Runs", classes="text-caption")
                             vuetify3.VIcon(
-                                "mdi-chevron-right", size="small", classes="ml-1"
+                                "mdi-chevron-right", size="small", classes="mr-1"
                             )
+                            html.Span("Runs", classes="text-caption")
+                            vuetify3.VIcon("mdi-table", size="small", classes="ml-1")
                     with html.Div(
                         v_if=("comparison_collapsed",),
                         classes="d-flex align-center pa-1",
