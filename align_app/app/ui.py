@@ -886,6 +886,29 @@ def cell_with_tooltip(key: str):
         html.Span(f"{{{{ item.{key} }}}}", v_bind_title=f"item.{key}")
 
 
+def situation_cell_with_info_icon():
+    """Create situation cell with truncated text and info icon tooltip."""
+    with html.Template(raw_attrs=['v-slot:item.probe_text="{ item }"']):
+        with html.Div(classes="d-flex align-center", style="gap: 4px;"):
+            html.Span(
+                "{{ item.probe_text }}",
+                style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;",
+            )
+            with vuetify3.VTooltip(location="top", max_width="400px"):
+                with vuetify3.Template(v_slot_activator="{ props }"):
+                    vuetify3.VIcon(
+                        "mdi-information-outline",
+                        size="x-small",
+                        v_bind="props",
+                        classes="text-grey flex-shrink-0",
+                        style="cursor: help;",
+                    )
+                html.Div(
+                    "{{ item.probe_text }}",
+                    style="white-space: normal; word-wrap: break-word;",
+                )
+
+
 def filterable_column(key: str, title: str, filter_var: str, options_var: str):
     """Create sortable column header with filter and cell tooltip."""
     sortable_filter_header(key, title, filter_var, options_var)
@@ -908,11 +931,11 @@ class RunsTablePanel(html.Div):
         ctrl = self.server.controller
         with self:
             with html.Div(
-                classes="d-flex align-center pa-1 flex-shrink-0",
+                classes="d-flex align-center flex-wrap pa-1 flex-shrink-0 ga-1",
                 style=(
                     "table_collapsed ? "
-                    "'height: 2.5rem; visibility: hidden;' : "
-                    "'height: 2.5rem;'",
+                    "'min-height: 2.5rem; visibility: hidden;' : "
+                    "'min-height: 2.5rem;'",
                 ),
             ):
                 with vuetify3.VBtn(
@@ -932,8 +955,7 @@ class RunsTablePanel(html.Div):
                     hide_details=True,
                     density="compact",
                     variant="underlined",
-                    style="max-width: 200px;",
-                    classes="mx-2",
+                    style="min-width: 100px; max-width: 200px; flex: 1 1 100px;",
                 )
                 with vuetify3.VBtn(
                     size="x-small",
@@ -983,7 +1005,7 @@ class RunsTablePanel(html.Div):
                             "runs_table_filter_scene",
                             "runs_table_scene_options",
                         )
-                        cell_with_tooltip("probe_text")
+                        situation_cell_with_info_icon()
                         filterable_column(
                             "decider_name",
                             "Decider",
@@ -1229,7 +1251,7 @@ class RunsTableModal(html.Div):
                                 "runs_table_filter_scene",
                                 "runs_table_scene_options",
                             )
-                            cell_with_tooltip("probe_text")
+                            situation_cell_with_info_icon()
                             filterable_column(
                                 "decider_name",
                                 "Decider",
@@ -1503,10 +1525,9 @@ class AlignLayout(SinglePageLayout):
                         ".v-textarea .v-field__input { overflow-y: hidden !important; }"
                         ".v-expansion-panel { max-width: none !important; }"
                         ".config-textarea textarea { white-space: pre; overflow-x: auto; }"
-                        ".v-data-table table { table-layout: fixed; width: 100%; }"
-                        ".v-data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
-                        ".v-data-table th { vertical-align: top; }"
-                        ".v-data-table th:first-child { padding-top: 8px; }"
+                        ".runs-table-panel .v-data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
+                        ".runs-table-panel .v-data-table th { vertical-align: top; }"
+                        ".runs-table-panel .v-data-table th:first-child { padding-top: 8px; }"
                         ".drop-zone-active { outline: 3px dashed #1976d2 !important; outline-offset: -3px; }"
                         "</style>'"
                     )
