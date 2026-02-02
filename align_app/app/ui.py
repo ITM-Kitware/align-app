@@ -896,21 +896,16 @@ class RunsTablePanel(html.Div):
     def __init__(self, **kwargs):
         super().__init__(
             v_if=("!table_collapsed",),
-            classes=(
-                "comparison_collapsed ? "
-                "'runs-table-panel d-flex flex-column flex-grow-1' : "
-                "'runs-table-panel d-flex flex-column flex-shrink-0'",
-            ),
-            style=(
-                "comparison_collapsed ? "
-                "'min-width: 25vw; height: 100%; overflow: hidden;' : "
-                "'width: 40%; min-width: 25vw; height: 100%; overflow: hidden;'",
-            ),
+            classes="runs-table-panel d-flex flex-column",
+            style="flex: 1; min-width: 25vw; height: 100%; overflow: hidden;",
             **kwargs,
         )
         ctrl = self.server.controller
         with self:
-            with html.Div(classes="d-flex align-center pa-1 flex-shrink-0", style="height: 2.5rem;"):
+            with html.Div(
+                classes="d-flex align-center pa-1 flex-shrink-0",
+                style="height: 2.5rem;",
+            ):
                 with vuetify3.VBtn(
                     variant="text",
                     click=(ctrl.toggle_table_collapsed,),
@@ -943,7 +938,7 @@ class RunsTablePanel(html.Div):
                 with vuetify3.VCard(elevation=2, classes="ma-1"):
                     with vuetify3.VDataTable(
                         items=("runs_table_items",),
-                        headers=("runs_table_panel_headers",),
+                        headers=("runs_table_headers",),
                         item_value="id",
                         hover=True,
                         density="compact",
@@ -955,16 +950,18 @@ class RunsTablePanel(html.Div):
                         with html.Template(
                             raw_attrs=['v-slot:item.in_comparison="{ item }"']
                         ):
-                            vuetify3.VCheckbox(
-                                hide_details=True,
-                                density="compact",
-                                raw_attrs=[
-                                    "@click.stop",
-                                    ':model-value="runs_to_compare.some('
-                                    'rid => runs[rid]?.cache_key === item.id)"',
-                                ],
-                                click=(ctrl.toggle_run_in_comparison, "[item.id]"),
-                            )
+                            with html.Div(style="text-overflow: clip;"):
+                                vuetify3.VIcon(
+                                    raw_attrs=[
+                                        "@click.stop",
+                                        ':icon="runs_to_compare.some('
+                                        "rid => runs[rid]?.cache_key === item.id) "
+                                        "? 'mdi-eye' : 'mdi-eye-off'\"",
+                                    ],
+                                    size="small",
+                                    style="cursor: pointer;",
+                                    click=(ctrl.toggle_run_in_comparison, "[item.id]"),
+                                )
                         filterable_column(
                             "scenario_id",
                             "Scenario",
@@ -1019,7 +1016,10 @@ class ComparisonPanel(html.Div):
         )
         ctrl = self.server.controller
         with self:
-            with html.Div(classes="d-flex justify-end align-center pa-1 flex-shrink-0", style="height: 2.5rem;"):
+            with html.Div(
+                classes="d-flex justify-end align-center pa-1 flex-shrink-0",
+                style="height: 2.5rem;",
+            ):
                 with vuetify3.VBtn(
                     variant="text",
                     click=(ctrl.toggle_comparison_collapsed,),
@@ -1190,13 +1190,19 @@ class RunsTableModal(html.Div):
                             with html.Template(
                                 raw_attrs=['v-slot:item.in_comparison="{ item }"']
                             ):
-                                with html.Span(style="font-size: 12px;"):
+                                with html.Div(style="text-overflow: clip;"):
                                     vuetify3.VIcon(
-                                        "mdi-eye",
-                                        size="12",
-                                        v_if=(
-                                            "runs_to_compare.some("
-                                            "rid => runs[rid]?.cache_key === item.id)"
+                                        raw_attrs=[
+                                            "@click.stop",
+                                            ':icon="runs_to_compare.some('
+                                            "rid => runs[rid]?.cache_key === item.id) "
+                                            "? 'mdi-eye' : 'mdi-eye-off'\"",
+                                        ],
+                                        size="small",
+                                        style="cursor: pointer;",
+                                        click=(
+                                            self.server.controller.toggle_run_in_comparison,
+                                            "[item.id]",
                                         ),
                                     )
                             filterable_column(
@@ -1316,7 +1322,9 @@ class ResultsComparison(html.Div):
     def __init__(self, **kwargs):
         super().__init__(classes="d-inline-flex flex-wrap ga-4", **kwargs)
         with self:
-            with vuetify3.VExpansionPanels(multiple=True, variant="accordion", classes="ma-1"):
+            with vuetify3.VExpansionPanels(
+                multiple=True, variant="accordion", classes="ma-1"
+            ):
                 PanelSection(child=RunNumber)
                 PanelSection(child=Probe)
                 PanelSection(child=Decider)
@@ -1530,10 +1538,8 @@ class AlignLayout(SinglePageLayout):
                     RunsTablePanel()
                     with html.Div(
                         v_if=("!comparison_collapsed",),
-                        classes=(
-                            "isDragging ? 'flex-grow-1 drop-zone-active' : 'flex-grow-1'",
-                        ),
-                        style="overflow: hidden;",
+                        classes=("isDragging ? 'drop-zone-active' : ''",),
+                        style="flex: 1; overflow: hidden;",
                         raw_attrs=[
                             '@dragover.prevent="isDragging = true"',
                             '@dragleave.prevent="isDragging = false"',
