@@ -505,7 +505,10 @@ class RunsStateAdapter:
             llm_backbone=run.llm_backbone_name,
         )
 
-        if root_config == new_config:
+        def normalize_config(cfg):
+            return yaml.safe_load(yaml.dump(cfg, sort_keys=True))
+
+        if normalize_config(root_config) == normalize_config(new_config):
             new_decider_name = root_decider_name
         else:
             new_decider_name = self.decider_registry.add_edited_decider(
