@@ -1524,6 +1524,7 @@ class AlignLayout(SinglePageLayout):
                         ".v-textarea .v-field__input { overflow-y: hidden !important; }"
                         ".v-expansion-panel { max-width: none !important; }"
                         ".config-textarea textarea { white-space: pre; overflow-x: auto; }"
+                        ".runs-table-panel .v-data-table table { table-layout: fixed; width: 100%; }"
                         ".runs-table-panel .v-data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
                         ".runs-table-panel .v-data-table th { vertical-align: top; }"
                         ".runs-table-panel .v-data-table th:first-child { padding-top: 8px; }"

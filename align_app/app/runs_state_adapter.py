@@ -38,18 +38,13 @@ class RunsStateAdapter:
         self.server.state.runs_table_search = ""
         self.server.state.runs_table_headers = [
             {"title": "", "key": "in_comparison", "sortable": False, "width": "40px"},
-            {"title": "Scenario", "key": "scenario_id", "maxWidth": "150px"},
-            {"title": "Scene", "key": "scene_id", "maxWidth": "120px"},
-            {
-                "title": "Situation",
-                "key": "probe_text",
-                "sortable": False,
-                "maxWidth": "200px",
-            },
-            {"title": "Decider", "key": "decider_name", "maxWidth": "180px"},
-            {"title": "LLM", "key": "llm_backbone_name", "maxWidth": "180px"},
-            {"title": "Alignment", "key": "alignment_summary", "maxWidth": "150px"},
-            {"title": "Decision", "key": "decision_text", "maxWidth": "180px"},
+            {"title": "Scenario", "key": "scenario_id", "width": "150px"},
+            {"title": "Scene", "key": "scene_id", "width": "120px"},
+            {"title": "Situation", "key": "probe_text", "sortable": False, "width": "200px"},
+            {"title": "Decider", "key": "decider_name", "width": "180px"},
+            {"title": "LLM", "key": "llm_backbone_name", "width": "180px"},
+            {"title": "Alignment", "key": "alignment_summary", "width": "150px"},
+            {"title": "Decision", "key": "decision_text", "width": "180px"},
         ]
         self.server.state.import_experiment_file = None
         self.server.state.adm_browser_open = False
