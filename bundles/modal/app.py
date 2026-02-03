@@ -11,6 +11,20 @@ EXPERIMENTS_ZIP = os.environ.get("ALIGN_EXPERIMENTS_ZIP")
 
 app = modal.App("align-app")
 
+MODELS_TO_PREBAKE = [
+    "mistralai/Mistral-7B-Instruct-v0.3",
+]
+
+
+def download_models():
+    from huggingface_hub import snapshot_download
+
+    for model_id in MODELS_TO_PREBAKE:
+        print(f"Downloading {model_id}...")
+        snapshot_download(model_id, token=os.environ.get("HF_TOKEN"))
+        print(f"Completed {model_id}")
+
+
 base_image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git", "unzip")
@@ -23,15 +37,23 @@ base_image = (
 )
 
 if EXPERIMENTS_ZIP:
-    image = base_image.add_local_file(
-        EXPERIMENTS_ZIP, "/app/experiments.zip", copy=True
-    ).run_commands(
-        "poetry config virtualenvs.create false && poetry install --only main",
-        "unzip experiments.zip -d /app && rm experiments.zip",
+    image = (
+        base_image.add_local_file(EXPERIMENTS_ZIP, "/app/experiments.zip", copy=True)
+        .run_commands(
+            "poetry config virtualenvs.create false && poetry install --only main",
+            "unzip experiments.zip -d /app && rm experiments.zip",
+        )
+        .run_function(
+            download_models,
+            secrets=[modal.Secret.from_name("huggingface")],
+        )
     )
 else:
     image = base_image.run_commands(
         "poetry config virtualenvs.create false && poetry install --only main"
+    ).run_function(
+        download_models,
+        secrets=[modal.Secret.from_name("huggingface")],
     )
 
 
@@ -56,6 +78,8 @@ def serve():
         "0.0.0.0",
         "--port",
         str(PORT),
+        "--llm-backbones",
+        *MODELS_TO_PREBAKE,
     ]
     if Path("/app/experiments").exists():
         cmd.extend(["--experiments", "/app/experiments"])
