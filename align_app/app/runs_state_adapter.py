@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import TYPE_CHECKING, Optional, Callable
 from trame.app import asynchronous
 from trame.app.file_upload import ClientFile
 from trame.decorators import TrameApp, controller, change, trigger
@@ -14,6 +14,9 @@ from .export_experiments import export_runs_to_zip
 from .import_experiments import import_experiments_from_zip
 from align_utils.models import AlignmentTarget
 
+if TYPE_CHECKING:
+    from .alerts_controller import AlertsController
+
 
 @TrameApp()
 class RunsStateAdapter:
@@ -24,12 +27,14 @@ class RunsStateAdapter:
         decider_registry,
         runs_registry: RunsRegistry,
         add_system_adm_callback: Callable[[str], None],
+        alerts_controller: "AlertsController",
     ):
         self.server = server
         self.runs_registry = runs_registry
         self.probe_registry = probe_registry
         self.decider_registry = decider_registry
         self._add_system_adm_callback = add_system_adm_callback
+        self._alerts = alerts_controller
         self.server.state.pending_cache_keys = []
         self.server.state.table_collapsed = False
         self.server.state.comparison_collapsed = False
@@ -611,9 +616,19 @@ class RunsStateAdapter:
         with self.state:
             self._add_pending_cache_key(cache_key)
 
+        is_cached = self.runs_registry.has_cached_decision(run_id)
+        if not is_cached:
+            self._alerts.show("Loading model...")
+            await self.server.network_completion
+
+        self._alerts.show("Making decision...")
         await self.server.network_completion
 
-        await self.runs_registry.execute_run_decision(run_id)
+        try:
+            await self.runs_registry.execute_run_decision(run_id)
+            self._alerts.show("Decision complete", timeout=3000)
+        except Exception as e:
+            self._alerts.show(f"Decision failed: {e}", timeout=5000)
 
         with self.state:
             run = self.runs_registry.get_run(run_id)
@@ -735,7 +750,14 @@ class RunsStateAdapter:
         if not file.content:
             return
 
-        result = import_experiments_from_zip(file.content)
+        asynchronous.create_task(self._import_zip_content(file.content))
+
+    async def _import_zip_content(self, content: bytes):
+        with self.state:
+            self._alerts.show("Loading experiments...")
+        await self.server.network_completion
+
+        result = import_experiments_from_zip(content)
 
         self.probe_registry.add_probes(result.probes)
         self.decider_registry.add_deciders(result.deciders)
@@ -744,6 +766,7 @@ class RunsStateAdapter:
         self._update_table_rows()
 
         self.state.import_experiment_file = None
+        self._alerts.show(f"Loaded {len(result.items)} experiments", timeout=3000)
 
     @trigger("import_directory_files")
     def trigger_import_directory_files(self, files_data):
@@ -756,19 +779,11 @@ class RunsStateAdapter:
                 zf.writestr(file_info["path"], bytes(file_info["content"]))
         zip_buffer.seek(0)
 
-        result = import_experiments_from_zip(zip_buffer.read())
-        self.probe_registry.add_probes(result.probes)
-        self.decider_registry.add_deciders(result.deciders)
-        self.runs_registry.add_experiment_items(result.items)
-        self._update_table_rows()
+        asynchronous.create_task(self._import_zip_content(zip_buffer.read()))
 
     @trigger("import_zip_bytes")
     def trigger_import_zip_bytes(self, zip_content):
-        result = import_experiments_from_zip(bytes(zip_content))
-        self.probe_registry.add_probes(result.probes)
-        self.decider_registry.add_deciders(result.deciders)
-        self.runs_registry.add_experiment_items(result.items)
-        self._update_table_rows()
+        asynchronous.create_task(self._import_zip_content(bytes(zip_content)))
 
     def update_decider_registry(self, new_registry):
         self.decider_registry = new_registry
