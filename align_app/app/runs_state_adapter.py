@@ -107,15 +107,16 @@ class RunsStateAdapter:
     def _update_table_rows(self):
         """Update table rows without touching state.runs."""
         all_runs = self.runs_registry.get_all_runs()
+        decided_runs = [run for run in all_runs.values() if run.decision is not None]
         run_table_rows = [
             runs_presentation.run_to_table_row_direct(
                 run, self.probe_registry.get_probe(run.probe_id)
             )
-            for run in all_runs.values()
+            for run in decided_runs
         ]
         run_table_rows_by_id = {row["id"]: row for row in run_table_rows}
 
-        active_cache_keys = {run.compute_cache_key() for run in all_runs.values()}
+        active_cache_keys = {run.compute_cache_key() for run in decided_runs}
         stored_items = self.runs_registry.get_all_experiment_items()
         experiment_table_rows = [
             runs_presentation.experiment_item_to_table_row(
@@ -269,7 +270,8 @@ class RunsStateAdapter:
                 else:
                     runs_to_compare.insert(insert_at_index, run.id)
                 self.state.runs_to_compare = runs_to_compare
-            self._update_table_rows()
+            if run.decision is not None:
+                self._update_table_rows()
 
     def _handle_run_update(self, old_run_id: str, new_run: Optional[Run]):
         if new_run:
@@ -279,7 +281,8 @@ class RunsStateAdapter:
             ]
             self._remove_run_from_comparison(old_run_id)
             self._add_run_to_comparison(new_run)
-            self._update_table_rows()
+            if new_run.decision is not None:
+                self._update_table_rows()
 
     @controller.set("update_run_scene")
     def update_run_scene(self, run_id: str, scene_id: str):
@@ -447,7 +450,6 @@ class RunsStateAdapter:
         ]
         self._remove_run_from_comparison(run_id)
         self._add_run_to_comparison(new_run)
-        self._update_table_rows()
 
     @controller.set("save_config_edits")
     def save_config_edits(self, run_id: str, current_yaml: str = ""):
@@ -573,7 +575,6 @@ class RunsStateAdapter:
         ]
         self._remove_run_from_comparison(run_id)
         self._add_run_to_comparison(new_run)
-        self._update_table_rows()
         return new_run_id
 
     def _add_pending_cache_key(self, cache_key: str):
