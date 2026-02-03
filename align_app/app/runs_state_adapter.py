@@ -617,11 +617,10 @@ class RunsStateAdapter:
             self._add_pending_cache_key(cache_key)
 
         is_cached = self.runs_registry.has_cached_decision(run_id)
-        if not is_cached:
-            self._alerts.show("Loading model...")
-            await self.server.network_completion
-
-        self._alerts.show("Making decision...")
+        if is_cached:
+            self._alerts.show("Deciding...")
+        else:
+            self._alerts.show("Loading model and deciding...")
         await self.server.network_completion
 
         try:
