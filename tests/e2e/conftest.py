@@ -98,8 +98,9 @@ def align_app_server() -> Generator[str, None, None]:
     yield server_url
 
     process.terminate()
-    process.wait(timeout=5)
-    if process.poll() is None:
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
         process.kill()
         process.wait()
 
