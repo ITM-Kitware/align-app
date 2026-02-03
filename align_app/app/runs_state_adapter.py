@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Callable
+from typing import Optional, Callable
 from trame.app import asynchronous
 from trame.app.file_upload import ClientFile
 from trame.decorators import TrameApp, controller, change, trigger
@@ -31,18 +31,25 @@ class RunsStateAdapter:
         self.decider_registry = decider_registry
         self._add_system_adm_callback = add_system_adm_callback
         self.server.state.pending_cache_keys = []
+        self.server.state.table_collapsed = False
+        self.server.state.comparison_collapsed = False
         self.server.state.runs_table_modal_open = False
         self.server.state.runs_table_selected = []
         self.server.state.runs_table_search = ""
         self.server.state.runs_table_headers = [
-            {"title": "", "key": "in_comparison", "sortable": False, "width": "24px"},
-            {"title": "Scenario", "key": "scenario_id"},
-            {"title": "Scene", "key": "scene_id"},
-            {"title": "Situation", "key": "probe_text", "sortable": False},
-            {"title": "Decider", "key": "decider_name"},
-            {"title": "LLM", "key": "llm_backbone_name"},
-            {"title": "Alignment", "key": "alignment_summary"},
-            {"title": "Decision", "key": "decision_text"},
+            {"title": "", "key": "in_comparison", "sortable": False, "width": "40px"},
+            {"title": "Scenario", "key": "scenario_id", "width": "150px"},
+            {"title": "Scene", "key": "scene_id", "width": "120px"},
+            {
+                "title": "Situation",
+                "key": "probe_text",
+                "sortable": False,
+                "width": "200px",
+            },
+            {"title": "Decider", "key": "decider_name", "width": "180px"},
+            {"title": "LLM", "key": "llm_backbone_name", "width": "180px"},
+            {"title": "Alignment", "key": "alignment_summary", "width": "150px"},
+            {"title": "Decision", "key": "decision_text", "width": "180px"},
         ]
         self.server.state.import_experiment_file = None
         self.server.state.adm_browser_open = False
@@ -51,32 +58,59 @@ class RunsStateAdapter:
         self.server.state.selected_system_adms = []
         self.server.state.probe_dirty = {}
         self.server.state.config_dirty = {}
+        self.server.state.runs = {}
+        self.server.state.runs_to_compare = []
         self.table_filter = RunsTableFilter(server)
-        self._sync_from_runs_data(runs_registry.get_all_runs())
+        self._update_table_rows()
 
     @property
     def state(self):
         return self.server.state
 
-    def _sync_from_runs_data(self, runs_dict: Dict[str, Run]):
-        new_runs = {}
-        for run_id, run in runs_dict.items():
-            new_run = runs_presentation.run_to_state_dict(
+    def _add_run_to_comparison(self, run: Run):
+        """Add single run to state.runs."""
+        if run.id not in self.state.runs:
+            run_dict = runs_presentation.run_to_state_dict(
                 run, self.probe_registry, self.decider_registry
             )
-            new_runs[run_id] = new_run
+            self.state.runs = {**self.state.runs, run.id: run_dict}
+
+    def _remove_run_from_comparison(self, run_id: str):
+        """Remove run from state.runs."""
+        if run_id in self.state.runs:
+            self.state.runs = {k: v for k, v in self.state.runs.items() if k != run_id}
+
+    def _update_run_in_comparison(self, run: Run):
+        """Update single run in state.runs if it's in comparison."""
+        if run.id in self.state.runs_to_compare:
+            run_dict = runs_presentation.run_to_state_dict(
+                run, self.probe_registry, self.decider_registry
+            )
+            self.state.runs = {**self.state.runs, run.id: run_dict}
+
+    def _rebuild_comparison_runs(self):
+        """Rebuild state.runs from runs_to_compare (for imports/registry changes)."""
+        new_runs = {}
+        for run_id in self.state.runs_to_compare:
+            run = self.runs_registry.get_run(run_id)
+            if run:
+                new_runs[run_id] = runs_presentation.run_to_state_dict(
+                    run, self.probe_registry, self.decider_registry
+                )
         self.state.runs = new_runs
 
-        run_table_rows_by_id = {
-            row["id"]: row
-            for row in (
-                runs_presentation.run_to_table_row(run_dict)
-                for run_dict in new_runs.values()
+    def _update_table_rows(self):
+        """Update table rows without touching state.runs."""
+        all_runs = self.runs_registry.get_all_runs()
+        run_table_rows = [
+            runs_presentation.run_to_table_row_direct(
+                run, self.probe_registry.get_probe(run.probe_id)
             )
-        }
-        run_table_rows = list(run_table_rows_by_id.values())
+            for run in all_runs.values()
+        ]
+        run_table_rows_by_id = {row["id"]: row for row in run_table_rows}
 
-        active_cache_keys = {run.compute_cache_key() for run in runs_dict.values()}
+        active_cache_keys = {run.compute_cache_key() for run in all_runs.values()}
         stored_items = self.runs_registry.get_all_experiment_items()
         experiment_table_rows = [
             runs_presentation.experiment_item_to_table_row(
@@ -86,32 +120,26 @@ class RunsStateAdapter:
             if cache_key not in active_cache_keys
         ]
 
-        self.table_filter.set_all_rows(run_table_rows + experiment_table_rows)
+        self.table_filter.set_all_rows(
+            list(run_table_rows_by_id.values()) + experiment_table_rows
+        )
 
         probes = self.probe_registry.get_probes()
         self.state.base_scenarios = extract_base_scenarios(probes)
 
-        self.state.probe_dirty = {}
-        self.state.config_dirty = {}
-
-        if not self.state.runs:
-            self.state.runs_to_compare = []
-            self.state.runs_json = "[]"
-            self.state.run_edit_configs = {}
-
     @controller.set("reset_runs_state")
     def reset_state(self):
         self.runs_registry.clear_runs()
-        self._sync_from_runs_data({})
+        self.state.runs = {}
+        self.state.runs_to_compare = []
+        self._update_table_rows()
         self.create_default_run()
 
     @controller.set("clear_all_runs")
     def clear_all_runs(self):
-        self.runs_registry.clear_all()
-        self._sync_from_runs_data({})
+        self.state.runs = {}
         self.state.runs_to_compare = []
-        self.state.runs_table_selected = []
-        self.create_default_run()
+        self._update_table_rows()
 
     def create_default_run(self):
         probes = self.probe_registry.get_probes()
@@ -176,6 +204,37 @@ class RunsStateAdapter:
             runs_to_compare.pop(column_index)
             self.state.runs_to_compare = runs_to_compare
 
+    @controller.set("toggle_table_collapsed")
+    def toggle_table_collapsed(self):
+        self.state.table_collapsed = not self.state.table_collapsed
+
+    @controller.set("toggle_comparison_collapsed")
+    def toggle_comparison_collapsed(self):
+        self.state.comparison_collapsed = not self.state.comparison_collapsed
+
+    @controller.set("toggle_run_in_comparison")
+    def toggle_run_in_comparison(self, cache_key):
+        run = self.runs_registry.get_run_by_cache_key(cache_key)
+
+        if run and run.id in self.state.runs_to_compare:
+            self.state.runs_to_compare = [
+                rid for rid in self.state.runs_to_compare if rid != run.id
+            ]
+            return
+
+        if not run:
+            run = self.runs_registry.materialize_experiment_item(cache_key)
+        if not run:
+            return
+
+        self.state.runs_to_compare = [run.id, *self.state.runs_to_compare]
+
+        if run.id not in self.state.runs:
+            run_dict = runs_presentation.run_to_state_dict(
+                run, self.probe_registry, self.decider_registry
+            )
+            self.state.runs = {**self.state.runs, run.id: run_dict}
+
     @controller.set("copy_run")
     def copy_run(self, run_id, column_index):
         source_run = self.runs_registry.get_run(run_id)
@@ -205,18 +264,17 @@ class RunsStateAdapter:
                 else:
                     runs_to_compare.insert(insert_at_index, run.id)
                 self.state.runs_to_compare = runs_to_compare
+            self._update_table_rows()
 
     def _handle_run_update(self, old_run_id: str, new_run: Optional[Run]):
         if new_run:
-            # Always replace old run ID with new ID in the comparison view
-            # This keeps the run in the same UI position
-            # Note: Registry layer handles whether to keep or remove the old run
-            # based on decision state (see _create_update_method)
             self.state.runs_to_compare = [
                 new_run.id if rid == old_run_id else rid
                 for rid in self.state.runs_to_compare
             ]
-            self._sync_from_runs_data(self.runs_registry.get_all_runs())
+            self._remove_run_from_comparison(old_run_id)
+            self._add_run_to_comparison(new_run)
+            self._update_table_rows()
 
     @controller.set("update_run_scene")
     def update_run_scene(self, run_id: str, scene_id: str):
@@ -376,14 +434,15 @@ class RunsStateAdapter:
         )
         self.runs_registry.add_run(new_run)
 
-        # Cleanup: If original run had no decision (was a draft), remove it
         if run.decision is None:
             self.runs_registry.remove_run(run_id)
 
         self.state.runs_to_compare = [
             new_run_id if rid == run_id else rid for rid in self.state.runs_to_compare
         ]
-        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+        self._remove_run_from_comparison(run_id)
+        self._add_run_to_comparison(new_run)
+        self._update_table_rows()
 
     @controller.set("save_config_edits")
     def save_config_edits(self, run_id: str, current_yaml: str = ""):
@@ -474,7 +533,10 @@ class RunsStateAdapter:
             llm_backbone=run.llm_backbone_name,
         )
 
-        if root_config == new_config:
+        def normalize_config(cfg):
+            return yaml.safe_load(yaml.dump(cfg, sort_keys=True))
+
+        if normalize_config(root_config) == normalize_config(new_config):
             new_decider_name = root_decider_name
         else:
             new_decider_name = self.decider_registry.add_edited_decider(
@@ -498,14 +560,15 @@ class RunsStateAdapter:
         )
         self.runs_registry.add_run(new_run)
 
-        # Cleanup: If original run had no decision (was a draft), remove it
         if run.decision is None:
             self.runs_registry.remove_run(run_id)
 
         self.state.runs_to_compare = [
             new_run_id if rid == run_id else rid for rid in self.state.runs_to_compare
         ]
-        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+        self._remove_run_from_comparison(run_id)
+        self._add_run_to_comparison(new_run)
+        self._update_table_rows()
         return new_run_id
 
     def _add_pending_cache_key(self, cache_key: str):
@@ -553,8 +616,10 @@ class RunsStateAdapter:
         await self.runs_registry.execute_run_decision(run_id)
 
         with self.state:
-            all_runs = self.runs_registry.get_all_runs()
-            self._sync_from_runs_data(all_runs)
+            run = self.runs_registry.get_run(run_id)
+            if run:
+                self._update_run_in_comparison(run)
+            self._update_table_rows()
             self._remove_pending_cache_key(cache_key)
 
     @controller.set("execute_run_decision")
@@ -572,7 +637,15 @@ class RunsStateAdapter:
     def trigger_export_table_runs_zip(self) -> bytes:
         selected = self.state.runs_table_selected
         if not selected:
-            return export_runs_to_zip(self.state.runs)
+            all_runs = self.runs_registry.get_all_runs()
+            runs_to_export = {
+                rid: runs_presentation.run_to_state_dict(
+                    r, self.probe_registry, self.decider_registry
+                )
+                for rid, r in all_runs.items()
+                if r.decision
+            }
+            return export_runs_to_zip(runs_to_export)
 
         selected_runs = {}
         for item in selected:
@@ -608,6 +681,7 @@ class RunsStateAdapter:
             return
 
         new_runs_to_compare = []
+        runs_to_add = []
 
         for item in selected:
             cache_key = item["id"] if isinstance(item, dict) else item
@@ -619,11 +693,16 @@ class RunsStateAdapter:
 
             if run and run.id not in new_runs_to_compare:
                 new_runs_to_compare.append(run.id)
+                runs_to_add.append(run)
+
+        self.state.runs = {}
+        for run in runs_to_add:
+            self._add_run_to_comparison(run)
 
         self.state.runs_to_compare = new_runs_to_compare
         self.state.runs_table_modal_open = False
         self.state.runs_table_selected = []
-        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+        self._update_table_rows()
 
     @controller.set("on_table_row_click")
     def on_table_row_click(self, _event, item):
@@ -637,8 +716,9 @@ class RunsStateAdapter:
             run = self.runs_registry.materialize_experiment_item(cache_key)
 
         if run and run.id not in self.state.runs_to_compare:
-            self.state.runs_to_compare = [*self.state.runs_to_compare, run.id]
-            self._sync_from_runs_data(self.runs_registry.get_all_runs())
+            self.state.runs_to_compare = [run.id, *self.state.runs_to_compare]
+            self._add_run_to_comparison(run)
+            self._update_table_rows()
 
     @change("runs")
     def update_runs_json(self, **_):
@@ -661,7 +741,7 @@ class RunsStateAdapter:
         self.decider_registry.add_deciders(result.deciders)
         self.runs_registry.add_experiment_items(result.items)
 
-        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+        self._update_table_rows()
 
         self.state.import_experiment_file = None
 
@@ -680,7 +760,7 @@ class RunsStateAdapter:
         self.probe_registry.add_probes(result.probes)
         self.decider_registry.add_deciders(result.deciders)
         self.runs_registry.add_experiment_items(result.items)
-        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+        self._update_table_rows()
 
     @trigger("import_zip_bytes")
     def trigger_import_zip_bytes(self, zip_content):
@@ -688,11 +768,12 @@ class RunsStateAdapter:
         self.probe_registry.add_probes(result.probes)
         self.decider_registry.add_deciders(result.deciders)
         self.runs_registry.add_experiment_items(result.items)
-        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+        self._update_table_rows()
 
     def update_decider_registry(self, new_registry):
         self.decider_registry = new_registry
-        self._sync_from_runs_data(self.runs_registry.get_all_runs())
+        self._rebuild_comparison_runs()
+        self._update_table_rows()
 
     @controller.set("open_adm_browser")
     def open_adm_browser(self, run_id: str | None = None):

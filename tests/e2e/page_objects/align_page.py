@@ -20,21 +20,38 @@ class AlignPage:
         return self.page.locator(".v-progress-circular")
 
     @property
-    def browse_runs_button(self) -> Locator:
-        return self.page.get_by_role("button", name="Browse Runs")
+    def runs_table_panel(self) -> Locator:
+        return self.page.locator(".runs-table-panel")
 
     @property
-    def runs_modal(self) -> Locator:
-        # The modal card has a toolbar with "Runs" title
-        return self.page.get_by_text("Runs", exact=True).locator("xpath=..")
+    def comparison_panel(self) -> Locator:
+        return self.page.locator(".comparison-panel")
 
     @property
-    def runs_table(self) -> Locator:
-        return self.runs_modal.locator(".v-data-table")
+    def table_collapse_button(self) -> Locator:
+        return self.runs_table_panel.get_by_role("button").first
 
     @property
-    def table_close_button(self) -> Locator:
-        return self.runs_modal.get_by_role("button", name="Close")
+    def comparison_collapse_button(self) -> Locator:
+        return self.comparison_panel.get_by_role("button").filter(
+            has=self.page.locator(".mdi-chevron-left, .mdi-chevron-right")
+        )
+
+    @property
+    def table_search_input(self) -> Locator:
+        return self.runs_table_panel.locator("input[type='text']").first
+
+    @property
+    def table_filter_toggle(self) -> Locator:
+        return self.runs_table_panel.get_by_role("button").filter(
+            has=self.page.locator(".mdi-filter, .mdi-filter-off")
+        )
+
+    @property
+    def table_run_items(self) -> Locator:
+        return self.runs_table_panel.locator(".v-list-item").filter(
+            has=self.page.locator(".v-checkbox")
+        )
 
     @property
     def decision_button(self) -> Locator:
@@ -221,7 +238,11 @@ class AlignPage:
 
     def set_situation_text(self, text: str) -> None:
         expect(self.situation_textarea).to_be_visible()
+        self.situation_textarea.click()
+        self.situation_textarea.press("Control+a")
         self.situation_textarea.fill(text)
+        self.situation_textarea.blur()
+        self.page.wait_for_timeout(200)
 
     def blur_situation_textarea(self) -> None:
         self.situation_textarea.blur()
@@ -360,7 +381,11 @@ class AlignPage:
 
     def set_config_yaml(self, yaml_text: str) -> None:
         expect(self.config_textarea).to_be_visible()
+        self.config_textarea.click()
+        self.config_textarea.press("Control+a")
         self.config_textarea.fill(yaml_text)
+        self.config_textarea.blur()
+        self.page.wait_for_timeout(200)
 
     def blur_config_textarea(self) -> None:
         self.config_textarea.blur()
@@ -371,7 +396,11 @@ class AlignPage:
 
     def click_save_config_button(self) -> None:
         expect(self.save_config_button).to_be_visible()
+        expect(self.save_config_button).to_be_enabled()
+        self.save_config_button.scroll_into_view_if_needed()
+        self.page.wait_for_timeout(500)
         self.save_config_button.click()
+        self.page.wait_for_timeout(1000)
 
     def get_decider_dropdown_value(self) -> str:
         dropdown = (
@@ -397,22 +426,47 @@ class AlignPage:
     def expect_run_count(self, count: int) -> None:
         expect(self.get_run_columns()).to_have_count(count)
 
-    def open_browse_runs_modal(self) -> None:
-        expect(self.browse_runs_button).to_be_visible()
-        self.browse_runs_button.click()
-        expect(self.runs_modal).to_be_visible()
+    def toggle_table_panel(self) -> None:
+        self.table_collapse_button.click()
 
-    def close_browse_runs_modal(self) -> None:
-        # Use Esc or close button
-        self.page.keyboard.press("Escape")
-        expect(self.runs_modal).not_to_be_visible()
+    def expand_table_panel(self) -> None:
+        panel_style = self.runs_table_panel.get_attribute("style") or ""
+        if "width: 60px" in panel_style:
+            self.toggle_table_panel()
 
-    def get_table_row_count(self) -> int:
-        # Count rows in the data table
-        # Wait for the table body to be present
-        self.runs_table.locator("tbody").wait_for()
-        # Count rows
-        return self.runs_table.locator("tbody tr").count()
+    def collapse_table_panel(self) -> None:
+        panel_style = self.runs_table_panel.get_attribute("style") or ""
+        if "width: 60px" not in panel_style:
+            self.toggle_table_panel()
+
+    def toggle_comparison_panel(self) -> None:
+        self.comparison_collapse_button.click()
+
+    def expand_comparison_panel(self) -> None:
+        panel_style = self.comparison_panel.get_attribute("style") or ""
+        if "width: 60px" in panel_style:
+            self.toggle_comparison_panel()
+
+    def collapse_comparison_panel(self) -> None:
+        panel_style = self.comparison_panel.get_attribute("style") or ""
+        if "width: 60px" not in panel_style:
+            self.toggle_comparison_panel()
+
+    def toggle_run_selection(self, index: int) -> None:
+        checkbox = self.table_run_items.nth(index).locator(".v-checkbox")
+        expect(checkbox).to_be_visible()
+        checkbox.click()
+
+    def get_table_run_count(self) -> int:
+        return self.table_run_items.count()
+
+    def search_table_runs(self, query: str) -> None:
+        self.expand_table_panel()
+        expect(self.table_search_input).to_be_visible()
+        self.table_search_input.fill(query)
+
+    def clear_table_search(self) -> None:
+        self.table_search_input.clear()
 
     def get_alignment_slider(self, index: int) -> Locator:
         # Find slider in alignment panel

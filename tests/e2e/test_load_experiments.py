@@ -26,22 +26,17 @@ def test_load_experiments_menu_opens(page, align_app_server):
 
 
 def test_load_experiments_from_zip(page, align_app_server, experiments_fixtures_path):
-    """Test loading experiments from a zip file adds runs to the table."""
+    """Test loading experiments from a zip file adds runs to the table panel."""
     align_page = AlignPage(page)
     align_page.goto(align_app_server)
 
-    browse_runs_button = page.get_by_role("button", name="Browse Runs")
-    browse_runs_button.click()
+    table_panel = page.locator(".runs-table-panel")
+    expect(table_panel).to_be_visible()
 
-    modal = page.locator(".v-dialog")
-    expect(modal).to_be_visible()
+    def get_table_items_count():
+        return page.evaluate("window.trame.state.state.runs_table_items?.length || 0")
 
-    initial_rows = modal.locator("table tbody tr")
-    expect(initial_rows.first).to_be_visible()
-    initial_count = initial_rows.count()
-
-    page.keyboard.press("Escape")
-    expect(modal).not_to_be_visible()
+    initial_count = get_table_items_count()
 
     load_button = page.get_by_role("button", name="Load Experiments", exact=True)
     load_button.click()
@@ -55,18 +50,33 @@ def test_load_experiments_from_zip(page, align_app_server, experiments_fixtures_
     file_chooser = fc_info.value
     file_chooser.set_files(str(EXPERIMENTS_ZIP))
 
-    page.wait_for_timeout(3000)
+    page.evaluate(
+        """
+        (async () => {
+            const input = trame.refs.importFileInput.$el.querySelector('input[type="file"]');
+            if (input && input.files && input.files.length > 0) {
+                const file = input.files[0];
+                const arrayBuffer = await file.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                await trame.trigger('import_zip_bytes', [Array.from(uint8Array)]);
+            }
+        })();
+        """
+    )
 
-    page.keyboard.press("Escape")
-    page.wait_for_timeout(500)
+    def wait_for_import():
+        for _ in range(30):
+            count = get_table_items_count()
+            if count > initial_count:
+                return True
+            page.wait_for_timeout(500)
+        return False
 
-    page.get_by_role("button", name="Browse Runs").click()
-    page.wait_for_selector(".v-dialog", state="visible", timeout=10000)
+    wait_for_import()
 
-    final_rows = modal.locator("table tbody tr")
-    expect(final_rows.first).to_be_visible()
-    final_count = final_rows.count()
+    final_count = get_table_items_count()
 
     assert final_count > initial_count, (
-        f"Expected more rows after import. Initial: {initial_count}, Final: {final_count}"
+        f"Expected more runs in table panel after import. Initial: {initial_count}, "
+        f"Final: {final_count}"
     )

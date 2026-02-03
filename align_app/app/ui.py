@@ -886,10 +886,209 @@ def cell_with_tooltip(key: str):
         html.Span(f"{{{{ item.{key} }}}}", v_bind_title=f"item.{key}")
 
 
+def situation_cell_with_info_icon():
+    """Create situation cell with truncated text and info icon tooltip."""
+    with html.Template(raw_attrs=['v-slot:item.probe_text="{ item }"']):
+        with html.Div(classes="d-flex align-center", style="gap: 4px;"):
+            html.Span(
+                "{{ item.probe_text }}",
+                style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;",
+            )
+            with vuetify3.VTooltip(location="top", max_width="400px"):
+                with vuetify3.Template(v_slot_activator="{ props }"):
+                    vuetify3.VIcon(
+                        "mdi-information-outline",
+                        size="x-small",
+                        v_bind="props",
+                        classes="text-grey flex-shrink-0",
+                        style="cursor: help;",
+                    )
+                html.Div(
+                    "{{ item.probe_text }}",
+                    style="white-space: normal; word-wrap: break-word;",
+                )
+
+
 def filterable_column(key: str, title: str, filter_var: str, options_var: str):
     """Create sortable column header with filter and cell tooltip."""
     sortable_filter_header(key, title, filter_var, options_var)
     cell_with_tooltip(key)
+
+
+class RunsTablePanel(html.Div):
+    def __init__(self, **kwargs):
+        super().__init__(
+            classes="runs-table-panel",
+            style=(
+                "table_collapsed ? "
+                "'width: 0; min-width: 0; height: 100%; overflow: hidden; "
+                "transition: all 0.3s ease;' : "
+                "'flex: 1; min-width: 25vw; height: 100%; "
+                "transition: all 0.3s ease;'",
+            ),
+            **kwargs,
+        )
+        ctrl = self.server.controller
+        with self:
+            with vuetify3.VCard(
+                v_if=("!table_collapsed",),
+                elevation=2,
+                classes="d-flex flex-column ma-1",
+                style="height: calc(100% - 8px); overflow: hidden;",
+            ):
+                with html.Div(
+                    classes="d-flex align-start flex-wrap flex-shrink-0 ga-1",
+                    style="padding: 0 4px 0 0;",
+                ):
+                    with vuetify3.VBtn(
+                        variant="flat",
+                        color="grey-lighten-3",
+                        click=(ctrl.toggle_table_collapsed,),
+                        classes="text-none",
+                        style="border-radius: 0 0 8px 0;",
+                        size="small",
+                    ):
+                        vuetify3.VIcon("mdi-chevron-left", size="small", classes="mr-1")
+                        html.Span("Runs", classes="text-caption")
+                        vuetify3.VIcon("mdi-table", size="small", classes="ml-1")
+                    vuetify3.VTextField(
+                        v_model=("runs_table_search",),
+                        placeholder="Search...",
+                        prepend_inner_icon="mdi-magnify",
+                        clearable=True,
+                        hide_details=True,
+                        density="compact",
+                        variant="underlined",
+                        style="min-width: 100px; max-width: 200px; flex: 1 1 100px;",
+                    )
+                    with vuetify3.VBtn(
+                        size="x-small",
+                        variant="text",
+                        click=(ctrl.clear_all_table_filters,),
+                        prepend_icon="mdi-filter-off",
+                    ):
+                        html.Span("Clear")
+
+                with html.Div(style="flex: 1; overflow: hidden; display: flex;"):
+                    with vuetify3.VDataTable(
+                        items=("runs_table_items",),
+                        headers=("runs_table_headers",),
+                        item_value="id",
+                        hover=True,
+                        density="compact",
+                        search=("runs_table_search",),
+                        items_per_page=(50,),
+                        click_row=(ctrl.on_table_row_click, "[$event, item]"),
+                        fixed_header=True,
+                        style="flex: 1; overflow: hidden;",
+                    ):
+                        with html.Template(
+                            raw_attrs=['v-slot:item.in_comparison="{ item }"']
+                        ):
+                            with html.Div(style="text-overflow: clip;"):
+                                vuetify3.VIcon(
+                                    raw_attrs=[
+                                        "@click.stop",
+                                        ':icon="runs_to_compare.some('
+                                        "rid => runs[rid]?.cache_key === item.id) "
+                                        "? 'mdi-eye' : 'mdi-eye-off'\"",
+                                    ],
+                                    size="small",
+                                    style="cursor: pointer;",
+                                    click=(ctrl.toggle_run_in_comparison, "[item.id]"),
+                                )
+                        filterable_column(
+                            "scenario_id",
+                            "Scenario",
+                            "runs_table_filter_scenario",
+                            "runs_table_scenario_options",
+                        )
+                        filterable_column(
+                            "scene_id",
+                            "Scene",
+                            "runs_table_filter_scene",
+                            "runs_table_scene_options",
+                        )
+                        situation_cell_with_info_icon()
+                        filterable_column(
+                            "decider_name",
+                            "Decider",
+                            "runs_table_filter_decider",
+                            "runs_table_decider_options",
+                        )
+                        filterable_column(
+                            "llm_backbone_name",
+                            "LLM",
+                            "runs_table_filter_llm",
+                            "runs_table_llm_options",
+                        )
+                        filterable_column(
+                            "alignment_summary",
+                            "Alignment",
+                            "runs_table_filter_alignment",
+                            "runs_table_alignment_options",
+                        )
+                        filterable_column(
+                            "decision_text",
+                            "Decision",
+                            "runs_table_filter_decision",
+                            "runs_table_decision_options",
+                        )
+                        with html.Template(raw_attrs=["v-slot:no-data"]):
+                            with html.Div(
+                                classes="d-flex flex-column align-center pa-4"
+                            ):
+                                html.Div("No runs found", classes="text-body-2")
+
+
+class ComparisonPanel(html.Div):
+    def __init__(self, **kwargs):
+        super().__init__(
+            classes="comparison-panel d-flex",
+            style=(
+                "comparison_collapsed ? "
+                "'width: 0; min-width: 0; height: 100%; overflow: hidden; margin-left: auto; "
+                "transition: all 0.3s ease;' : "
+                "'flex: 1; min-width: 200px; height: 100%; margin-left: auto; "
+                "transition: all 0.3s ease;'",
+            ),
+            **kwargs,
+        )
+        ctrl = self.server.controller
+        with self:
+            with vuetify3.VCard(
+                v_if=("!comparison_collapsed",),
+                elevation=2,
+                classes=(
+                    "isDragging ? 'd-flex flex-column ma-1 drop-zone-active' : 'd-flex flex-column ma-1'",
+                ),
+                style="flex: 1; height: calc(100% - 8px); overflow: hidden;",
+                raw_attrs=[
+                    '@dragover.prevent="isDragging = true"',
+                    '@dragleave.prevent="isDragging = false"',
+                    f'@drop.prevent="{DROP_HANDLER_JS}"',
+                ],
+            ):
+                with html.Div(
+                    classes="d-flex justify-end align-start flex-shrink-0",
+                    style="padding: 0 0 0 4px;",
+                ):
+                    with vuetify3.VBtn(
+                        variant="flat",
+                        color="grey-lighten-3",
+                        click=(ctrl.toggle_comparison_collapsed,),
+                        classes="text-none",
+                        style="border-radius: 0 0 0 8px;",
+                        size="small",
+                    ):
+                        vuetify3.VIcon("mdi-compare", size="small", classes="mr-1")
+                        html.Span("Compare", classes="text-caption")
+                        vuetify3.VIcon(
+                            "mdi-chevron-right", size="small", classes="ml-1"
+                        )
+
+                with html.Div(style="flex: 1; overflow: auto;"):
+                    ResultsComparison()
 
 
 class RunsTableModal(html.Div):
@@ -1048,13 +1247,19 @@ class RunsTableModal(html.Div):
                             with html.Template(
                                 raw_attrs=['v-slot:item.in_comparison="{ item }"']
                             ):
-                                with html.Span(style="font-size: 12px;"):
+                                with html.Div(style="text-overflow: clip;"):
                                     vuetify3.VIcon(
-                                        "mdi-eye",
-                                        size="12",
-                                        v_if=(
-                                            "runs_to_compare.some("
-                                            "rid => runs[rid]?.cache_key === item.id)"
+                                        raw_attrs=[
+                                            "@click.stop",
+                                            ':icon="runs_to_compare.some('
+                                            "rid => runs[rid]?.cache_key === item.id) "
+                                            "? 'mdi-eye' : 'mdi-eye-off'\"",
+                                        ],
+                                        size="small",
+                                        style="cursor: pointer;",
+                                        click=(
+                                            self.server.controller.toggle_run_in_comparison,
+                                            "[item.id]",
                                         ),
                                     )
                             filterable_column(
@@ -1069,7 +1274,7 @@ class RunsTableModal(html.Div):
                                 "runs_table_filter_scene",
                                 "runs_table_scene_options",
                             )
-                            cell_with_tooltip("probe_text")
+                            situation_cell_with_info_icon()
                             filterable_column(
                                 "decider_name",
                                 "Decider",
@@ -1172,9 +1377,11 @@ class AdmBrowserModal(html.Div):
 
 class ResultsComparison(html.Div):
     def __init__(self, **kwargs):
-        super().__init__(classes="d-inline-flex flex-wrap ga-4 pa-1", **kwargs)
+        super().__init__(classes="d-inline-flex flex-wrap ga-4", **kwargs)
         with self:
-            with vuetify3.VExpansionPanels(multiple=True, variant="accordion"):
+            with vuetify3.VExpansionPanels(
+                multiple=True, variant="accordion", classes="ma-1"
+            ):
                 PanelSection(child=RunNumber)
                 PanelSection(child=Probe)
                 PanelSection(child=Decider)
@@ -1262,12 +1469,6 @@ class AlignLayout(SinglePageLayout):
                 if reload:
                     with vuetify3.VBtn(icon=True, click=reload):
                         vuetify3.VIcon("mdi-refresh")
-                with vuetify3.VBtn(
-                    click=self.server.controller.open_runs_table_modal,
-                    disabled=("Object.keys(runs).length === 0",),
-                    prepend_icon="mdi-table",
-                ):
-                    html.Span("Browse Runs")
                 vuetify3.VFileInput(
                     v_model=("import_experiment_file", None),
                     accept=".zip",
@@ -1347,29 +1548,56 @@ class AlignLayout(SinglePageLayout):
                         ".v-textarea .v-field__input { overflow-y: hidden !important; }"
                         ".v-expansion-panel { max-width: none !important; }"
                         ".config-textarea textarea { white-space: pre; overflow-x: auto; }"
-                        ".v-data-table table { table-layout: fixed; width: 100%; }"
-                        ".v-data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
-                        ".v-data-table th { vertical-align: top; }"
-                        ".v-data-table th:first-child { padding-top: 8px; }"
+                        ".runs-table-panel .v-data-table { display: flex; flex-direction: column; }"
+                        ".runs-table-panel .v-data-table > .v-table__wrapper { flex: 1; overflow-y: auto; }"
+                        ".runs-table-panel .v-data-table table { table-layout: fixed; width: 100%; }"
+                        ".runs-table-panel .v-data-table td "
+                        "{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
+                        ".runs-table-panel .v-data-table th { vertical-align: top; }"
+                        ".runs-table-panel .v-data-table th:first-child { padding-top: 8px; }"
                         ".drop-zone-active { outline: 3px dashed #1976d2 !important; outline-offset: -3px; }"
                         "</style>'"
                     )
                 )
-                with vuetify3.VContainer(
-                    fluid=True,
-                    classes=(
-                        "isDragging ? 'overflow-auto pa-0 drop-zone-active' : 'overflow-auto pa-0'",
-                    ),
-                    style="height: calc(100vh - 64px);",
-                    raw_attrs=[
-                        '@dragover.prevent="isDragging = true"',
-                        '@dragleave.prevent="isDragging = false"',
-                        f'@drop.prevent="{DROP_HANDLER_JS}"',
-                    ],
+                with html.Div(
+                    classes="d-flex",
+                    style="height: calc(100vh - 64px); position: relative;",
                 ):
                     with html.Div(
-                        style="min-width: 100%; width: fit-content; padding: 16px;",
+                        v_if=("table_collapsed",),
+                        style="position: absolute; left: 0; top: 0; z-index: 1;",
                     ):
-                        ResultsComparison()
-                    RunsTableModal()
-                    AdmBrowserModal()
+                        with vuetify3.VBtn(
+                            variant="flat",
+                            color="grey-lighten-3",
+                            click=(server.controller.toggle_table_collapsed,),
+                            classes="text-none",
+                            style="border-radius: 0 0 8px 0;",
+                            size="small",
+                        ):
+                            vuetify3.VIcon(
+                                "mdi-chevron-right", size="small", classes="mr-1"
+                            )
+                            html.Span("Runs", classes="text-caption")
+                            vuetify3.VIcon("mdi-table", size="small", classes="ml-1")
+                    with html.Div(
+                        v_if=("comparison_collapsed",),
+                        style="position: absolute; right: 0; top: 0; z-index: 1;",
+                    ):
+                        with vuetify3.VBtn(
+                            variant="flat",
+                            color="grey-lighten-3",
+                            click=(server.controller.toggle_comparison_collapsed,),
+                            classes="text-none",
+                            style="border-radius: 0 0 0 8px;",
+                            size="small",
+                        ):
+                            vuetify3.VIcon("mdi-compare", size="small", classes="mr-1")
+                            html.Span("Compare", classes="text-caption")
+                            vuetify3.VIcon(
+                                "mdi-chevron-left", size="small", classes="ml-1"
+                            )
+                    RunsTablePanel()
+                    ComparisonPanel()
+                RunsTableModal()
+                AdmBrowserModal()
