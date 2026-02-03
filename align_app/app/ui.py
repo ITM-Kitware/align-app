@@ -1541,6 +1541,20 @@ class AlignLayout(SinglePageLayout):
                             )
 
             with layout.content:
+                with vuetify3.VSnackbar(
+                    v_model=("alert_visible", False),
+                    text=("alert_message", ""),
+                    location="bottom left",
+                    color="white",
+                    timeout=("alert_timeout", -1),
+                    content_class="text-h6 font-weight-medium",
+                ):
+                    with vuetify3.Template(v_slot_actions=""):
+                        vuetify3.VBtn(
+                            icon="mdi-close",
+                            variant="text",
+                            click="alert_visible = false",
+                        )
                 html.Div(
                     v_html=(
                         "'<style>"

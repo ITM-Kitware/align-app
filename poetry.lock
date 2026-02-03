@@ -6894,6 +6894,28 @@ dev = ["pre-commit", "pytest", "ruff"]
 jupyter = ["jupyterlab"]
 
 [[package]]
+name = "trame-alerts"
+version = "0.2.0"
+description = "A trame package to manage and display alerts"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "trame_alerts-0.2.0-py3-none-any.whl", hash = "sha256:8cd626a2f5b4ca1bd3390c5a9096df1e2af60108c94614339bb56bfc53697ffa"},
+    {file = "trame_alerts-0.2.0.tar.gz", hash = "sha256:94f0ef1e262c6b4056ea5805a4e59a29445e9b6654c6a80e5ac26a0cd4f4a30f"},
+]
+
+[package.dependencies]
+trame_client = ">=3.5"
+trame_server = ">=3.3"
+trame_vuetify = {version = "*", optional = true, markers = "extra == \"vuetify\""}
+
+[package.extras]
+dev = ["codespell", "pre-commit", "pytest", "ruff"]
+quasar = ["trame_quasar"]
+vuetify = ["trame_vuetify"]
+
+[[package]]
 name = "trame-client"
 version = "3.11.2"
 description = "Internal client of trame"
@@ -7701,4 +7723,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "5031334e3d503d2d4642a13cd8a9c080e926142e6d41c60e3e7b497530c8bf1e"
+content-hash = "cdaf320fb2371b391d1b603827ebda7665da892c5bfd03894001d34606590982"

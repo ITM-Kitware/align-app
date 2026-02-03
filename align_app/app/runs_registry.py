@@ -103,6 +103,13 @@ class RunsRegistry:
 
         return await self._execute_with_cache(run, probe.choices or [])
 
+    def has_cached_decision(self, run_id: str) -> bool:
+        run = runs_core.get_run(self._runs, run_id)
+        if not run:
+            return False
+        cache_key = run.compute_cache_key()
+        return runs_core.get_cached_decision(self._runs, cache_key) is not None
+
     def get_run(self, run_id: str) -> Optional[Run]:
         run = runs_core.get_run(self._runs, run_id)
         if run:
