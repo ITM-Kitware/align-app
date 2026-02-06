@@ -4,6 +4,7 @@ Provides a convenient get_decision() function that manages a singleton Multiproc
 """
 
 import atexit
+from typing import Dict, Any
 from align_utils.models import ADMResult
 from .decider import MultiprocessDecider
 from .types import DeciderParams
@@ -17,6 +18,12 @@ def _get_process_manager():
     if _decider is None:
         _decider = MultiprocessDecider()
     return _decider
+
+
+async def is_model_cached(resolved_config: Dict[str, Any]) -> bool:
+    """Check if model for this config is already loaded in worker."""
+    process_manager = _get_process_manager()
+    return await process_manager.is_model_cached(resolved_config)
 
 
 async def get_decision(params: DeciderParams) -> ADMResult:

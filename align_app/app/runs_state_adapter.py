@@ -6,6 +6,7 @@ from ..adm.run_models import Run
 from .runs_registry import RunsRegistry
 from .runs_table_filter import RunsTableFilter
 from ..adm.decider.types import DeciderParams
+from ..adm.decider import is_model_cached
 from ..adm.system_adm_discovery import discover_system_adms
 from ..utils.utils import get_id
 from .runs_presentation import extract_base_scenarios
@@ -616,8 +617,8 @@ class RunsStateAdapter:
         with self.state:
             self._add_pending_cache_key(cache_key)
 
-        is_cached = self.runs_registry.has_cached_decision(run_id)
-        if is_cached:
+        run = self.runs_registry.get_run(run_id)
+        if run and await is_model_cached(run.decider_params.resolved_config):
             self._alerts.show("Deciding...")
         else:
             self._alerts.show("Loading model and deciding...")

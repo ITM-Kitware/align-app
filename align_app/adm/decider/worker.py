@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import traceback
+from dataclasses import dataclass
 from typing import Dict, Tuple, Callable, Any
 from multiprocessing import Queue
 from align_utils.models import ADMResult
@@ -15,6 +16,16 @@ def extract_cache_key(resolved_config: Dict[str, Any]) -> str:
     return hashlib.md5(cache_str.encode()).hexdigest()
 
 
+@dataclass
+class CacheQuery:
+    resolved_config: Dict[str, Any]
+
+
+@dataclass
+class CacheQueryResult:
+    is_cached: bool
+
+
 def decider_worker_func(task_queue: Queue, result_queue: Queue):
     root_logger = logging.getLogger()
     root_logger.setLevel("WARNING")
@@ -24,6 +35,13 @@ def decider_worker_func(task_queue: Queue, result_queue: Queue):
     try:
         for task in iter(task_queue.get, None):
             try:
+                if isinstance(task, CacheQuery):
+                    cache_key = extract_cache_key(task.resolved_config)
+                    result_queue.put(
+                        CacheQueryResult(is_cached=cache_key in model_cache)
+                    )
+                    continue
+
                 params: DeciderParams = task
                 cache_key = extract_cache_key(params.resolved_config)
 
