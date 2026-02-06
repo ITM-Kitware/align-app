@@ -5,7 +5,6 @@ from . import ui
 from .search import SearchController
 from .runs_registry import RunsRegistry
 from .runs_state_adapter import RunsStateAdapter
-from .alerts_controller import AlertsController
 from ..adm.decider_registry import create_decider_registry
 from ..adm.probe_registry import create_probe_registry
 from .import_experiments import import_experiments
@@ -69,15 +68,12 @@ class AlignApp:
         if experiment_result:
             self._runs_registry.add_experiment_items(experiment_result.items)
 
-        self._alerts_controller = AlertsController(self.server)
-
         self._runsController = RunsStateAdapter(
             self.server,
             self._probe_registry,
             self._decider_registry,
             self._runs_registry,
             self.add_system_adm,
-            self._alerts_controller,
         )
         self._search_controller = SearchController(
             self.server,

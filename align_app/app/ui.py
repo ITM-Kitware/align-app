@@ -1,5 +1,5 @@
 from trame.ui.vuetify3 import SinglePageLayout
-from trame.widgets import vuetify3, html
+from trame.widgets import vuetify3, html, alerts, alerts_vuetify
 from ..utils.utils import noop, readable, readable_sentence
 from .unordered_object import (
     UnorderedObject,
@@ -1541,20 +1541,9 @@ class AlignLayout(SinglePageLayout):
                             )
 
             with layout.content:
-                with vuetify3.VSnackbar(
-                    v_model=("alert_visible", False),
-                    text=("alert_message", ""),
-                    location="bottom left",
-                    color="white",
-                    timeout=("alert_timeout", -1),
-                    content_class="text-h6 font-weight-medium",
-                ):
-                    with vuetify3.Template(v_slot_actions=""):
-                        vuetify3.VBtn(
-                            icon="mdi-close",
-                            variant="text",
-                            click="alert_visible = false",
-                        )
+                with alerts.AlertsProvider() as alerts_provider:
+                    alerts_provider.bind_controller()
+                    alerts_vuetify.AlertsPopup()
                 html.Div(
                     v_html=(
                         "'<style>"
@@ -1570,6 +1559,8 @@ class AlignLayout(SinglePageLayout):
                         ".runs-table-panel .v-data-table th { vertical-align: top; }"
                         ".runs-table-panel .v-data-table th:first-child { padding-top: 8px; }"
                         ".drop-zone-active { outline: 3px dashed #1976d2 !important; outline-offset: -3px; }"
+                        ".alert-popup-container { left: auto; right: 0; transform: none; width: fit-content; }"
+                        ".alert-popup-container .v-alert { --v-theme-info: 66, 66, 66; }"
                         "</style>'"
                     )
                 )
