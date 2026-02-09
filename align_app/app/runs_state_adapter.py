@@ -351,35 +351,32 @@ class RunsStateAdapter:
         new_run = self.runs_registry.delete_run_alignment_attribute(run_id, attr_index)
         self._handle_run_update(run_id, new_run)
 
-    @controller.set("update_run_probe_text")
+    @trigger("update_run_probe_text")
     def update_run_probe_text(self, run_id: str, text: str):
         if run_id in self.state.runs:
             self.state.runs[run_id]["prompt"]["probe"]["display_state"] = text
-            self.state.dirty("runs")
             choices = self.state.runs[run_id]["prompt"]["probe"]["choices"]
             self.state.probe_dirty[run_id] = self._is_probe_edited(
                 run_id, text, choices
             )
             self.state.dirty("probe_dirty")
 
-    @controller.set("update_run_choice_text")
+    @trigger("update_run_choice_text")
     def update_run_choice_text(self, run_id: str, index: int, text: str):
         if run_id in self.state.runs:
             choices = self.state.runs[run_id]["prompt"]["probe"]["choices"]
             if 0 <= index < len(choices):
                 choices[index]["unstructured"] = text
-                self.state.dirty("runs")
                 probe_text = self.state.runs[run_id]["prompt"]["probe"]["display_state"]
                 self.state.probe_dirty[run_id] = self._is_probe_edited(
                     run_id, probe_text, choices
                 )
                 self.state.dirty("probe_dirty")
 
-    @controller.set("update_run_config_yaml")
+    @trigger("update_run_config_yaml")
     def update_run_config_yaml(self, run_id: str, yaml_text: str):
         if run_id in self.state.runs:
             self.state.runs[run_id]["prompt"]["resolved_config_yaml"] = yaml_text
-            self.state.dirty("runs")
             is_edited = self._is_config_edited(run_id, yaml_text)
             self.state.config_dirty[run_id] = is_edited
             self.state.dirty("config_dirty")

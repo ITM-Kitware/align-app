@@ -396,8 +396,8 @@ class Decider:
                     vuetify3.VTextarea(
                         model_value=("runs[id].prompt.resolved_config_yaml",),
                         update_modelValue=(
-                            ctrl.update_run_config_yaml,
-                            r"[id, $event]",
+                            r"runs[id].prompt.resolved_config_yaml = $event; "
+                            r"trigger('update_run_config_yaml', [id, $event])"
                         ),
                         auto_grow=True,
                         rows=1,
@@ -568,7 +568,10 @@ class EditableProbeLayoutForRun:
         html.Div("Situation", classes="text-h6 pt-4")
         vuetify3.VTextarea(
             model_value=("runs[id].prompt.probe.display_state",),
-            update_modelValue=(ctrl.update_run_probe_text, "[id, $event]"),
+            update_modelValue=(
+                "runs[id].prompt.probe.display_state = $event; "
+                "trigger('update_run_probe_text', [id, $event])"
+            ),
             auto_grow=True,
             rows=3,
             hide_details="auto",
@@ -588,8 +591,8 @@ class EditableProbeLayoutForRun:
                     vuetify3.VTextarea(
                         model_value=("choice.unstructured",),
                         update_modelValue=(
-                            ctrl.update_run_choice_text,
-                            "[id, index, $event]",
+                            "runs[id].prompt.probe.choices[index].unstructured = $event; "
+                            "trigger('update_run_choice_text', [id, index, $event])"
                         ),
                         auto_grow=True,
                         rows=1,
