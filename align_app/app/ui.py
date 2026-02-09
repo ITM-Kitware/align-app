@@ -1564,6 +1564,9 @@ class AlignLayout(SinglePageLayout):
                         ".drop-zone-active { outline: 3px dashed #1976d2 !important; outline-offset: -3px; }"
                         ".alert-popup-container { left: auto; right: 0; transform: none; width: fit-content; }"
                         ".alert-popup-container .v-alert { --v-theme-info: 66, 66, 66; }"
+                        ".alert-popup-container .v-alert__icon { display: none; }"
+                        ".alert-popup-container .v-alert__prepend { display: none; }"
+                        ".alert-popup-container .v-alert__prepend .v-icon { display: none; }"
                         "</style>'"
                     )
                 )
