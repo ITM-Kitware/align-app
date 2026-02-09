@@ -7,7 +7,7 @@ from ..adm.run_models import Run
 from .runs_registry import RunsRegistry
 from .runs_table_filter import RunsTableFilter
 from ..adm.decider.types import DeciderParams
-from ..adm.decider import is_model_cached
+from ..adm.decider import get_model_cache_status
 from ..adm.system_adm_discovery import discover_system_adms
 from ..utils.utils import get_id
 from .runs_presentation import extract_base_scenarios
@@ -614,16 +614,18 @@ class RunsStateAdapter:
 
         run = self.runs_registry.get_run(run_id)
         is_cached_decision = self.runs_registry.has_cached_decision(run_id)
-        is_model_loaded = False
+        status = None
         if run:
-            is_model_loaded = await is_model_cached(run.decider_params.resolved_config)
+            status = await get_model_cache_status(run.decider_params.resolved_config)
 
-        if is_cached_decision or is_model_loaded:
-            alert_id = self._alerts.create_info_alert(title="Deciding...", timeout=0)
+        if is_cached_decision or (status and status.is_cached):
+            alert_title = "Deciding..."
+        elif status and status.is_downloaded is False:
+            alert_title = "Downloading model and deciding..."
         else:
-            alert_id = self._alerts.create_info_alert(
-                title="Loading model and deciding...", timeout=0
-            )
+            alert_title = "Loading model and deciding..."
+
+        alert_id = self._alerts.create_info_alert(title=alert_title, timeout=0)
         await self.server.network_completion
 
         try:
@@ -632,7 +634,15 @@ class RunsStateAdapter:
             self._alerts.create_info_alert(title="Decision complete", timeout=3000)
         except Exception as e:
             self._alerts.remove_alert(alert_id)
-            self._alerts.create_info_alert(title=f"Decision failed: {e}", timeout=5000)
+            error_text = str(e)
+            if "Model access denied" in error_text:
+                message = (
+                    "Decision failed: Model access denied. "
+                    "Authenticate with Hugging Face or request access to the model."
+                )
+            else:
+                message = f"Decision failed: {e}"
+            self._alerts.create_info_alert(title=message, timeout=8000)
 
         with self.state:
             self._rebuild_comparison_runs()
