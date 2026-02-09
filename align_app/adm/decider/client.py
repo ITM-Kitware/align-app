@@ -35,7 +35,7 @@ async def get_decision(params: DeciderParams) -> ADMResult:
 
 
 async def get_model_cache_status(
-    resolved_config: Dict[str, Any]
+    resolved_config: Dict[str, Any],
 ) -> CacheQueryResult | None:
     """Get best-effort model cache status (memory + disk)."""
     process_manager = _get_process_manager()
