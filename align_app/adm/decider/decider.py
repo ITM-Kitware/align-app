@@ -1,6 +1,7 @@
+from typing import Dict, Any
 from align_utils.models import ADMResult
 from .types import DeciderParams
-from .worker import decider_worker_func
+from .worker import decider_worker_func, CacheQuery, CacheQueryResult
 from .multiprocess_worker import (
     WorkerHandle,
     create_worker,
@@ -12,6 +13,12 @@ from .multiprocess_worker import (
 class MultiprocessDecider:
     def __init__(self):
         self.worker: WorkerHandle = create_worker(decider_worker_func)
+
+    async def is_model_cached(self, resolved_config: Dict[str, Any]) -> bool:
+        self.worker, result = await send(self.worker, CacheQuery(resolved_config))
+        if isinstance(result, CacheQueryResult):
+            return result.is_cached
+        return False
 
     async def get_decision(self, params: DeciderParams) -> ADMResult:
         self.worker, result = await send(self.worker, params)
