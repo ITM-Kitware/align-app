@@ -7,6 +7,7 @@ from ..adm.run_models import Run
 from .runs_registry import RunsRegistry
 from .runs_table_filter import RunsTableFilter
 from ..adm.decider.types import DeciderParams
+from ..adm.decider import is_model_cached
 from ..adm.system_adm_discovery import discover_system_adms
 from ..utils.utils import get_id
 from .runs_presentation import extract_base_scenarios
@@ -611,13 +612,18 @@ class RunsStateAdapter:
         with self.state:
             self._add_pending_cache_key(cache_key)
 
-        is_cached = self.runs_registry.has_cached_decision(run_id)
-        if not is_cached:
+        run = self.runs_registry.get_run(run_id)
+        is_cached_decision = self.runs_registry.has_cached_decision(run_id)
+        is_model_loaded = False
+        if run:
+            is_model_loaded = await is_model_cached(run.decider_params.resolved_config)
+
+        if is_cached_decision or is_model_loaded:
+            alert_id = self._alerts.create_info_alert(title="Deciding...", timeout=0)
+        else:
             alert_id = self._alerts.create_info_alert(
                 title="Loading model and deciding...", timeout=0
             )
-        else:
-            alert_id = self._alerts.create_info_alert(title="Deciding...", timeout=0)
         await self.server.network_completion
 
         try:
