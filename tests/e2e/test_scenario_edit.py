@@ -64,3 +64,25 @@ def test_situation_text_revert_restores_original_scene(page, align_app_server):
         f"Expected scene to revert to original after restoring text. "
         f"Original: {original_scene}, Reverted: {reverted_scene}"
     )
+
+
+def test_situation_textarea_cursor_position_preserved(page, align_app_server):
+    """Regression test: typing in situation textarea should not jump cursor to end."""
+    align_page = AlignPage(page)
+    align_page.goto(align_app_server)
+    align_page.expand_scenario_panel()
+
+    textarea = align_page.situation_textarea
+    expect(textarea).to_be_visible()
+    textarea.click()
+    page.keyboard.press("Control+Home")
+    page.wait_for_timeout(200)
+
+    page.keyboard.type("X", delay=50)
+    page.wait_for_timeout(1500)
+
+    cursor_position = textarea.evaluate("el => el.selectionStart")
+    assert cursor_position <= 2, (
+        f"Cursor jumped to position {cursor_position} after typing at start. "
+        f"Expected near position 1."
+    )
