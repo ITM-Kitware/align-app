@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Callable
 from trame.app import asynchronous
 from trame.app.file_upload import ClientFile
@@ -15,6 +16,8 @@ from . import runs_presentation
 from .export_experiments import export_runs_to_zip
 from .import_experiments import import_experiments_from_zip
 from align_utils.models import AlignmentTarget
+
+logger = logging.getLogger(__name__)
 
 
 @TrameApp()
@@ -519,7 +522,15 @@ class RunsStateAdapter:
         run = self.runs_registry.get_run(run_id)
         if not run:
             return None
-        new_config = yaml.safe_load(current_yaml)
+        try:
+            new_config = yaml.safe_load(current_yaml)
+        except yaml.YAMLError:
+            logger.exception("Invalid YAML syntax while saving config edits")
+            self._alerts.create_info_alert(
+                title="Invalid YAML syntax. Please fix and try again.",
+                timeout=8000,
+            )
+            return None
 
         decider_options = self.decider_registry.get_decider_options(
             run.probe_id, run.decider_name

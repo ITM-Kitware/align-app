@@ -85,8 +85,12 @@ def decider_worker_func(task_queue: Queue, result_queue: Queue):
                 if isinstance(task, CacheQuery):
                     cache_key = extract_cache_key(task.resolved_config)
                     is_cached = cache_key in model_cache
-                    is_downloaded = True if is_cached else _is_model_downloaded(
-                        _extract_model_name(task.resolved_config)
+                    is_downloaded = (
+                        True
+                        if is_cached
+                        else _is_model_downloaded(
+                            _extract_model_name(task.resolved_config)
+                        )
                     )
                     result_queue.put(
                         CacheQueryResult(
