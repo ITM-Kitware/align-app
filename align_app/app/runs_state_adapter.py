@@ -217,14 +217,22 @@ class RunsStateAdapter:
 
     @controller.set("toggle_run_in_comparison")
     def toggle_run_in_comparison(self, cache_key):
-        run = self.runs_registry.get_run_by_cache_key(cache_key)
+        existing_rid = next(
+            (
+                rid
+                for rid in self.state.runs_to_compare
+                if self.state.runs.get(rid, {}).get("cache_key") == cache_key
+            ),
+            None,
+        )
 
-        if run and run.id in self.state.runs_to_compare:
+        if existing_rid is not None:
             self.state.runs_to_compare = [
-                rid for rid in self.state.runs_to_compare if rid != run.id
+                rid for rid in self.state.runs_to_compare if rid != existing_rid
             ]
             return
 
+        run = self.runs_registry.get_run_by_cache_key(cache_key)
         if not run:
             run = self.runs_registry.materialize_experiment_item(cache_key)
         if not run:
