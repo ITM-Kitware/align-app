@@ -82,14 +82,6 @@ class RunsStateAdapter:
         if run_id in self.state.runs:
             self.state.runs = {k: v for k, v in self.state.runs.items() if k != run_id}
 
-    def _update_run_in_comparison(self, run: Run):
-        """Update single run in state.runs if it's in comparison."""
-        if run.id in self.state.runs_to_compare:
-            run_dict = runs_presentation.run_to_state_dict(
-                run, self.probe_registry, self.decider_registry
-            )
-            self.state.runs = {**self.state.runs, run.id: run_dict}
-
     def _rebuild_comparison_runs(self):
         """Rebuild state.runs from runs_to_compare (for imports/registry changes)."""
         new_runs = {}
@@ -640,9 +632,7 @@ class RunsStateAdapter:
             self._alerts.create_info_alert(title=f"Decision failed: {e}", timeout=5000)
 
         with self.state:
-            run = self.runs_registry.get_run(run_id)
-            if run:
-                self._update_run_in_comparison(run)
+            self._rebuild_comparison_runs()
             self._update_table_rows()
             self._remove_pending_cache_key(cache_key)
 
