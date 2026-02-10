@@ -5,6 +5,7 @@ Deploy align-app as a serverless GPU application on Modal with scale-to-zero.
 ## Prerequisites
 
 1. Install Modal CLI:
+
    ```bash
    pip install modal
    modal setup  # authenticate with Modal
@@ -41,6 +42,12 @@ Edit `app.py` to adjust:
 - `scaledown_window=5 * MINUTES` - How long to keep warm after last request
 - `timeout=30 * MINUTES` - Max request duration
 - `startup_timeout=5 * MINUTES` - Max time for container to start
+
+Experiment data is baked into the image and passed to `align-app` at startup:
+
+- `EXPERIMENTS` - Local path copied into the image at `/app/experiments`.
+  If it is a directory, it is copied directly.
+  If it is a `.zip`, it is unpacked into `/app` during the build.
 
 ## Costs
 

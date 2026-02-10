@@ -7,7 +7,8 @@ MINUTES = 60
 PORT = 8080
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-EXPERIMENTS_ZIP = os.environ.get("ALIGN_EXPERIMENTS_ZIP")
+EXPERIMENTS = os.environ.get("EXPERIMENTS")
+EXPERIMENTS_PATH = Path(EXPERIMENTS) if EXPERIMENTS else None
 
 app = modal.App("align-app")
 
@@ -36,25 +37,30 @@ base_image = (
     .workdir("/app")
 )
 
-if EXPERIMENTS_ZIP:
-    image = (
-        base_image.add_local_file(EXPERIMENTS_ZIP, "/app/experiments.zip", copy=True)
-        .run_commands(
-            "poetry config virtualenvs.create false && poetry install --only main",
-            "unzip experiments.zip -d /app && rm experiments.zip",
+image = base_image
+
+if EXPERIMENTS_PATH and EXPERIMENTS_PATH.exists():
+    if EXPERIMENTS_PATH.is_dir():
+        image = image.add_local_dir(
+            str(EXPERIMENTS_PATH), "/app/experiments", copy=True
         )
-        .run_function(
-            download_models,
-            secrets=[modal.Secret.from_name("huggingface")],
+    elif EXPERIMENTS_PATH.suffix.lower() == ".zip":
+        image = image.add_local_file(
+            str(EXPERIMENTS_PATH), "/app/experiments.zip", copy=True
         )
-    )
-else:
-    image = base_image.run_commands(
-        "poetry config virtualenvs.create false && poetry install --only main"
-    ).run_function(
-        download_models,
-        secrets=[modal.Secret.from_name("huggingface")],
-    )
+
+install_commands = [
+    "poetry config virtualenvs.create false && poetry install --only main",
+]
+
+if EXPERIMENTS_PATH and EXPERIMENTS_PATH.exists():
+    if EXPERIMENTS_PATH.is_file() and EXPERIMENTS_PATH.suffix.lower() == ".zip":
+        install_commands.append("unzip experiments.zip -d /app && rm experiments.zip")
+
+image = image.run_commands(*install_commands).run_function(
+    download_models,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
 
 
 @app.function(
